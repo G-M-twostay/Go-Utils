@@ -6,7 +6,8 @@ import (
 
 // CSBTree is the version of SBTree for user-defined struct satisfying Ordered interface.
 // All methods are implemented exactly as SBTree except for using Ordered.LessThan and
-// Ordered.Equals for comparisons.
+// Ordered.Equals for comparisons. Argument passed to Ordered.LessThan and Ordered.Equals
+// will always be type T so no type checks are needed.
 type CSBTree[T Ordered, S constraints.Unsigned] struct {
 	root   nodePtr[T, S]
 	nilPtr nodePtr[T, S]
@@ -20,32 +21,16 @@ func MakeCSBTree[T Ordered, S constraints.Unsigned]() *CSBTree[T, S] {
 }
 
 // BuildCSBTree is the CSBTree equivalence of BuildSBTree
-func BuildCSBTree[T Ordered, S constraints.Unsigned](sli []T, safe bool) *CSBTree[T, S] {
+func BuildCSBTree[T Ordered, S constraints.Unsigned](sli []T) *CSBTree[T, S] {
 	z := new(node[T, S])
 	z.l, z.r = z, z
 	var build func([]T) nodePtr[T, S]
-	if safe {
-		build = func(s []T) nodePtr[T, S] {
-			if len(s) > 0 {
-				mid := len(s) >> 1
-				l, r := build(s[0:mid]), build(s[mid+1:])
-				if (l == z || l.v.LessThan(s[mid])) && (r == z || s[mid].LessThan(r.v)) {
-					return &node[T, S]{s[mid], l, r, S(len(s))}
-				} else {
-					panic(InvalidSliceError{l.v, s[mid], s[mid], r.v})
-				}
-			} else {
-				return z
-			}
-		}
-	} else {
-		build = func(s []T) nodePtr[T, S] {
-			if len(s) > 0 {
-				mid := len(s) >> 1
-				return &node[T, S]{s[mid], build(s[0:mid]), build(s[mid+1:]), S(len(s))}
-			} else {
-				return z
-			}
+	build = func(s []T) nodePtr[T, S] {
+		if len(s) > 0 {
+			mid := len(s) >> 1
+			return &node[T, S]{s[mid], build(s[0:mid]), build(s[mid+1:]), S(len(s))}
+		} else {
+			return z
 		}
 	}
 	return &CSBTree[T, S]{build(sli), z}
@@ -53,6 +38,40 @@ func BuildCSBTree[T Ordered, S constraints.Unsigned](sli []T, safe bool) *CSBTre
 
 func (u *CSBTree[T, S]) Size() uint {
 	return uint(u.root.sz)
+}
+
+// maintain the subtree rooting at cur recursively to satisfy the CSBTree properties
+// using rotateLeft and rotateRight.
+// right Bigger indicates whether the right subtree is larger than the left,
+// this is for removing redundant size comparisons.
+// curPtr is passed by reference.
+// Time: amortized O(1)
+func (u *CSBTree[T, S]) maintain(curPtr *nodePtr[T, S], rightBigger bool) {
+	cur := *curPtr
+	if rc, lc := cur.r, cur.l; rightBigger {
+		if rc.r.sz > lc.sz {
+			rotateLeft(curPtr)
+		} else if rc.l.sz > lc.sz {
+			rotateRight(&cur.r)
+			rotateLeft(curPtr)
+		} else {
+			return
+		}
+	} else {
+		if lc.l.sz > rc.sz {
+			rotateRight(curPtr)
+		} else if lc.r.sz > rc.sz {
+			rotateLeft(&cur.l)
+			rotateRight(curPtr)
+		} else {
+			return
+		}
+	}
+	u.maintain(&cur.l, false)
+	u.maintain(&cur.r, true)
+	u.maintain(curPtr, false)
+	u.maintain(curPtr, true)
+
 }
 
 func (u *CSBTree[T, S]) insert(curPtr *nodePtr[T, S], v T) bool {
@@ -206,7 +225,7 @@ func (u CSBTree[T, S]) InOrder() func() (T, bool) {
 					for p.r != u.nilPtr && p.r != cur {
 						p = p.r
 					}
-					if p.r != cur {
+					if p.r == u.nilPtr {
 						p.r = cur
 						cur = cur.l
 					} else {
@@ -282,4 +301,22 @@ func (u CSBTree[T, S]) RankOf(v T) uint {
 		}
 	}
 	return 0
+}
+
+func (u CSBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
+	if cur.l != u.nilPtr {
+		if !cur.l.v.LessThan(cur.v) || u.corrupt(cur.l) {
+			return true
+		}
+	}
+	if cur.r != u.nilPtr {
+		if !cur.v.LessThan(cur.r.v) || u.corrupt(cur.r) {
+			return true
+		}
+	}
+	return false
+}
+
+func (u CSBTree[T, S]) Corrupt() bool {
+	return u.corrupt(u.root)
 }

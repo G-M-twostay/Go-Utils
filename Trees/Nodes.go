@@ -41,37 +41,3 @@ func rotateRight[T any, S constraints.Unsigned](n *nodePtr[T, S]) {
 	r.sz = r.l.sz + r.r.sz + 1
 	*n = lc
 }
-
-// maintain the subtree rooting at cur recursively to satisfy the CSBTree properties
-// using rotateLeft and rotateRight.
-// right Bigger indicates whether the right subtree is larger than the left,
-// this is for removing redundant size comparisons.
-// curPtr is passed by reference.
-// Time: amortized O(1)
-func (u *CSBTree[T, S]) maintain(curPtr *nodePtr[T, S], rightBigger bool) {
-	cur := *curPtr
-	if rc, lc := cur.r, cur.l; rightBigger {
-		if rc.r.sz > lc.sz {
-			rotateLeft(curPtr)
-		} else if rc.l.sz > lc.sz {
-			rotateRight(&cur.r)
-			rotateLeft(curPtr)
-		} else {
-			return
-		}
-	} else {
-		if lc.l.sz > rc.sz {
-			rotateRight(curPtr)
-		} else if lc.r.sz > rc.sz {
-			rotateLeft(&cur.l)
-			rotateRight(curPtr)
-		} else {
-			return
-		}
-	}
-	u.maintain(&cur.l, false)
-	u.maintain(&cur.r, true)
-	u.maintain(curPtr, false)
-	u.maintain(curPtr, true)
-
-}

@@ -55,16 +55,20 @@ type Tree[T any] interface {
 	//it could corrupt the tree. There will be no panic if such cases
 	//happens so design the algorithm with this in mind.
 	InOrder() func() (T, bool)
+	//Corrupt returns whether the tree has corrupt structures, when the value
+	//at some node violates the properties of that specific implementation.
+	//This is to be distinguished from whether the tree is balanced or not.
+	Corrupt() bool
 	Print()
 }
 
 // Ordered is an interface that implements the necessary functions needed
 // for a struct to be used as an element in a tree.
-type Ordered[T any] interface {
+type Ordered interface {
 	//LessThan return this<other
-	LessThan(other T) bool
+	LessThan(other Ordered) bool
 	//Equals return this==other
-	Equals(other T) bool
+	Equals(other Ordered) bool
 }
 
 func Min[T constraints.Ordered](a, b T) T {
