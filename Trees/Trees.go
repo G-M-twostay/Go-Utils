@@ -5,12 +5,12 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-// Tree represents a tree like structure implemented using nodes.
-// Receivers that has a bool as a second return value indicates whether
+// Tree represents A tree like structure implemented using nodes.
+// Receivers that has A bool as A second return value indicates whether
 // the first return value is defined. For example, if calling Minimum on
 // an empty tree, the return value will be (x T, false bool). In this
 // case the value of x should be undefined. However, depending on
-// specific implementations, the value of x might have a meaning, but it's
+// specific implementations, the value of x might have A meaning, but it's
 // advised that x not to be used.
 // If an implementation didn't specify anything special, then the implemented
 // receivers follows the behaviors defined here. Methods implemented recursively
@@ -46,7 +46,7 @@ type Tree[T any] interface {
 	MinDepth() uint
 	//Size of the tree.
 	Size() uint
-	//InOrder returns a closure function f acting like an iterator. f
+	//InOrder returns A closure function f acting like an iterator. f
 	//gives nodes in the in-order traversal of the tree.
 	//Calling f is like calling "Next()" of iterators: val, valid=f()
 	//val is meaningful only if valid is true. When valid==false,
@@ -58,14 +58,23 @@ type Tree[T any] interface {
 	Print()
 }
 
-func min[T constraints.Ordered](a, b T) T {
+// Ordered is an interface that implements the necessary functions needed
+// for a struct to be used as an element in a tree.
+type Ordered[T any] interface {
+	//LessThan return this<other
+	LessThan(other T) bool
+	//Equals return this==other
+	Equals(other T) bool
+}
+
+func Min[T constraints.Ordered](a, b T) T {
 	if a < b {
 		return a
 	}
 	return b
 }
 
-func max[T constraints.Ordered](a, b T) T {
+func Max[T constraints.Ordered](a, b T) T {
 	if a > b {
 		return a
 	}
@@ -73,9 +82,9 @@ func max[T constraints.Ordered](a, b T) T {
 }
 
 type InvalidSliceError struct {
-	a, b, c, d interface{}
+	A, B, C, D interface{}
 }
 
 func (e *InvalidSliceError) Error() string {
-	return fmt.Sprintf("Slice isn't in strict ascending order. Possible violations: (%v, %v), (%v, %v).", e.a, e.b, e.c, e.d)
+	return fmt.Sprintf("Slice isn't in strict ascending order. Possible violations: (%v, %v), (%v, %v).", e.A, e.B, e.C, e.D)
 }
