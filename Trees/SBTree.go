@@ -4,20 +4,6 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-// A node in the SBTree
-// The zero value is meaningless.
-type node[T constraints.Ordered, S constraints.Unsigned] struct {
-	v    T
-	l, r nodePtr[T, S]
-	sz   S
-}
-
-// Pointer to a node
-// nil Pointer is meaningless. A nodePtr is considered to be nil if the
-// pointer is equal to the nilPtr in SBTree. The value of this node has
-// both node.l, node.r = itself, and sz=0. v is the zero value of T
-type nodePtr[T constraints.Ordered, S constraints.Unsigned] *node[T, S]
-
 // SBTree is a binary search tree with no repeated values. It maintains
 // balance through rotations by checking the sizes of subtrees.
 // T is the type of values it will hold, S is the type of the variables
@@ -36,8 +22,8 @@ type nodePtr[T constraints.Ordered, S constraints.Unsigned] *node[T, S]
 // if converted to uint32. Generally, you should let S be a wide upperbound
 // for the size of the tree.
 type SBTree[T constraints.Ordered, S constraints.Unsigned] struct {
-	root   nodePtr[T, S] //the root of the tree. It should be nilPtr initially.
-	nilPtr nodePtr[T, S] // nilPtr is the pointer used instead of nil here, it follows the description in nodePtr
+	//the root of the tree. It should be nilPtr initially. nilPtr is the pointer used instead of nil here, it follows the description in nodePtr
+	root, nilPtr nodePtr[T, S]
 }
 
 // MakeSBTree returns a SBTree satisfying the above definitions for nilPtr, root, and types.
@@ -48,43 +34,23 @@ func MakeSBTree[T constraints.Ordered, S constraints.Unsigned]() *SBTree[T, S] {
 	return &SBTree[T, S]{z, z}
 }
 
-// FromSortedSet builds a SBTree using the given sorted slice recursively. This is faster than
+// BuildSBTree builds a SBTree using the given sorted slice recursively. This is faster than
 // repeatedly calling Insert. The word "set" is used to show that there shouldn't be any repeated
 // element.
 // The given slice must be sorted
-// in ascending order and mustn't contain duplicate elements(satisfying SBTree conditions).
-// If safe==true, this function will check if the conditions are met and panic with InvalidSliceError
-// if the conditions are broken. Otherwise, this function won't perform the check, and it is
-// up to the user to ensure the conditions are met(otherwise the tree will be corrupt). It's
-// suggested to set safe to false if the conditions are met as this can reduce some redundant
-// checks and associated memory costs.
+// in ascending order and mustn't contain duplicate elements(satisfying SBTree conditions), otherwise
+// there will be corrupt structures.
 // Time: O(n).
-func FromSortedSet[T constraints.Ordered, S constraints.Unsigned](sli []T, safe bool) *SBTree[T, S] {
+func BuildSBTree[T constraints.Ordered, S constraints.Unsigned](sli []T) *SBTree[T, S] {
 	z := new(node[T, S])
 	z.l, z.r = z, z
 	var build func([]T) nodePtr[T, S]
-	if safe {
-		build = func(s []T) nodePtr[T, S] {
-			if len(s) > 0 {
-				mid := len(s) >> 1
-				l, r := build(s[0:mid]), build(s[mid+1:])
-				if (l == z || l.v < s[mid]) && (r == z || s[mid] < r.v) {
-					return &node[T, S]{s[mid], l, r, S(len(s))}
-				} else {
-					panic(InvalidSliceError{l.v, s[mid], s[mid], r.v})
-				}
-			} else {
-				return z
-			}
-		}
-	} else {
-		build = func(s []T) nodePtr[T, S] {
-			if len(s) > 0 {
-				mid := len(s) >> 1
-				return &node[T, S]{s[mid], build(s[0:mid]), build(s[mid+1:]), S(len(s))}
-			} else {
-				return z
-			}
+	build = func(s []T) nodePtr[T, S] {
+		if len(s) > 0 {
+			mid := len(s) >> 1
+			return &node[T, S]{s[mid], build(s[0:mid]), build(s[mid+1:]), S(len(s))}
+		} else {
+			return z
 		}
 	}
 	return &SBTree[T, S]{build(sli), z}
@@ -94,32 +60,6 @@ func FromSortedSet[T constraints.Ordered, S constraints.Unsigned](sli []T, safe 
 // Time: O(1); Space: O(1)
 func (u *SBTree[T, S]) Size() uint {
 	return uint(u.root.sz)
-}
-
-// rotateLeft performs a left rotation on nodePtr n. n is passed by reference in order
-// to modify its content.
-// Time: O(1); Space: O(1)
-func rotateLeft[T constraints.Ordered, S constraints.Unsigned](n *nodePtr[T, S]) {
-	r := *n
-	rc := r.r
-	r.r = rc.l
-	rc.l = r
-	rc.sz = r.sz
-	r.sz = r.l.sz + r.r.sz + 1
-	*n = rc
-}
-
-// rotateRight performs a left rotation on nodePtr n. n is passed by reference in order
-// to modify its content.
-// Time: O(1); Space: O(1)
-func rotateRight[T constraints.Ordered, S constraints.Unsigned](n *nodePtr[T, S]) {
-	r := *n
-	lc := r.l
-	r.l = lc.r
-	lc.r = r
-	lc.sz = r.sz
-	r.sz = r.l.sz + r.r.sz + 1
-	*n = lc
 }
 
 // maintain the subtree rooting at cur recursively to satisfy the SBTree properties
@@ -280,7 +220,7 @@ func (u SBTree[T, S]) minDepth(c nodePtr[T, S], cd uint) uint {
 	if c == u.nilPtr {
 		return cd - 1
 	}
-	return min(u.minDepth(c.l, cd+1), u.minDepth(c.r, cd+1))
+	return Min(u.minDepth(c.l, cd+1), u.minDepth(c.r, cd+1))
 }
 
 func (u SBTree[T, S]) MinDepth() uint {
@@ -291,7 +231,7 @@ func (u SBTree[T, S]) maxDepth(c nodePtr[T, S], cd uint) uint {
 	if c == u.nilPtr {
 		return cd - 1
 	}
-	return max(u.maxDepth(c.l, cd+1), u.maxDepth(c.r, cd+1))
+	return Max(u.maxDepth(c.l, cd+1), u.maxDepth(c.r, cd+1))
 }
 
 func (u SBTree[T, S]) MaxDepth() uint {
@@ -331,7 +271,7 @@ func (u SBTree[T, S]) InOrder() func() (T, bool) {
 					for p.r != u.nilPtr && p.r != cur {
 						p = p.r
 					}
-					if p.r != cur {
+					if p.r == u.nilPtr {
 						p.r = cur
 						cur = cur.l
 					} else {
@@ -420,4 +360,22 @@ func (u SBTree[T, S]) RankOf(v T) uint {
 		}
 	}
 	return 0
+}
+
+func (u SBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
+	if cur.l != u.nilPtr {
+		if cur.l.v >= cur.v || u.corrupt(cur.l) {
+			return true
+		}
+	}
+	if cur.r != u.nilPtr {
+		if cur.v >= cur.r.v || u.corrupt(cur.r) {
+			return true
+		}
+	}
+	return false
+}
+
+func (u SBTree[T, S]) Corrupt() bool {
+	return u.corrupt(u.root)
 }
