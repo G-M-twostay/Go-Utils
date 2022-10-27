@@ -6,12 +6,8 @@ import (
 	"sync"
 )
 
-type headNode[K Hashable, V any] struct {
-	nx *linkNode[K, V]
-}
-
 type ConcHMap[K Hashable, V any] struct {
-	buckets                []headNode[K, V]
+	buckets                []head[K, V]
 	sz                     uint
 	low, high              float32
 	seed                   maphash.Seed
@@ -25,14 +21,14 @@ func (u ConcHMap[K, V]) toIndex(hash int64, bLen uint) uint {
 }
 
 func (u *ConcHMap[K, V]) resize(newSize uint) {
-	nb := make([]headNode[K, V], newSize)
+	nb := make([]head[K, V], newSize)
 	for _, h := range u.buckets {
-		for cur := h.nx; cur != nil; {
-			t := cur.nx
-			nh := nb[u.toIndex(cur.k.Hash(), newSize)]
-			cur.nx = nh.nx
-			nh.nx = cur
-			cur = t
+		for cur := h.nx.Load(); cur != nil; cur = cur.nx.Load() {
+			nh := &nb[u.toIndex(cur.k.Hash(), newSize)].nx
+			t := new(node[K, V])
+			t.nx.Store(nh.Load())
+			t.k, t.v = cur.k, cur.v
+			nh.Store(t)
 		}
 	}
 	u.buckets = nb
@@ -40,12 +36,14 @@ func (u *ConcHMap[K, V]) resize(newSize uint) {
 
 func (u *ConcHMap[K, V]) Put(key K, val V) (oldVal V) {
 	pre := u.buckets[u.toIndex(key.Hash(), uint(len(u.buckets)))]
-	cur := pre.nx
-	for ; cur != nil && !cur.k.Equal(key); cur = cur.nx {
-		pre = cur.headNode
+	cur := pre.next()
+	for ; cur != nil && !cur.k.Equal(key); cur = cur.next() {
+		pre = cur.head
 	}
 	if cur == nil {
-		pre.nx = &linkNode[K, V]{headNode[K, V]{}, key, val}
+		t := new(node[K, V])
+		t.k, t.v = key, val
+		pre.addAtEnd(t)
 	} else {
 		oldVal = cur.v
 		cur.v = val
@@ -54,13 +52,13 @@ func (u *ConcHMap[K, V]) Put(key K, val V) (oldVal V) {
 }
 
 func (u *ConcHMap[K, V]) Remove(key K) bool {
-	pre := u.buckets[u.toIndex(key.Hash())]
-	cur := pre.nx
-	for ; cur != nil && !cur.k.Equal(key); cur = cur.nx {
-		pre = cur.headNode
+	pre := u.buckets[u.toIndex(key.Hash(), uint(len(u.buckets)))]
+	cur := pre.next()
+	for ; cur != nil && !cur.k.Equal(key); cur = cur.next() {
+		pre = cur.head
 	}
 	if cur != nil {
-		pre.nx = cur.nx
+		cur.delete()
 		return true
 	}
 	return false

@@ -10,21 +10,31 @@ type node[K Hashable, V any] struct {
 	head[K, V]
 	k   K
 	v   V
-	del bool
+	del atomic.Bool
 }
 
-// given b=a->nx, c
-// result a->nx->nx=c
-func (u *head[K, V]) addAfter(n *node[K, V]) {
+// given *a, a->nx=nil
+// result a->next=n; n->next=nil
+func (u *head[K, V]) addAtEnd(n *node[K, V]) {
 	added := false
 	for !added {
-		oldCur := u.nx.Load()
-		oldNext := oldCur.nx.Load()
-		if oldCur.del {
-			u.nx.CompareAndSwap(oldCur, oldNext)
-			continue
-		}
-		n.nx.Store(oldNext)
+		oldCur := u.next()
 		added = u.nx.CompareAndSwap(oldCur, n)
 	}
+}
+
+func (u *head[K, V]) next() *node[K, V] {
+	for {
+		oldCur := u.nx.Load()
+		oldNext := oldCur.nx.Load()
+		if oldCur.del.Load() {
+			u.nx.CompareAndSwap(oldCur, oldNext)
+		} else {
+			return oldNext
+		}
+	}
+}
+
+func (u *node[K, V]) delete() {
+	u.del.Store(false)
 }
