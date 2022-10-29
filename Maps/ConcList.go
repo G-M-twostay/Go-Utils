@@ -1,40 +1,49 @@
 package Maps
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+	"unsafe"
+)
 
 type head[K Hashable, V any] struct {
-	nx atomic.Pointer[node[K, V]]
+	nx unsafe.Pointer
 }
 
-type node[K Hashable, V any] struct {
-	head[K, V]
+type chain[K Hashable, V any] struct {
+	*head[K, V]
 	k   K
 	v   V
-	del atomic.Bool
+	del bool
 }
 
-// given *a, a->nx=nil
-// result a->next=n; n->next=nil
-func (u *head[K, V]) addAtEnd(n *node[K, V]) {
-	added := false
-	for !added {
-		oldCur := u.next()
-		added = u.nx.CompareAndSwap(oldCur, n)
+//type nodeLike[Key Hashable,V]
+
+// given *a, a->nx=b
+// result a->next=n; n->next=b
+func (u *head[K, V]) addAfter(n *chain[K, V]) {
+	for added, t := false, unsafe.Pointer(n); !added; {
+		oldNext := u.nextPtr()
+		n.nx = oldNext                                          //set n->next=b
+		added = atomic.CompareAndSwapPointer(&u.nx, oldNext, t) //try to make a->next=n
 	}
 }
 
-func (u *head[K, V]) next() *node[K, V] {
-	for {
-		oldCur := u.nx.Load()
-		oldNext := oldCur.nx.Load()
-		if oldCur.del.Load() {
-			u.nx.CompareAndSwap(oldCur, oldNext)
+func (u *head[K, V]) next() *chain[K, V] {
+	return (*chain[K, V])(u.nextPtr())
+}
+
+func (u *head[K, V]) nextPtr() unsafe.Pointer {
+	for oldNext := atomic.LoadPointer(&u.nx); oldNext != nil; oldNext = atomic.LoadPointer(&u.nx) { //find the next node if there exists one
+		if t := (*chain[K, V])(oldNext); t.del {
+			atomic.CompareAndSwapPointer(&u.nx, oldNext, atomic.LoadPointer(&t.nx)) //current node is marked, try to delete it
 		} else {
 			return oldNext
 		}
 	}
+	return nil
 }
 
-func (u *node[K, V]) delete() {
-	u.del.Store(false)
+func (u *chain[K, V]) delete() {
+	//atomic.StoreUint32(&u.del, 1)
+	u.del = true
 }
