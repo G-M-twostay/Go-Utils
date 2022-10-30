@@ -10,7 +10,7 @@ type head[K Hashable, V any] struct {
 }
 
 type chain[K Hashable, V any] struct {
-	*head[K, V]
+	head[K, V]
 	k   K
 	v   V
 	del bool

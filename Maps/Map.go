@@ -11,10 +11,6 @@ type Map[K Hashable, V any] interface {
 	Get(K) V
 	Remove(K) bool
 	Take() (K, V)
-	Keys() func() K
-	Values() func() V
-	Pairs() func() (K, V)
+	Pairs() func() (K, V, bool)
 	Size() uint
-	clear()
-	Fit()
 }
