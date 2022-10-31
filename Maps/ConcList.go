@@ -5,6 +5,7 @@ import (
 	"unsafe"
 )
 
+// didn't use atomic.Pointer to allow easy copy and unsafe set(when there is a lock protecting it).
 type head[K Hashable, V any] struct {
 	nx unsafe.Pointer
 }

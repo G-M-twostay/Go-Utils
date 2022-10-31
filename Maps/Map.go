@@ -6,10 +6,12 @@ type Hashable interface {
 }
 
 type Map[K Hashable, V any] interface {
-	Put(K, V) V
+	Put(K, V)
 	HasKey(K) bool
 	Get(K) V
-	Remove(K) bool
+	GetOrPut(K, V) (V, bool)
+	GetAndRmv(V, bool)
+	Remove(K)
 	Take() (K, V)
 	Pairs() func() (K, V, bool)
 	Size() uint
