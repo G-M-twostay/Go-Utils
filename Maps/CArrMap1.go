@@ -29,9 +29,9 @@ func MakeConcArrMap[K Hashable, V any](sz uint) *ConcArrMap1[K, V] {
 }
 
 func (u *ConcArrMap1[K, V]) resize(newSize uint64) {
+	nb := make([]head[K, V], newSize)
 	u.l0.Lock()
 	defer u.l0.Unlock()
-	nb := make([]head[K, V], newSize)
 	for _, h := range u.buckets {
 		for cur := h.next(); cur != nil; cur = cur.next() {
 			nh := &nb[u.toIndex(cur.k.Hash(), newSize)]
