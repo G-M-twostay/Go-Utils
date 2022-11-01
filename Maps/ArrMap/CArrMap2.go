@@ -1,6 +1,7 @@
-package Maps
+package ArrMap
 
 import (
+	"GMUtils/Maps"
 	"hash/maphash"
 	"sync"
 )
@@ -13,13 +14,13 @@ import (
 // Take: rw1.read
 // Pairs: rw1.read
 // resize: rw1.write.
-type ConcArrMap2[K Hashable, V any] struct {
+type ConcArrMap2[K Maps.Hashable, V any] struct {
 	baseMap[K, V]
 	l0 sync.RWMutex //l0: operations can't be conducted while resizing.
 	l1 sync.Mutex   //only one thread will need to call resize at a time. indicates whether some thread has called resize.
 }
 
-func MakeConcArrMap2[K Hashable, V any](sz uint) *ConcArrMap1[K, V] {
+func MakeConcArrMap2[K Maps.Hashable, V any](sz uint) *ConcArrMap1[K, V] {
 	t := new(ConcArrMap1[K, V])
 	t.buckets = make([]head[K, V], sz)
 	t.high = 0.9

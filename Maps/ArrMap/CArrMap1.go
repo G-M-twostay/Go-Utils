@@ -1,6 +1,7 @@
-package Maps
+package ArrMap
 
 import (
+	"GMUtils/Maps"
 	"hash/maphash"
 	"sync"
 	"unsafe"
@@ -14,13 +15,13 @@ import (
 // Take: rw2.read
 // Pairs: rw2.read
 // resize: first part: rw1.write, second part: rw2.write; unlocks both after second part is done.
-type ConcArrMap1[K Hashable, V any] struct {
+type ConcArrMap1[K Maps.Hashable, V any] struct {
 	baseMap[K, V]
 	l0, l2 sync.RWMutex //l0: operations can't be conducted while resizing. l2: can't access buckets while it is being changed in resize.
 	l1     sync.Mutex   //only one thread will need to call resize at a time. indicates whether some thread has called resize.
 }
 
-func MakeConcArrMap[K Hashable, V any](sz uint) *ConcArrMap1[K, V] {
+func MakeConcArrMap[K Maps.Hashable, V any](sz uint) *ConcArrMap1[K, V] {
 	t := new(ConcArrMap1[K, V])
 	t.buckets = make([]head[K, V], sz)
 	t.high = 0.9

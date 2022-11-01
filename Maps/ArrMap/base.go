@@ -1,12 +1,13 @@
-package Maps
+package ArrMap
 
 import (
+	"GMUtils/Maps"
 	"encoding/binary"
 	"hash/maphash"
 	"sync/atomic"
 )
 
-type baseMap[K Hashable, V any] struct {
+type baseMap[K Maps.Hashable, V any] struct {
 	buckets   []head[K, V]
 	sz        atomic.Uint64
 	low, high float32
