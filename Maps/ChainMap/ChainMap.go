@@ -4,17 +4,18 @@ import (
 	"GMUtils/Maps"
 	"hash/maphash"
 	"sync/atomic"
+	"unsafe"
 )
 
 type ChainMap[K Maps.Hashable, V any] struct {
-	buckets []head[K, V]
+	buckets []chain[K, V]
 	chunk   byte
 	seed    maphash.Seed
 }
 
 func MakeChainMap[K Maps.Hashable, V any](size uint) *ChainMap[K, V] {
 	t := new(ChainMap[K, V])
-	t.buckets = make([]head[K, V], size)
+	t.buckets = make([]chain[K, V], size)
 	t.seed = maphash.MakeSeed()
 	t.chunk = 64
 	return t
@@ -29,30 +30,32 @@ func (u ChainMap[K, V]) rehash(k K) uint64 {
 
 // [0,2^n) to [0,2^n-1),[2^n-1,2^n)
 func (u ChainMap[K, V]) splitBucket() {
-	newBuckets := make([]head[K, V], len(u.buckets)*2)
+	newBuckets := make([]chain[K, V], len(u.buckets)*2)
 	newChunk := u.chunk - 1
 	for i, b := range u.buckets {
 
 	}
 }
 
-func (u *ChainMap[K, V]) putAt1(h *head[K, V], info *Hold[K, V]) {
+func (u *ChainMap[K, V]) putAt1(h *chain[K, V], k K, v V) {
+	hash := u.rehash(k)
+	vPtr := unsafe.Pointer(&v)
 	for pre, curPtr := h, h.nextPtr(); ; curPtr = pre.nextPtr() {
 		if curPtr == nil {
-			if atomic.CompareAndSwapPointer(&pre.nx, curPtr, info.makeNode(curPtr)) {
+			if atomic.CompareAndSwapPointer(&pre.nx, curPtr, unsafe.Pointer(&chain[K, V]{curPtr, k, vPtr, 0})) {
 				break
 			}
 		} else {
 			cur := (*chain[K, V])(curPtr)
-			if info.isKey(cur.k) {
-				cur.v = info.val
+			if k.Equal(cur.k) {
+				cur.v = vPtr
 				break
-			} else if info.hash <= u.rehash(cur.k) {
-				if atomic.CompareAndSwapPointer(&pre.nx, curPtr, info.makeNode(curPtr)) {
+			} else if hash < u.rehash(cur.k) {
+				if atomic.CompareAndSwapPointer(&pre.nx, curPtr, unsafe.Pointer(&chain[K, V]{curPtr, k, vPtr, 0})) {
 					break
 				}
-			} else if info.hash > u.rehash(cur.k) {
-				pre = &cur.head
+			} else if hash > u.rehash(cur.k) {
+				pre = cur
 			} else {
 				panic("unexpected case")
 			}
@@ -96,7 +99,7 @@ func (u ChainMap[K, V]) PrintAll() {
 
 func (u *ChainMap[K, V]) Put(key K, val V) {
 	bucket := &u.buckets[u.rehash(key)>>u.chunk]
-	u.putAt1(bucket, &Hold[K, V]{key, val, u.rehash(key)})
+	u.putAt1(bucket, key, val)
 }
 
 func (u *ChainMap[K, V]) Remove(key K) {
@@ -111,7 +114,7 @@ func (u *ChainMap[K, V]) Remove(key K) {
 func (u ChainMap[K, V]) Get(key K) (r V) {
 	for cur := u.buckets[u.rehash(key)>>u.chunk].next(); cur != nil && u.rehash(cur.k) <= u.rehash(key); cur = cur.next() {
 		if cur.k.Equal(key) {
-			r = cur.v
+			r = *(*V)(cur.v)
 			break
 		}
 	}

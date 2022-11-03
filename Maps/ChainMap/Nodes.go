@@ -6,24 +6,20 @@ import (
 	"unsafe"
 )
 
-type head[K Maps.Hashable, V any] struct {
-	nx unsafe.Pointer
-}
-
 type chain[K Maps.Hashable, V any] struct {
-	head[K, V]
-	k   K
-	v   V
-	del uint32
+	nx    unsafe.Pointer
+	k     K
+	v     unsafe.Pointer
+	state uint64 //first bit indicates deleted or not. last 63 bits indicate the hash value.
 }
 
-func (u *head[K, V]) next() *chain[K, V] {
+func (u *chain[K, V]) next() *chain[K, V] {
 	return (*chain[K, V])(u.nextPtr())
 }
 
-func (u *head[K, V]) nextPtr() unsafe.Pointer {
+func (u *chain[K, V]) nextPtr() unsafe.Pointer {
 	for oldNext := atomic.LoadPointer(&u.nx); oldNext != nil; oldNext = atomic.LoadPointer(&u.nx) { //find the next node if there exists one
-		if t := (*chain[K, V])(oldNext); atomic.LoadUint32(&t.del) != 0 {
+		if t := (*chain[K, V])(oldNext); t.deleted() {
 			atomic.CompareAndSwapPointer(&u.nx, oldNext, atomic.LoadPointer(&t.nx)) //current node is marked, try to delete it
 		} else {
 			return oldNext
@@ -32,19 +28,31 @@ func (u *head[K, V]) nextPtr() unsafe.Pointer {
 	return nil
 }
 
+func (u chain[K, V]) deleted() bool {
+	return atomic.LoadUint64(&u.state)>>63 == 1
+}
+
 func (u *chain[K, V]) delete() {
-	atomic.StoreUint32(&u.del, 1)
+	cur := atomic.LoadUint64(&u.state)
+	atomic.StoreUint64(&u.state, cur|(1<<63))
 }
 
-type Hold[K Maps.Hashable, V any] struct {
-	key  K
-	val  V
-	hash uint64
+func (u chain[K, V]) hash() uint64 {
+	return atomic.LoadUint64(&u.state) &^ (1 << 63)
 }
 
-func (u Hold[K, V]) makeNode(nx unsafe.Pointer) unsafe.Pointer {
-	return unsafe.Pointer(&chain[K, V]{head[K, V]{nx}, u.key, u.val, 0})
+func (u chain[K, V]) compareKey(o K) bool {
+	if u.k == nil {
+		return false
+	} else {
+		return u.k.Equal(o)
+	}
 }
-func (u Hold[K, V]) isKey(k Maps.Hashable) bool {
-	return u.key.Equal(k)
+
+func (u chain[K, V]) valuePtr() *V {
+	return (*V)(u.v)
+}
+
+func (u *chain[K, V]) setValuePtr(newPtr *V) {
+	atomic.StorePointer(&u.v, unsafe.Pointer(newPtr))
 }
