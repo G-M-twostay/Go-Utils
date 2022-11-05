@@ -29,7 +29,7 @@ func MakeConcArrMap[K Maps.Hashable, V any](sz uint) *ConcArrMap1[K, V] {
 	return t
 }
 
-func (u *ConcArrMap1[K, V]) resize(newSize uint64) {
+func (u *ConcArrMap1[K, V]) resize(newSize uint) {
 	nb := make([]head[K, V], newSize)
 	u.l0.Lock()
 	defer u.l0.Unlock()
@@ -50,7 +50,7 @@ func (u *ConcArrMap1[K, V]) tryGrow() {
 	if float32(u.Size())/float32(len(u.buckets)) > u.high {
 		if u.l1.TryLock() {
 			//no thread has performed this, we will perform it
-			u.resize(uint64(len(u.buckets)) << 1) //len*2
+			u.resize(uint(len(u.buckets)) << 1) //len*2
 			u.l1.Unlock()
 		} //else: some thread has already performed it.
 	}
@@ -59,7 +59,7 @@ func (u *ConcArrMap1[K, V]) tryGrow() {
 func (u *ConcArrMap1[K, V]) tryShrink() {
 	if float32(u.Size())/float32(len(u.buckets)) < u.low {
 		if u.l1.TryLock() {
-			u.resize(uint64(len(u.buckets)) >> 1) //len/2
+			u.resize(uint(len(u.buckets)) >> 1) //len/2
 			u.l1.Unlock()
 		}
 	}
@@ -74,7 +74,7 @@ func (u *ConcArrMap1[K, V]) Put(key K, val V) {
 	}
 }
 
-func (u ConcArrMap1[K, V]) Get(key K) V {
+func (u *ConcArrMap1[K, V]) Get(key K) V {
 	u.l2.RLock()
 	defer u.l2.RUnlock()
 	return u.get(key)
@@ -90,7 +90,7 @@ func (u *ConcArrMap1[K, V]) GetOrPut(key K, val V) (V, bool) {
 	return a, b
 }
 
-func (u ConcArrMap1[K, V]) HasKey(key K) bool {
+func (u *ConcArrMap1[K, V]) HasKey(key K) bool {
 	u.l2.RLock()
 	defer u.l2.RUnlock()
 	return u.hasKey(key)
@@ -116,13 +116,13 @@ func (u *ConcArrMap1[K, V]) GetAndRmv(key K) (old V, removed bool) {
 	return
 }
 
-func (u ConcArrMap1[K, V]) Take() (K, V) {
+func (u *ConcArrMap1[K, V]) Take() (K, V) {
 	u.l2.RLock()
 	defer u.l2.RUnlock()
 	return u.take()
 }
 
-func (u ConcArrMap1[K, V]) Pairs() func() (K, V, bool) {
+func (u *ConcArrMap1[K, V]) Pairs() func() (K, V, bool) {
 	u.l2.RLock()
 	defer u.l2.RUnlock()
 	return u.pairs()
