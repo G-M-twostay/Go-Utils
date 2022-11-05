@@ -12,12 +12,12 @@ type Hashable interface {
 	Equal(other Hashable) bool
 }
 
-type Map1[K Hashable, V any] interface {
+type Map[K Hashable, V any] interface {
 	Put(K, V)
 	HasKey(K) bool
 	Get(K) V
 	GetOrPut(K, V) (V, bool)
-	GetAndRmv(V, bool)
+	GetAndRmv(K) (V, bool)
 	Remove(K)
 	Take() (K, V)
 	Pairs() func() (K, V, bool)
