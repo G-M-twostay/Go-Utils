@@ -2,6 +2,8 @@ package ChainMap
 
 import (
 	"GMUtils/Maps"
+	"fmt"
+	"math/bits"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -10,29 +12,37 @@ import (
 const ( //both inclusive
 	maxArrayLen  uint = ^uint(0) >> 1
 	maxHashRange uint = ^uint(0)
-	maxChunk     byte = 64
 )
 
 type ChainMap[K Maps.Hashable, V any] struct {
-	buckets             []*node[K]
-	chunk, lower, upper byte //1<<chunk=len(buckets)
-	size                atomic.Uint64
-	l0                  sync.RWMutex
-	resizing            atomic.Bool
+	buckets                               []*node[K]
+	chunk, maxChunk, minAvgLen, maxAvgLen byte //1<<chunk=len(buckets)
+	size                                  atomic.Uint64
+	bucketsLock                           sync.RWMutex
+	resizing                              atomic.Bool
+	maxHash                               uint
 }
 
-func MakeChainMap[K Maps.Hashable, V any](size uint) *ChainMap[K, V] {
-	t := new(ChainMap[K, V])
-	t.buckets = make([]*node[K], size)
-	for i := uint(0); i < size; i++ {
-		t.buckets[i] = new(node[K])
-		a := new(node[K])
-		a.hash = maxHashRange
-		t.buckets[i].nx = (unsafe.Pointer)(a)
+func MakeChainMap[K Maps.Hashable, V any](minBucketLen, maxBucketLen byte, minHash, maxHash int) *ChainMap[K, V] {
+	M := new(ChainMap[K, V])
+
+	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen
+	t := bits.LeadingZeros(uint(maxHash - minHash))
+	M.maxHash = maxHashRange >> t
+	M.maxChunk = byte(bits.UintSize - t)
+
+	var f = func(hash uint, nx *node[K]) *node[K] {
+		n, s := new(node[K]), new(state[K])
+		s.nx = nx
+		n.hash, n.s = hash, unsafe.Pointer(s)
+		return n
 	}
-	t.upper = 8
-	t.chunk = 2
-	return t
+
+	M.buckets = make([]*node[K], 1)
+	lastRelay := f(M.maxHash, nil)
+	M.buckets[0] = f(0, lastRelay)
+
+	return M
 }
 
 func (u *ChainMap[K, V]) rehash(k K) uint {
@@ -45,47 +55,54 @@ func (u *ChainMap[K, V]) rehash(k K) uint {
 //
 // or [0,2^n) to [0,2^n-1),[2^n-1,2^n)
 func (u *ChainMap[K, V]) trySplit() {
-	if u.Size()>>uint(u.chunk) > uint(u.upper) {
+	if u.Size()>>uint(u.chunk) > uint(u.maxAvgLen) {
 		if u.resizing.CompareAndSwap(false, true) {
 
 			newBuckets := make([]*node[K], 1<<(u.chunk+1))
 
-			for i := 0; i < len(u.buckets); i++ {
+			for i, v := range u.buckets {
 
-				newBuckets[i<<1] = u.buckets[i]
+				newBuckets[i<<1] = v
 				newRelay := new(node[K])
 				newBuckets[(i<<1)+1] = newRelay
-				newRelay.hash = ((maxHashRange>>uint(u.chunk))+1)*uint(i) + (maxHashRange >> (u.chunk + 1))
+				newRelay.hash = ((u.maxHash>>uint(u.chunk))+1)*uint(i) + (u.maxHash >> (u.chunk + 1))
+				tempState := new(state[K])
+				newRelay.s = (unsafe.Pointer)(tempState)
 
-				for pre, curPtr := u.buckets[i], u.buckets[i].nextPtr(); ; curPtr = pre.nextPtr() {
-					if cur := (*node[K])(curPtr); cur.isRelay() || newRelay.hash <= cur.hash { //put at the first possible position
-						newRelay.nx = curPtr
-						if atomic.CompareAndSwapPointer(&pre.nx, curPtr, unsafe.Pointer(newRelay)) {
-							break
+			search:
+				for left := v; ; left = v {
+					for {
+						right, leftStatePtr := left.next()
+						if right.isRelay() || newRelay.hash < right.hash {
+							tempState.nx = right
+
+							if atomic.CompareAndSwapPointer(&left.s, leftStatePtr, unsafe.Pointer(&state[K]{false, newRelay})) {
+								break search
+							} else {
+								continue search
+							}
+						} else {
+							left = right
 						}
-					} else if newRelay.hash > cur.hash {
-						pre = cur
-					} else {
-						panic("unexpected case")
 					}
+
 				}
 			}
 
-			u.l0.Lock()
+			u.bucketsLock.Lock()
 			u.buckets = newBuckets
 			u.chunk++
-			u.l0.Unlock()
+			u.bucketsLock.Unlock()
 
 			u.resizing.Store(false)
 		}
 	}
-
 }
 
 func (u *ChainMap[K, V]) tryMerge() {
-	if u.Size()>>uint(u.chunk) < uint(u.lower) {
+	if u.Size()>>uint(u.chunk) < uint(u.minAvgLen) && u.chunk > 0 {
 		if u.resizing.CompareAndSwap(false, true) {
-
+			//println("merging")
 			newBuckets := make([]*node[K], 1<<(u.chunk-1))
 
 			for i, v := range u.buckets {
@@ -96,10 +113,10 @@ func (u *ChainMap[K, V]) tryMerge() {
 				}
 			}
 
-			u.l0.Lock()
+			u.bucketsLock.Lock()
 			u.buckets = newBuckets
 			u.chunk--
-			u.l0.Unlock()
+			u.bucketsLock.Unlock()
 
 			u.resizing.Store(false)
 		}
@@ -107,45 +124,41 @@ func (u *ChainMap[K, V]) tryMerge() {
 }
 
 func (u *ChainMap[K, V]) findKey(k K) *node[K] {
-	return u.findHash(u.rehash(k) >> uint(maxChunk-u.chunk))
+	u.bucketsLock.RLock()
+	defer u.bucketsLock.RUnlock()
+	return u.buckets[u.rehash(k)>>uint(u.maxChunk-u.chunk)]
 }
 
 func (u *ChainMap[K, V]) findHash(hash uint) *node[K] {
-	u.l0.RLock()
-	defer u.l0.RUnlock()
+	u.bucketsLock.RLock()
+	defer u.bucketsLock.RUnlock()
 	return u.buckets[hash]
 }
 
-func (u *ChainMap[K, V]) PrintAll() {
-	for cur := u.buckets[0]; cur != nil; cur = cur.next() {
-		if cur.v == nil {
-			println("k: ", cur.k, "; h: ", cur.hash, "; v: relay")
-		} else {
-			println("k: ", cur.k, "; h: ", cur.hash, "; v: ", *(*V)(cur.v))
-		}
-
-	}
-}
-
 func (u *ChainMap[K, V]) Put(key K, val V) {
-	pre := u.findKey(key)
-	for curPtr, hash, vPtr := pre.nextPtr(), u.rehash(key), unsafe.Pointer(&val); ; curPtr = pre.nextPtr() {
-		if cur := (*node[K])(curPtr); cur.isRelay() || hash < cur.hash { //put at the last possible position.
-			if atomic.CompareAndSwapPointer(&pre.nx, curPtr, unsafe.Pointer(&node[K]{curPtr, key, vPtr, hash, normalState})) {
-				u.size.Add(1)
-				u.trySplit()
-				break
-			}
-		} else {
-			if key.Equal(cur.k) {
-				cur.setValuePtr(vPtr)
-				break
-			} else if hash > cur.hash {
-				pre = cur
+	hash, vPtr := u.rehash(key), unsafe.Pointer(&val)
+search:
+	for left := u.findKey(key); ; left = u.findKey(key) {
+		for {
+			right, leftStatePtr := left.next()
+			if hash <= right.hash {
+				newNode := &node[K]{key, vPtr, hash, unsafe.Pointer(&state[K]{false, right})}
+				if atomic.CompareAndSwapPointer(&left.s, leftStatePtr, unsafe.Pointer(&state[K]{false, newNode})) {
+					u.size.Add(1)
+					//println("added", newNode.hash)
+					u.trySplit()
+					return
+				} else {
+					continue search
+				}
+			} else if key.Equal(right.k) {
+				right.setVPtr(vPtr)
+				return
 			} else {
-				panic("unexpected case")
+				left = right
 			}
 		}
+
 	}
 }
 
@@ -154,9 +167,9 @@ func (u *ChainMap[K, V]) Remove(key K) {
 }
 
 func (u *ChainMap[K, V]) Get(key K) (val V) {
-	for cur := u.findKey(key).next(); !cur.isRelay() && u.rehash(cur.k) <= u.rehash(key); cur = cur.next() {
+	for cur, _ := u.findKey(key).next(); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
 		if key.Equal(cur.k) {
-			val = *(*V)(cur.valuePtr())
+			val = *(*V)(cur.getVPtr())
 			break
 		}
 	}
@@ -164,7 +177,7 @@ func (u *ChainMap[K, V]) Get(key K) (val V) {
 }
 
 func (u *ChainMap[K, V]) HasKey(key K) bool {
-	for cur := u.findKey(key).next(); !cur.isRelay() && u.rehash(cur.k) <= u.rehash(key); cur = cur.next() {
+	for cur, _ := u.findKey(key).next(); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
 		if key.Equal(cur.k) {
 			return true
 		}
@@ -172,34 +185,39 @@ func (u *ChainMap[K, V]) HasKey(key K) bool {
 	return false
 }
 
-func (u *ChainMap[K, V]) GetOrPut(key K, val V) (oldVal V, putted bool) {
-	pre := u.findKey(key)
-	for curPtr, hash, vPtr := pre.nextPtr(), u.rehash(key), unsafe.Pointer(&val); ; curPtr = pre.nextPtr() {
-		if cur := (*node[K])(curPtr); cur.isRelay() || hash < cur.hash { //put at the last possible position.
-			if atomic.CompareAndSwapPointer(&pre.nx, curPtr, unsafe.Pointer(&node[K]{curPtr, key, vPtr, hash, normalState})) {
-				u.size.Add(1)
-				u.trySplit()
-				return oldVal, true
-			}
-		} else {
-			if key.Equal(cur.k) {
-				return *(*V)(cur.valuePtr()), false
-			} else if hash > cur.hash {
-				pre = cur
+func (u *ChainMap[K, V]) GetOrPut(key K, val V) (V, bool) {
+	hash, vPtr := u.rehash(key), unsafe.Pointer(&val)
+search:
+	for left := u.findKey(key); ; left = u.findKey(key) {
+		for {
+			right, leftStatePtr := left.next()
+			if hash <= right.hash {
+				newNode := &node[K]{key, vPtr, hash, unsafe.Pointer(&state[K]{false, right})}
+				if atomic.CompareAndSwapPointer(&left.s, leftStatePtr, unsafe.Pointer(&state[K]{false, newNode})) {
+					u.size.Add(1)
+					u.trySplit()
+					return *new(V), false
+				} else {
+					continue search
+				}
+			} else if key.Equal(right.k) {
+				return *(*V)(right.getVPtr()), true
 			} else {
-				panic("unexpected case")
+				left = right
 			}
 		}
+
 	}
 }
 
 func (u *ChainMap[K, V]) GetAndRmv(key K) (val V, removed bool) {
-	for cur := u.findKey(key).next(); !cur.isRelay() && u.rehash(cur.k) <= u.rehash(key); cur = cur.next() {
+	for cur, _ := u.findKey(key).next(); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
 		if key.Equal(cur.k) {
-			val, removed = *(*V)(cur.valuePtr()), true
-			cur.delete()
-			u.size.Add(^uint64(0))
-			u.tryMerge()
+			if cur.delete() {
+				u.size.Add(^uint64(0))
+				u.tryMerge()
+				val, removed = *(*V)(cur.getVPtr()), true
+			}
 			break
 		}
 	}
@@ -207,12 +225,27 @@ func (u *ChainMap[K, V]) GetAndRmv(key K) (val V, removed bool) {
 }
 
 func (u *ChainMap[K, V]) Size() uint {
+	//println(u.chunk, u.maxChunk, u.maxHash)
 	return uint(u.size.Load())
 }
 
-func (u *ChainMap[K, V]) Take() (K, *V) {
-	t := u.findHash(0).next()
-	return t.k, (*V)(t.valuePtr())
+func (u *ChainMap[K, V]) Take() (K, V) {
+	t, _ := u.findHash(0).next()
+	return t.k, *(*V)(t.getVPtr())
+}
+
+func (u *ChainMap[K, V]) PrintAll() {
+	cur := u.findHash(0)
+	//oldh := uint(0)
+	for ; cur != nil; cur, _ = cur.next() {
+		//fmt.Printf("oldh: %d; curh: %d; ordered: %v\n", oldh, cur.hash, cur.hash >= oldh)
+		//oldh = cur.hash
+		if cur.isRelay() {
+			fmt.Printf("relay: %#v. Hash: %d\n", cur.k, cur.hash)
+		} else {
+			fmt.Printf("key: %#v. Hash: %d\n", cur.k, cur.hash)
+		}
+	}
 }
 
 func (u *ChainMap[K, V]) Pairs() func() (K, V, bool) {
@@ -222,10 +255,10 @@ func (u *ChainMap[K, V]) Pairs() func() (K, V, bool) {
 			if cur == nil {
 				return
 			} else if cur.isRelay() {
-				cur = cur.next()
+				cur, _ = cur.next()
 			} else {
-				k, v, b = cur.k, *(*V)(cur.valuePtr()), true
-				cur = cur.next()
+				k, v, b = cur.k, *(*V)(cur.getVPtr()), true
+				cur, _ = cur.next()
 				return
 			}
 		}

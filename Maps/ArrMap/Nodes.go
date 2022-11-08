@@ -18,12 +18,6 @@ type chain[K Maps.Hashable, V any] struct {
 	del bool
 }
 
-type hold[K Maps.Hashable, V any] interface {
-	next() *chain[K, V]
-	nextPtr() unsafe.Pointer
-	addAfter(n *chain[K, V])
-}
-
 // given *a, a->nx=b
 // result a->next=n; n->next=b
 func (u *head[K, V]) addAfter(n *chain[K, V]) {
