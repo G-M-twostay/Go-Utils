@@ -75,7 +75,6 @@ func (u *ChainMap[K, V]) trySplit() {
 						right, leftStatePtr := left.next()
 						if right.isRelay() || newRelay.hash < right.hash {
 							tempState.nx = right
-
 							if atomic.CompareAndSwapPointer(&left.s, leftStatePtr, unsafe.Pointer(&state[K]{false, newRelay})) {
 								break search
 							} else {
@@ -145,13 +144,12 @@ search:
 				newNode := &node[K]{key, vPtr, hash, unsafe.Pointer(&state[K]{false, right})}
 				if atomic.CompareAndSwapPointer(&left.s, leftStatePtr, unsafe.Pointer(&state[K]{false, newNode})) {
 					u.size.Add(1)
-					//println("added", newNode.hash)
 					u.trySplit()
 					return
 				} else {
 					continue search
 				}
-			} else if key.Equal(right.k) {
+			} else if !right.isRelay() && key.Equal(right.k) {
 				right.setVPtr(vPtr)
 				return
 			} else {
@@ -167,8 +165,8 @@ func (u *ChainMap[K, V]) Remove(key K) {
 }
 
 func (u *ChainMap[K, V]) Get(key K) (val V) {
-	for cur, _ := u.findKey(key).next(); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
-		if key.Equal(cur.k) {
+	for cur := u.findKey(key); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
+		if !cur.isRelay() && key.Equal(cur.k) {
 			val = *(*V)(cur.getVPtr())
 			break
 		}
@@ -177,8 +175,8 @@ func (u *ChainMap[K, V]) Get(key K) (val V) {
 }
 
 func (u *ChainMap[K, V]) HasKey(key K) bool {
-	for cur, _ := u.findKey(key).next(); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
-		if key.Equal(cur.k) {
+	for cur := u.findKey(key); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
+		if !cur.isRelay() && key.Equal(cur.k) {
 			return true
 		}
 	}
@@ -200,7 +198,7 @@ search:
 				} else {
 					continue search
 				}
-			} else if key.Equal(right.k) {
+			} else if !right.isRelay() && key.Equal(right.k) {
 				return *(*V)(right.getVPtr()), true
 			} else {
 				left = right
@@ -211,8 +209,8 @@ search:
 }
 
 func (u *ChainMap[K, V]) GetAndRmv(key K) (val V, removed bool) {
-	for cur, _ := u.findKey(key).next(); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
-		if key.Equal(cur.k) {
+	for cur := u.findKey(key); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
+		if !cur.isRelay() && key.Equal(cur.k) {
 			if cur.delete() {
 				u.size.Add(^uint64(0))
 				u.tryMerge()

@@ -2,9 +2,6 @@ package ChainMap
 
 import (
 	"GMUtils/Maps"
-	"encoding/binary"
-	"hash/fnv"
-	"hash/maphash"
 	"sync"
 	"testing"
 )
@@ -18,194 +15,41 @@ const (
 	mapSize                    = 2048
 )
 
-var seed maphash.Seed = maphash.MakeSeed()
+type O int
 
-type KeyObj struct {
-	v    int
-	hash int
+func (u O) Equal(o Maps.Hashable) bool {
+	return u == o.(O)
 }
 
-func (u KeyObj) Equal(o Maps.Hashable) bool {
-	return u.v == o.(KeyObj).v
-}
-
-func (u KeyObj) Hash() int {
-	return u.hash
-}
-
-var hasher = fnv.New64a()
-
-func makeKey(a int) KeyObj {
-	b := make([]byte, 8)
-	binary.PutVarint(b, int64(a))
-	t := KeyObj{}
-	t.v = a
-	t.hash = int(maphash.Bytes(seed, b))
-	return t
-}
-
-func BenchmarkChainMap_All(b *testing.B) {
-	keys := make([]KeyObj, mapSize*5)
-	for i, _ := range keys {
-		keys[i] = makeKey(i)
-	}
-
-	wg := sync.WaitGroup{}
-	M := MakeChainMap[KeyObj, int](1, 4)
-	var put func(int, int) = func(low, high int) {
-		for ; low < high; low++ {
-			M.Put(keys[low], low)
-		}
-	}
-	var remove func(int, int) = func(low, high int) {
-		for ; low < high; low++ {
-			M.Remove(keys[low])
-		}
-	}
-
-	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
-		b.StopTimer()
-
-		b.StartTimer()
-		for i := 0; i < 10; i++ {
-			wg.Add(1)
-			go func(low, high int) {
-				put(low, high)
-				remove(low, high)
-				wg.Done()
-			}((i%5)*mapSize, ((i+1)%5)*mapSize)
-		}
-
-		wg.Wait()
-	}
+func (u O) Hash() int {
+	return int(u)
 }
 
 func TestChainMap_All(t *testing.T) {
-	keys := make([]KeyObj, mapSize*5)
-	for i, _ := range keys {
-		keys[i] = makeKey(i)
-	}
-
-	wg := sync.WaitGroup{}
-	M := MakeChainMap[KeyObj, int](1, 4)
-	var put func(int, int) = func(low, high int) {
-		for ; low < high; low++ {
-			M.Put(keys[low], low)
-		}
-	}
-	var remove func(int, int) = func(low, high int) {
-		for ; low < high; low++ {
-			M.Remove(keys[low])
-		}
-	}
-	var check func(int, int) = func(low, high int) {
-		for ; low < high; low++ {
-			if M.HasKey(keys[low]) {
-				t.Log("nKeys: ", low)
+	M := MakeChainMap[O, int](0, 100, 0, 63)
+	wg := &sync.WaitGroup{}
+	wg.Add(8)
+	for j := 0; j < 8; j++ {
+		go func(l, h int) {
+			for i := l; i < h; i++ {
+				M.Put(O(i), 1)
 			}
-		}
-	}
-
-	for j := 0; j < 1; j++ {
-		for k := 0; k < 1; k++ {
-			for i := 0; i < 5; i++ {
-				wg.Add(1)
-				go func(low, high int) {
-					put(low, high)
-					remove(low, high)
-					check(low, high)
-					wg.Done()
-				}((i)*70, (i+1)*70)
+			for i := l; i < h; i++ {
+				if !M.HasKey(O(i)) {
+					t.Errorf("not added: %v\n", O(i))
+				}
 			}
-		}
-
-		wg.Wait()
-		f := M.Pairs()
-		t.Log("size: ", M.Size())
-
-		for a, b, ok := f(); ok; {
-			t.Log("key: ", a.v, "val: ", b, "hash: ", uint(a.hash))
-			a1, b1, ok1 := f()
-			//if ok {
-			//	t.Log(uint(a1.hash) > uint(a.hash))
-			//}
-			a, b, ok = a1, b1, ok1
-		}
-		M.PrintAll()
-	}
-}
-
-func BenchmarkSyncMap_All(b *testing.B) {
-	keys := make([]KeyObj, mapSize*5)
-	for i, _ := range keys {
-		keys[i] = makeKey(i)
-	}
-	wg := sync.WaitGroup{}
-	M := sync.Map{}
-	var put func(int, int) = func(low, high int) {
-		for ; low < high; low++ {
-			M.Store(keys[low], low)
-		}
-	}
-	var remove func(int, int) = func(low, high int) {
-		for ; low < high; low++ {
-			M.Delete(keys[low])
-		}
-	}
-	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
-		b.StopTimer()
-
-		b.StartTimer()
-		for i := 0; i < 10; i++ {
-			wg.Add(1)
-			go func(low, high int) {
-				put(low, high)
-				remove(low, high)
-				wg.Done()
-			}((i%5)*mapSize, ((i+1)%5)*mapSize)
-		}
-		wg.Wait()
-
-	}
-}
-
-func BenchmarkLockedMap_All(b *testing.B) {
-	keys := make([]KeyObj, mapSize*5)
-	for i, _ := range keys {
-		keys[i] = makeKey(i)
-	}
-	wg := sync.WaitGroup{}
-	lock := sync.RWMutex{}
-	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
-		b.StopTimer()
-		M := make(map[KeyObj]int)
-		var put func(int, int) = func(low, high int) {
-			for ; low < high; low++ {
-				lock.Lock()
-				M[keys[low]] = low
-				lock.Unlock()
+			for i := l; i < h; i++ {
+				M.Remove(O(i))
 			}
-		}
-		var remove func(int, int) = func(low, high int) {
-			for ; low < high; low++ {
-				lock.Lock()
-				delete(M, keys[low])
-				lock.Unlock()
+			for i := l; i < h; i++ {
+				if M.HasKey(O(i)) {
+					t.Errorf("not removed: %v\n", O(i))
+				}
 			}
-		}
-		b.StartTimer()
-		for i := 0; i < 10; i++ {
-			wg.Add(1)
-			go func(low, high int) {
-				put(low, high)
-				remove(low, high)
-				wg.Done()
-			}((i%5)*mapSize, ((i+1)%5)*mapSize)
-		}
-		wg.Wait()
-
+			wg.Done()
+		}(j*8, (j+1)*8)
 	}
+	wg.Wait()
+	M.PrintAll()
 }

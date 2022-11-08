@@ -30,6 +30,9 @@ func (u *node[K]) next() (*node[K], unsafe.Pointer) {
 			if nxSt := (*state[K])(atomic.LoadPointer(&nxNode.s)); nxSt.del {
 				atomic.CompareAndSwapPointer(&u.s, curStPtr, unsafe.Pointer(&state[K]{false, nxSt.nx}))
 			} else {
+				if nxNode.hash < u.hash {
+					println("error")
+				}
 				return nxNode, curStPtr
 			}
 		} else {
