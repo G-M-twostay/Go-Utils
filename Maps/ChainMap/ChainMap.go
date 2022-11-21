@@ -2,7 +2,6 @@ package ChainMap
 
 import (
 	"GMUtils/Maps"
-	"fmt"
 	"math/bits"
 	"sync"
 	"sync/atomic"
@@ -31,16 +30,7 @@ func MakeChainMap[K Maps.Hashable, V any](minBucketLen, maxBucketLen byte, minHa
 	M.maxHash = maxHashRange >> t
 	M.maxChunk = byte(bits.UintSize - t)
 
-	var f = func(hash uint, nx *node[K]) *node[K] {
-		n, s := new(node[K]), new(state[K])
-		s.nx = nx
-		n.hash, n.s = hash, unsafe.Pointer(s)
-		return n
-	}
-
-	M.buckets = make([]*node[K], 1)
-	lastRelay := f(M.maxHash, nil)
-	M.buckets[0] = f(0, lastRelay)
+	M.buckets = []*node[K]{makeRelay[K](0, nil)}
 
 	return M
 }
@@ -63,28 +53,16 @@ func (u *ChainMap[K, V]) trySplit() {
 			for i, v := range u.buckets {
 
 				newBuckets[i<<1] = v
-				newRelay := new(node[K])
+				newRelay := makeRelay[K](((u.maxHash>>uint(u.chunk))+1)*uint(i)+(u.maxHash>>(u.chunk+1)), nil)
 				newBuckets[(i<<1)+1] = newRelay
-				newRelay.hash = ((u.maxHash>>uint(u.chunk))+1)*uint(i) + (u.maxHash >> (u.chunk + 1))
-				tempState := new(state[K])
-				newRelay.s = (unsafe.Pointer)(tempState)
 
-			search:
-				for left := v; ; left = v {
-					for {
-						right, leftStatePtr := left.next()
-						if right.isRelay() || newRelay.hash < right.hash {
-							tempState.nx = right
-							if atomic.CompareAndSwapPointer(&left.s, leftStatePtr, unsafe.Pointer(&state[K]{false, newRelay})) {
-								break search
-							} else {
-								continue search
-							}
-						} else {
-							left = right
-						}
+				for tempState := (*state[K])(newRelay.s); ; {
+					l, ls, lsp, _ := v.searchHash(newRelay.hash)
+					tempState.nx = ls.nx
+					//didn't use l.addAfter(ls, lsp, newRelay) because this would repeatedly allocate new states is unnecessary as we only need to change nx since we know we will always add this new relay
+					if atomic.CompareAndSwapPointer(&l.s, lsp, unsafe.Pointer(ls.changeNext(newRelay))) {
+						break
 					}
-
 				}
 			}
 
@@ -101,14 +79,14 @@ func (u *ChainMap[K, V]) trySplit() {
 func (u *ChainMap[K, V]) tryMerge() {
 	if u.Size()>>uint(u.chunk) < uint(u.minAvgLen) && u.chunk > 0 {
 		if u.resizing.CompareAndSwap(false, true) {
-			//println("merging")
+
 			newBuckets := make([]*node[K], 1<<(u.chunk-1))
 
 			for i, v := range u.buckets {
 				if i&1 == 0 {
 					newBuckets[i>>1] = v
 				} else {
-					v.delete()
+					defer v.delete()
 				}
 			}
 
@@ -122,41 +100,22 @@ func (u *ChainMap[K, V]) tryMerge() {
 	}
 }
 
-func (u *ChainMap[K, V]) findKey(k K) *node[K] {
-	u.bucketsLock.RLock()
-	defer u.bucketsLock.RUnlock()
-	return u.buckets[u.rehash(k)>>uint(u.maxChunk-u.chunk)]
-}
-
 func (u *ChainMap[K, V]) findHash(hash uint) *node[K] {
 	u.bucketsLock.RLock()
 	defer u.bucketsLock.RUnlock()
-	return u.buckets[hash]
+	return u.buckets[hash>>uint(u.maxChunk-u.chunk)]
 }
 
 func (u *ChainMap[K, V]) Put(key K, val V) {
-	hash, vPtr := u.rehash(key), unsafe.Pointer(&val)
-search:
-	for left := u.findKey(key); ; left = u.findKey(key) {
-		for {
-			right, leftStatePtr := left.next()
-			if hash <= right.hash {
-				newNode := &node[K]{key, vPtr, hash, unsafe.Pointer(&state[K]{false, right})}
-				if atomic.CompareAndSwapPointer(&left.s, leftStatePtr, unsafe.Pointer(&state[K]{false, newNode})) {
-					u.size.Add(1)
-					u.trySplit()
-					return
-				} else {
-					continue search
-				}
-			} else if !right.isRelay() && key.Equal(right.k) {
-				right.setVPtr(vPtr)
-				return
-			} else {
-				left = right
-			}
+	for hash, vPtr := u.rehash(key), unsafe.Pointer(&val); ; {
+		if l, ls, lsp, r, f := u.findHash(hash).searchKey(key, hash); f {
+			r.setVPtr(vPtr)
+			return
+		} else if l.addAfter(ls, lsp, &node[K]{key, vPtr, hash, nil}) {
+			u.size.Add(1)
+			u.trySplit()
+			return
 		}
-
 	}
 }
 
@@ -165,85 +124,49 @@ func (u *ChainMap[K, V]) Remove(key K) {
 }
 
 func (u *ChainMap[K, V]) Get(key K) (val V) {
-	for cur := u.findKey(key); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
-		if !cur.isRelay() && key.Equal(cur.k) {
-			val = *(*V)(cur.getVPtr())
-			break
-		}
+	hash := u.rehash(key)
+	if _, _, _, r, f := u.findHash(hash).searchKey(key, hash); f {
+		val = *(*V)(r.getVPtr())
 	}
 	return
 }
 
 func (u *ChainMap[K, V]) HasKey(key K) bool {
-	for cur := u.findKey(key); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
-		if !cur.isRelay() && key.Equal(cur.k) {
-			return true
-		}
-	}
-	return false
+	hash := u.rehash(key)
+	_, _, _, _, f := u.findHash(hash).searchKey(key, hash)
+	return f
 }
 
 func (u *ChainMap[K, V]) GetOrPut(key K, val V) (V, bool) {
-	hash, vPtr := u.rehash(key), unsafe.Pointer(&val)
-search:
-	for left := u.findKey(key); ; left = u.findKey(key) {
-		for {
-			right, leftStatePtr := left.next()
-			if hash <= right.hash {
-				newNode := &node[K]{key, vPtr, hash, unsafe.Pointer(&state[K]{false, right})}
-				if atomic.CompareAndSwapPointer(&left.s, leftStatePtr, unsafe.Pointer(&state[K]{false, newNode})) {
-					u.size.Add(1)
-					u.trySplit()
-					return *new(V), false
-				} else {
-					continue search
-				}
-			} else if !right.isRelay() && key.Equal(right.k) {
-				return *(*V)(right.getVPtr()), true
-			} else {
-				left = right
-			}
+	for hash, vPtr := u.rehash(key), unsafe.Pointer(&val); ; {
+		if l, ls, lsp, r, f := u.findHash(hash).searchKey(key, hash); f {
+			return *(*V)(r.getVPtr()), true
+		} else if l.addAfter(ls, lsp, &node[K]{key, vPtr, hash, nil}) {
+			return *new(V), false
 		}
-
 	}
 }
 
 func (u *ChainMap[K, V]) GetAndRmv(key K) (val V, removed bool) {
-	for cur := u.findKey(key); cur != nil && cur.hash <= u.rehash(key); cur, _ = cur.next() {
-		if !cur.isRelay() && key.Equal(cur.k) {
-			if cur.delete() {
-				u.size.Add(^uint64(0))
-				u.tryMerge()
-				val, removed = *(*V)(cur.getVPtr()), true
-			}
-			break
+	hash := u.rehash(key)
+	if _, _, _, r, f := u.findHash(hash).searchKey(key, hash); f {
+		removed = r.delete()
+		if removed {
+			u.size.Add(^uint64(1 - 1))
+			u.tryMerge()
+			val = *(*V)(r.getVPtr())
 		}
 	}
 	return
 }
 
 func (u *ChainMap[K, V]) Size() uint {
-	//println(u.chunk, u.maxChunk, u.maxHash)
 	return uint(u.size.Load())
 }
 
 func (u *ChainMap[K, V]) Take() (K, V) {
-	t, _ := u.findHash(0).next()
+	t, _, _ := u.findHash(0).next()
 	return t.k, *(*V)(t.getVPtr())
-}
-
-func (u *ChainMap[K, V]) PrintAll() {
-	cur := u.findHash(0)
-	//oldh := uint(0)
-	for ; cur != nil; cur, _ = cur.next() {
-		//fmt.Printf("oldh: %d; curh: %d; ordered: %v\n", oldh, cur.hash, cur.hash >= oldh)
-		//oldh = cur.hash
-		if cur.isRelay() {
-			fmt.Printf("relay: %#v. Hash: %d\n", cur.k, cur.hash)
-		} else {
-			fmt.Printf("key: %#v. Hash: %d\n", cur.k, cur.hash)
-		}
-	}
 }
 
 func (u *ChainMap[K, V]) Pairs() func() (K, V, bool) {
@@ -253,10 +176,10 @@ func (u *ChainMap[K, V]) Pairs() func() (K, V, bool) {
 			if cur == nil {
 				return
 			} else if cur.isRelay() {
-				cur, _ = cur.next()
+				cur, _, _ = cur.next()
 			} else {
 				k, v, b = cur.k, *(*V)(cur.getVPtr()), true
-				cur, _ = cur.next()
+				cur, _, _ = cur.next()
 				return
 			}
 		}
