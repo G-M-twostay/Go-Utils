@@ -2,41 +2,39 @@ package ChainMap
 
 import (
 	"GMUtils/Maps"
+	"math"
 	"math/bits"
-	"sync"
 	"sync/atomic"
 	"unsafe"
 )
 
 const ( //both inclusive
-	maxArrayLen  uint = ^uint(0) >> 1
-	maxHashRange uint = ^uint(0)
+	maxArrayLen  uint = math.MaxInt //so maxArrayLen+1 won't overflow
+	maxHashRange uint = math.MaxUint
 )
 
 type ChainMap[K Maps.Hashable, V any] struct {
-	buckets                               []*node[K]
-	chunk, maxChunk, minAvgLen, maxAvgLen byte //1<<chunk=len(buckets)
-	size                                  atomic.Uint64
-	bucketsLock                           sync.RWMutex
-	resizing                              atomic.Bool
-	maxHash                               uint
+	buckets              atomic.Pointer[[]*node[K]]
+	minAvgLen, maxAvgLen byte
+	size                 atomic.Uint64
+	resizing             atomic.Bool
+	maxHash              uint
 }
 
-func MakeChainMap[K Maps.Hashable, V any](minBucketLen, maxBucketLen byte, minHash, maxHash int) *ChainMap[K, V] {
+func MakeChainMap[K Maps.Hashable, V any](minBucketLen, maxBucketLen byte, maxHash uint) *ChainMap[K, V] {
 	M := new(ChainMap[K, V])
 
 	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen
-	t := bits.LeadingZeros(uint(maxHash - minHash))
-	M.maxHash = maxHashRange >> t
-	M.maxChunk = byte(bits.UintSize - t)
+	M.maxHash = (maxHashRange >> bits.LeadingZeros(maxHash)) & maxArrayLen
 
-	M.buckets = []*node[K]{makeRelay[K](0, nil)}
+	b := []*node[K]{makeRelay[K](0, nil)}
+	M.buckets.Store(&b)
 
 	return M
 }
 
 func (u *ChainMap[K, V]) rehash(k K) uint {
-	return uint(k.Hash())
+	return k.Hash() & maxArrayLen
 }
 
 // chunk=n
@@ -45,15 +43,16 @@ func (u *ChainMap[K, V]) rehash(k K) uint {
 //
 // or [0,2^n) to [0,2^n-1),[2^n-1,2^n)
 func (u *ChainMap[K, V]) trySplit() {
-	if u.Size()>>uint(u.chunk) > uint(u.maxAvgLen) {
-		if u.resizing.CompareAndSwap(false, true) {
+	if u.resizing.CompareAndSwap(false, true) {
+		s := *u.buckets.Load()
+		if ul := uint(len(s)); u.Size()/ul > uint(u.maxAvgLen) {
 
-			newBuckets := make([]*node[K], 1<<(u.chunk+1))
+			newBuckets := make([]*node[K], ul<<1)
 
-			for i, v := range u.buckets {
+			for i, v := range s {
 
 				newBuckets[i<<1] = v
-				newRelay := makeRelay[K](((u.maxHash>>uint(u.chunk))+1)*uint(i)+(u.maxHash>>(u.chunk+1)), nil)
+				newRelay := makeRelay[K]((u.maxHash/ul+1)*uint(i)+u.maxHash/(ul<<1), nil)
 				newBuckets[(i<<1)+1] = newRelay
 
 				for tempState := (*state[K])(newRelay.s); ; {
@@ -66,23 +65,21 @@ func (u *ChainMap[K, V]) trySplit() {
 				}
 			}
 
-			u.bucketsLock.Lock()
-			u.buckets = newBuckets
-			u.chunk++
-			u.bucketsLock.Unlock()
+			u.buckets.Store(&newBuckets)
 
-			u.resizing.Store(false)
 		}
+		u.resizing.Store(false)
 	}
 }
 
 func (u *ChainMap[K, V]) tryMerge() {
-	if u.Size()>>uint(u.chunk) < uint(u.minAvgLen) && u.chunk > 0 {
-		if u.resizing.CompareAndSwap(false, true) {
+	if u.resizing.CompareAndSwap(false, true) {
+		s := *u.buckets.Load()
+		if ul := uint(len(s)); u.Size()/ul < uint(u.minAvgLen) && ul > 1 {
 
-			newBuckets := make([]*node[K], 1<<(u.chunk-1))
+			newBuckets := make([]*node[K], ul>>1)
 
-			for i, v := range u.buckets {
+			for i, v := range s {
 				if i&1 == 0 {
 					newBuckets[i>>1] = v
 				} else {
@@ -90,20 +87,17 @@ func (u *ChainMap[K, V]) tryMerge() {
 				}
 			}
 
-			u.bucketsLock.Lock()
-			u.buckets = newBuckets
-			u.chunk--
-			u.bucketsLock.Unlock()
+			u.buckets.Store(&newBuckets)
 
-			u.resizing.Store(false)
 		}
+		u.resizing.Store(false)
 	}
 }
 
 func (u *ChainMap[K, V]) findHash(hash uint) *node[K] {
-	u.bucketsLock.RLock()
-	defer u.bucketsLock.RUnlock()
-	return u.buckets[hash>>uint(u.maxChunk-u.chunk)]
+	s := *u.buckets.Load()
+	index := hash / ((u.maxHash + 1) / uint(len(s)))
+	return s[index]
 }
 
 func (u *ChainMap[K, V]) Put(key K, val V) {

@@ -8,7 +8,7 @@ const (
 )
 
 type Hashable interface {
-	Hash() int
+	Hash() uint
 	Equal(other Hashable) bool
 }
 
