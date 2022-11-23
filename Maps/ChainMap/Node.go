@@ -18,8 +18,8 @@ func (u *state[K]) changeNext(nx *node[K]) *state[K] {
 
 type node[K Maps.Hashable] struct {
 	k    K
-	v    unsafe.Pointer
 	hash uint
+	v    unsafe.Pointer
 	s    unsafe.Pointer
 }
 

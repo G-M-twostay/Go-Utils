@@ -10,7 +10,6 @@ const (
 	blockSize   = 64
 	blockNum    = 64
 	iter0       = 1 << 3
-	iter1       = 1 << 2
 	elementNum0 = 1 << 10
 )
 
@@ -32,7 +31,7 @@ func TestChainMap_All(t *testing.T) {
 		go func(l, h int) {
 			defer wg.Done()
 			for i := l; i < h; i++ {
-				M.Put(O(i), i)
+				M.Store(O(i), i)
 			}
 
 			for i := l; i < h; i++ {
@@ -42,7 +41,7 @@ func TestChainMap_All(t *testing.T) {
 				}
 			}
 			for i := l; i < h; i++ {
-				M.Remove(O(i))
+				M.Delete(O(i))
 
 			}
 			for i := l; i < h; i++ {
@@ -58,33 +57,33 @@ func TestChainMap_All(t *testing.T) {
 		t.Log(cur.String(), "\n")
 	}
 	//for i := 0; i < 8; i++ {
-	//	M.Put(O(i), i+1)
+	//	M.Store(O(i), i+1)
 	//}
 	//for i := 0; i < 8; i++ {
-	//	t.Log(i, M.Get(O(i)))
+	//	t.Log(i, M.Load(O(i)))
 	//}
 	//for i := 0; i < 8; i++ {
-	//	M.Remove(O(i))
+	//	M.Delete(O(i))
 	//}
 	//for i := 0; i < 8; i++ {
-	//	t.Log(i, M.Get(O(i)))
+	//	t.Log(i, M.Load(O(i)))
 	//}
 	//for cur := M.buckets[0]; cur != nil; cur = (*state[O])(cur.s).nx {
 	//	t.Log(cur.String(), "\n")
 	//}
 	//t.Log(M.HasKey(O(0)))
-	//M.Put(O(0), 1)
-	//M.Put(O(1), 2)
-	//M.Put(O(2), 3)
-	//M.Remove(O(0))
-	//M.Remove(O(1))
+	//M.Store(O(0), 1)
+	//M.Store(O(1), 2)
+	//M.Store(O(2), 3)
+	//M.Delete(O(0))
+	//M.Delete(O(1))
 	//t.Log("removed 0 and 1")
-	//M.Remove(O(2))
+	//M.Delete(O(2))
 	//t.Log("removed 0 and 1 and 2")
 	//for cur := M.bucketsPtr[0]; cur != nil; cur = (*state[O])(cur.s).nx {
 	//	t.Log(cur.String(), "\n")
 	//}
-	//M.Get(O(0))
+	//M.Load(O(0))
 }
 
 func BenchmarkChainMap_Case1(b *testing.B) {
@@ -97,7 +96,7 @@ func BenchmarkChainMap_Case1(b *testing.B) {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					M.Put(O(j), j)
+					M.Store(O(j), j)
 				}
 				for j := l; j < h; j++ {
 					if !M.HasKey(O(j)) {
@@ -105,7 +104,8 @@ func BenchmarkChainMap_Case1(b *testing.B) {
 					}
 				}
 				for j := l; j < h; j++ {
-					if M.Get(O(j)) != j {
+					x, _ := M.Load(O(j))
+					if x != j {
 						b.Error("incorrect value")
 					}
 				}
@@ -194,22 +194,24 @@ func BenchmarkChainMap_Case2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		M := MakeChainMap[O, int](0, 2, elementNum0*iter0-1)
 		for j := 0; j < elementNum0*iter0; j++ {
-			M.Put(O(j), j)
+			M.Store(O(j), j)
 		}
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					if M.Get(O(j)) != j {
+					x, _ := M.Load(O(j))
+					if x != j {
 						b.Error("incorrect value")
 					}
 				}
 				for j := l; j < h; j++ {
-					M.Put(O(j), j+1)
+					M.Store(O(j), j+1)
 				}
 				for j := l; j < h; j++ {
-					if M.Get(O(j)) != j+1 {
+					x, _ := M.Load(O(j))
+					if x != j+1 {
 						b.Error("incorrect value")
 					}
 				}
@@ -309,7 +311,7 @@ func BenchmarkChainMap_Case3(b *testing.B) {
 			go func(l, h int) {
 				defer wg.Done()
 				for i := l; i < h; i++ {
-					M.Put(O(i), i)
+					M.Store(O(i), i)
 				}
 
 				for i := l; i < h; i++ {
@@ -318,7 +320,7 @@ func BenchmarkChainMap_Case3(b *testing.B) {
 					}
 				}
 				for i := l; i < h; i++ {
-					M.Remove(O(i))
+					M.Delete(O(i))
 
 				}
 				for i := l; i < h; i++ {

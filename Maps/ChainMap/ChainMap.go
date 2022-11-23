@@ -13,11 +13,11 @@ const ( //both inclusive
 )
 
 type ChainMap[K Maps.Hashable, V any] struct {
-	buckets              atomic.Pointer[[]*node[K]]
 	minAvgLen, maxAvgLen byte
-	size                 atomic.Uint64
 	resizing             atomic.Bool
 	maxHash              uint
+	size                 atomic.Uint64
+	buckets              atomic.Pointer[[]*node[K]]
 }
 
 func MakeChainMap[K Maps.Hashable, V any](minBucketLen, maxBucketLen byte, maxHash uint) *ChainMap[K, V] {
@@ -94,16 +94,15 @@ func (u *ChainMap[K, V]) tryMerge() {
 
 func (u *ChainMap[K, V]) findHash(hash uint) *node[K] {
 	s := *u.buckets.Load()
-	index := hash / ((u.maxHash + 1) / uint(len(s)))
-	return s[index]
+	return s[hash/((u.maxHash+1)/uint(len(s)))]
 }
 
-func (u *ChainMap[K, V]) Put(key K, val V) {
+func (u *ChainMap[K, V]) Store(key K, val V) {
 	for hash, vPtr := u.rehash(key), unsafe.Pointer(&val); ; {
 		if l, ls, lsp, r, f := u.findHash(hash).searchKey(key, hash); f {
 			r.setVPtr(vPtr)
 			return
-		} else if l.addAfter(ls, lsp, &node[K]{key, vPtr, hash, nil}) {
+		} else if l.addAfter(ls, lsp, &node[K]{key, hash, vPtr, nil}) {
 			u.size.Add(1)
 			u.trySplit()
 			return
@@ -111,14 +110,14 @@ func (u *ChainMap[K, V]) Put(key K, val V) {
 	}
 }
 
-func (u *ChainMap[K, V]) Remove(key K) {
-	u.GetAndRmv(key)
+func (u *ChainMap[K, V]) Delete(key K) {
+	u.LoadAndDelete(key)
 }
 
-func (u *ChainMap[K, V]) Get(key K) (val V) {
+func (u *ChainMap[K, V]) Load(key K) (val V, ok bool) {
 	hash := u.rehash(key)
 	if _, _, _, r, f := u.findHash(hash).searchKey(key, hash); f {
-		val = *(*V)(r.getVPtr())
+		val, ok = *(*V)(r.getVPtr()), true
 	}
 	return
 }
@@ -129,21 +128,21 @@ func (u *ChainMap[K, V]) HasKey(key K) bool {
 	return f
 }
 
-func (u *ChainMap[K, V]) GetOrPut(key K, val V) (V, bool) {
+func (u *ChainMap[K, V]) LoadOrStore(key K, val V) (V, bool) {
 	for hash, vPtr := u.rehash(key), unsafe.Pointer(&val); ; {
 		if l, ls, lsp, r, f := u.findHash(hash).searchKey(key, hash); f {
 			return *(*V)(r.getVPtr()), true
-		} else if l.addAfter(ls, lsp, &node[K]{key, vPtr, hash, nil}) {
+		} else if l.addAfter(ls, lsp, &node[K]{key, hash, vPtr, nil}) {
 			return *new(V), false
 		}
 	}
 }
 
-func (u *ChainMap[K, V]) GetAndRmv(key K) (val V, removed bool) {
+func (u *ChainMap[K, V]) LoadAndDelete(key K) (val V, loaded bool) {
 	hash := u.rehash(key)
 	if _, _, _, r, f := u.findHash(hash).searchKey(key, hash); f {
-		removed = r.delete()
-		if removed {
+		loaded = !r.delete()
+		if loaded {
 			u.size.Add(^uint64(1 - 1))
 			u.tryMerge()
 			val = *(*V)(r.getVPtr())
@@ -161,19 +160,20 @@ func (u *ChainMap[K, V]) Take() (K, V) {
 	return t.k, *(*V)(t.getVPtr())
 }
 
-func (u *ChainMap[K, V]) Pairs() func() (K, V, bool) {
-	cur := u.findHash(0)
-	return func() (k K, v V, b bool) {
-		for {
-			if cur == nil {
-				return
-			} else if cur.isRelay() {
-				cur, _, _ = cur.next()
-			} else {
-				k, v, b = cur.k, *(*V)(cur.getVPtr()), true
-				cur, _, _ = cur.next()
-				return
+func (u *ChainMap[K, V]) Range(f func(K, V) bool) {
+	for cur := u.findHash(0); ; cur, _, _ = cur.next() {
+		if !cur.isRelay() {
+			if !f(cur.k, *(*V)(cur.getVPtr())) {
+				break
 			}
 		}
 	}
+}
+
+func (u *ChainMap[K, V]) LoadPtr(key K) (vp *V) {
+	hash := u.rehash(key)
+	if _, _, _, r, f := u.findHash(hash).searchKey(key, hash); f {
+		vp = (*V)(r.getVPtr())
+	}
+	return
 }

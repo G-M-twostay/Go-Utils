@@ -13,13 +13,18 @@ type Hashable interface {
 }
 
 type Map[K Hashable, V any] interface {
-	Put(K, V)
+	Delete(K)
+	Load(K) (V, bool)
+	LoadAndDelete(K) (V, bool)
+	LoadOrStore(K, V) (V, bool)
+	Range(func(K, V) bool)
+	Store(K, V)
+}
+
+type ExtendedMap[K Hashable, V any] interface {
+	Map[K, V]
 	HasKey(K) bool
-	Get(K) V
-	GetOrPut(K, V) (V, bool)
-	GetAndRmv(K) (V, bool)
-	Remove(K)
-	Take() (K, V)
-	Pairs() func() (K, V, bool)
 	Size() uint
+	Take() (K, V)
+	LoadPtr(K) *V
 }
