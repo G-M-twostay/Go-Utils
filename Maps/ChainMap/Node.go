@@ -100,7 +100,7 @@ func (u *node[K]) setVPtr(newPtr unsafe.Pointer) {
 }
 
 func (u *node[K]) isRelay() bool {
-	return u.v == nil
+	return u.v == nil //this is technically dirty, but since non-relay node will never have u.v be nil and relay nodes will always have u.v=nil this is fine.
 }
 
 func (u *node[K]) String() string {

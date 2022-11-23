@@ -1,10 +1,10 @@
 package Maps
 
+import "math"
+
 const (
-	MaxUintHash = ^uint(0)
+	MaxUintHash = math.MaxUint
 	MinUintHash = 0
-	MaxIntHash  = int(MaxUintHash >> 1)
-	MinIntHash  = -MaxIntHash - 1
 )
 
 type Hashable interface {

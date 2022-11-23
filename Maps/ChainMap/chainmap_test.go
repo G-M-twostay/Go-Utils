@@ -7,17 +7,11 @@ import (
 )
 
 const (
-	FNV_PRIME_32        uint   = 16777619
-	FNV_PRIME_64        uint64 = 1099511628211
-	FNV_OFFSET_BASIS_32 uint   = 2166136261
-	FNV_OFFSET_BASIS_64 uint64 = 14695981039346656037
-	times                      = 1024
-	mapSize                    = 2048
-	blockSize                  = 64
-	blockNum                   = 64
-	iter0                      = 1 << 3
-	iter1                      = 3
-	elementNum0                = 1 << 10
+	blockSize   = 64
+	blockNum    = 64
+	iter0       = 1 << 3
+	iter1       = 1 << 2
+	elementNum0 = 1 << 10
 )
 
 type O int
@@ -192,4 +186,236 @@ func BenchmarkMutexMap_Case1(b *testing.B) {
 		wg.Wait()
 		b.StopTimer()
 	}
+}
+
+func BenchmarkChainMap_Case2(b *testing.B) {
+	b.StopTimer()
+	wg := sync.WaitGroup{}
+	for i := 0; i < b.N; i++ {
+		M := MakeChainMap[O, int](0, 2, elementNum0*iter0-1)
+		for j := 0; j < elementNum0*iter0; j++ {
+			M.Put(O(j), j)
+		}
+		b.StartTimer()
+		for k := 0; k < iter0; k++ {
+			wg.Add(1)
+			go func(l, h int) {
+				for j := l; j < h; j++ {
+					if M.Get(O(j)) != j {
+						b.Error("incorrect value")
+					}
+				}
+				for j := l; j < h; j++ {
+					M.Put(O(j), j+1)
+				}
+				for j := l; j < h; j++ {
+					if M.Get(O(j)) != j+1 {
+						b.Error("incorrect value")
+					}
+				}
+				wg.Done()
+			}(k*elementNum0, (k+1)*elementNum0)
+		}
+		wg.Wait()
+		b.StopTimer()
+	}
+}
+
+func BenchmarkSyncMap_Case2(b *testing.B) {
+	b.StopTimer()
+	wg := sync.WaitGroup{}
+	for i := 0; i < b.N; i++ {
+		M := sync.Map{}
+		for j := 0; j < elementNum0*iter0; j++ {
+			M.Store(O(j), j)
+		}
+		b.StartTimer()
+		for k := 0; k < iter0; k++ {
+			wg.Add(1)
+			go func(l, h int) {
+				for j := l; j < h; j++ {
+					x, _ := M.Load(O(j))
+					if x != j {
+						b.Error("incorrect value 1")
+					}
+				}
+				for j := l; j < h; j++ {
+					M.Store(O(j), j+1)
+				}
+				for j := l; j < h; j++ {
+					x, _ := M.Load(O(j))
+					if x != j+1 {
+						b.Error("incorrect value 2")
+					}
+				}
+				wg.Done()
+			}(k*elementNum0, (k+1)*elementNum0)
+		}
+		wg.Wait()
+		b.StopTimer()
+	}
+}
+
+func BenchmarkMutexMap_Case2(b *testing.B) {
+	b.StopTimer()
+	wg := sync.WaitGroup{}
+	lc := sync.RWMutex{}
+	for i := 0; i < b.N; i++ {
+		M := make(map[O]int)
+		for j := 0; j < iter0*elementNum0; j++ {
+			M[O(j)] = j
+		}
+		b.StartTimer()
+		for k := 0; k < iter0; k++ {
+			wg.Add(1)
+			go func(l, h int) {
+				for j := l; j < h; j++ {
+					lc.RLock()
+					x, _ := M[O(j)]
+					lc.RUnlock()
+					if x != j {
+						b.Error("incorrect value 1")
+					}
+				}
+				for j := l; j < h; j++ {
+					lc.Lock()
+					M[O(j)]++
+					lc.Unlock()
+				}
+				for j := l; j < h; j++ {
+					lc.RLock()
+					x, _ := M[O(j)]
+					lc.RUnlock()
+					if x != j+1 {
+						b.Error("incorrect value 2")
+					}
+				}
+				wg.Done()
+			}(k*elementNum0, (k+1)*elementNum0)
+		}
+		wg.Wait()
+		b.StopTimer()
+	}
+}
+
+func BenchmarkChainMap_Case3(b *testing.B) {
+	b.StopTimer()
+	wg := &sync.WaitGroup{}
+	for a := 0; a < b.N; a++ {
+		M := MakeChainMap[O, int](2, 8, iter0*elementNum0-1)
+		b.StartTimer()
+		for j := 0; j < iter0; j++ {
+			wg.Add(1)
+			go func(l, h int) {
+				defer wg.Done()
+				for i := l; i < h; i++ {
+					M.Put(O(i), i)
+				}
+
+				for i := l; i < h; i++ {
+					if !M.HasKey(O(i)) {
+						b.Errorf("not put: %v\n", O(i))
+					}
+				}
+				for i := l; i < h; i++ {
+					M.Remove(O(i))
+
+				}
+				for i := l; i < h; i++ {
+					if M.HasKey(O(i)) {
+						b.Errorf("not removed: %v\n", O(i))
+					}
+				}
+
+			}(j*elementNum0, (j+1)*elementNum0)
+		}
+		wg.Wait()
+		b.StopTimer()
+	}
+
+}
+
+func BenchmarkSyncMap_Case3(b *testing.B) {
+	b.StopTimer()
+	wg := &sync.WaitGroup{}
+	for a := 0; a < b.N; a++ {
+		M := sync.Map{}
+		b.StartTimer()
+		for j := 0; j < iter0; j++ {
+			wg.Add(1)
+			go func(l, h int) {
+				defer wg.Done()
+				for i := l; i < h; i++ {
+					M.Store(O(i), i)
+				}
+
+				for i := l; i < h; i++ {
+					_, x := M.Load(O(i))
+					if !x {
+						b.Errorf("not put: %v\n", O(i))
+					}
+				}
+				for i := l; i < h; i++ {
+					M.Delete(O(i))
+				}
+				for i := l; i < h; i++ {
+					_, x := M.Load(O(i))
+					if x {
+						b.Errorf("not deleted: %v\n", O(i))
+					}
+				}
+
+			}(j*elementNum0, (j+1)*elementNum0)
+		}
+		wg.Wait()
+		b.StopTimer()
+	}
+
+}
+
+func BenchmarkMutexMap_Case3(b *testing.B) {
+	b.StopTimer()
+	wg := &sync.WaitGroup{}
+	lc := sync.RWMutex{}
+	for a := 0; a < b.N; a++ {
+		M := make(map[O]int)
+		b.StartTimer()
+		for j := 0; j < iter0; j++ {
+			wg.Add(1)
+			go func(l, h int) {
+				defer wg.Done()
+				for i := l; i < h; i++ {
+					lc.Lock()
+					M[O(i)] = i
+					lc.Unlock()
+				}
+
+				for i := l; i < h; i++ {
+					lc.RLock()
+					_, x := M[O(i)]
+					lc.RUnlock()
+					if !x {
+						b.Errorf("not put: %v\n", O(i))
+					}
+				}
+				for i := l; i < h; i++ {
+					lc.Lock()
+					delete(M, O(i))
+					lc.Unlock()
+				}
+				for i := l; i < h; i++ {
+					lc.RLock()
+					_, x := M[O(i)]
+					lc.RUnlock()
+					if x {
+						b.Errorf("not deleted: %v\n", O(i))
+					}
+				}
+
+			}(j*elementNum0, (j+1)*elementNum0)
+		}
+		wg.Wait()
+		b.StopTimer()
+	}
+
 }

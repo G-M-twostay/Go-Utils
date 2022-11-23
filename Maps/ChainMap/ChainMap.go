@@ -9,8 +9,7 @@ import (
 )
 
 const ( //both inclusive
-	maxArrayLen  uint = math.MaxInt //so maxArrayLen+1 won't overflow
-	maxHashRange uint = math.MaxUint
+	maxArrayLen uint = math.MaxInt //so maxArrayLen+1 won't overflow
 )
 
 type ChainMap[K Maps.Hashable, V any] struct {
@@ -25,10 +24,9 @@ func MakeChainMap[K Maps.Hashable, V any](minBucketLen, maxBucketLen byte, maxHa
 	M := new(ChainMap[K, V])
 
 	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen
-	M.maxHash = (maxHashRange >> bits.LeadingZeros(maxHash)) & maxArrayLen
+	M.maxHash = (Maps.MaxUintHash >> bits.LeadingZeros(maxHash)) & maxArrayLen
 
-	b := []*node[K]{makeRelay[K](0, nil)}
-	M.buckets.Store(&b)
+	M.buckets.Store(&[]*node[K]{makeRelay[K](0, nil)})
 
 	return M
 }
