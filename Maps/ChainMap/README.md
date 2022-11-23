@@ -12,14 +12,23 @@ Here are the benchmarks I did to compare ChainMap to sync.Map and a normal map w
 3. This is a general case to mimic a concurrent environment where keys are inserted, read, and deleted.
 
 BenchmarkChainMap_Case1-16 1410 768560 ns/op 1045891 B/op 60988 allocs/op
+
 BenchmarkSyncMap_Case1-16 368 3172170 ns/op 1439990 B/op 40749 allocs/op
+
 BenchmarkMutexMap_Case1-16 332 3457266 ns/op 686377 B/op 293 allocs/op
+
 BenchmarkChainMap_Case2-16 7620 194309 ns/op 256552 B/op 32016 allocs/op
+
 BenchmarkSyncMap_Case2-16 1081 1128869 ns/op 258839 B/op 24084 allocs/op
+
 BenchmarkMutexMap_Case2-16 470 2657474 ns/op 659 B/op 16 allocs/op
+
 BenchmarkChainMap_Case3-16 1704 734508 ns/op 1062006 B/op 68149 allocs/op
+
 BenchmarkSyncMap_Case3-16 368 3253068 ns/op 1472779 B/op 40751 allocs/op
+
 BenchmarkMutexMap_Case3-16 195 5962092 ns/op 623006 B/op 306 allocs/op
+
 
 Observations:
 
