@@ -98,7 +98,7 @@ func (u *CSBTree[T, S]) Remove(v T) bool {
 	return u.remove(&u.root, v)
 }
 
-func (u CSBTree[T, S]) Has(v T) bool {
+func (u *CSBTree[T, S]) Has(v T) bool {
 	for cur := u.root; cur != u.nilPtr; {
 		if v.LessThan(cur.v) {
 			cur = cur.l
@@ -111,7 +111,7 @@ func (u CSBTree[T, S]) Has(v T) bool {
 	return false
 }
 
-func (u CSBTree[T, S]) Predecessor(v T) (T, bool) {
+func (u *CSBTree[T, S]) Predecessor(v T) (T, bool) {
 	cur, p := u.root, u.nilPtr
 	for cur != u.nilPtr {
 		if v.LessThan(cur.v) || v.Equals(cur.v) {
@@ -124,7 +124,7 @@ func (u CSBTree[T, S]) Predecessor(v T) (T, bool) {
 	return p.v, p != u.nilPtr
 }
 
-func (u CSBTree[T, S]) Successor(v T) (T, bool) {
+func (u *CSBTree[T, S]) Successor(v T) (T, bool) {
 	cur, p := u.root, u.nilPtr
 	for cur != u.nilPtr {
 		if v.LessThan(cur.v) {
@@ -137,7 +137,7 @@ func (u CSBTree[T, S]) Successor(v T) (T, bool) {
 	return p.v, p != u.nilPtr
 }
 
-func (u CSBTree[T, S]) RankOf(v T) uint {
+func (u *CSBTree[T, S]) RankOf(v T) uint {
 	cur := u.root
 	var ra S = 0
 	for cur != u.nilPtr {
@@ -153,7 +153,7 @@ func (u CSBTree[T, S]) RankOf(v T) uint {
 	return 0
 }
 
-func (u CSBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
+func (u *CSBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
 	if cur.l != u.nilPtr {
 		if !cur.l.v.LessThan(cur.v) || u.corrupt(cur.l) {
 			return true
@@ -167,6 +167,6 @@ func (u CSBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
 	return false
 }
 
-func (u CSBTree[T, S]) Corrupt() bool {
+func (u *CSBTree[T, S]) Corrupt() bool {
 	return u.corrupt(u.root)
 }

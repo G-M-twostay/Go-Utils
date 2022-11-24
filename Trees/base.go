@@ -151,7 +151,7 @@ func (u *base[T, S]) maintain(curPtr *nodePtr[T, S], rightBigger bool) {
 
 // Minimum [Tree.Minimum]
 // Time: O(D); Space: O(1)
-func (u base[T, S]) Minimum() (T, bool) {
+func (u *base[T, S]) Minimum() (T, bool) {
 	if cur := u.root; cur == u.nilPtr {
 		return cur.v, false
 	} else {
@@ -164,7 +164,7 @@ func (u base[T, S]) Minimum() (T, bool) {
 
 // Maximum [Tree.Maximum]
 // Time: O(D); Space: O(1)
-func (u base[T, S]) Maximum() (T, bool) {
+func (u *base[T, S]) Maximum() (T, bool) {
 	if cur := u.root; cur == u.nilPtr {
 		return cur.v, false
 	} else {
@@ -175,7 +175,7 @@ func (u base[T, S]) Maximum() (T, bool) {
 	}
 }
 
-func (u base[T, S]) avgDepth(cur nodePtr[T, S], h uint) uint {
+func (u *base[T, S]) avgDepth(cur nodePtr[T, S], h uint) uint {
 	a := h
 	if cur.l != u.nilPtr {
 		a += u.avgDepth(cur.l, h+1)
@@ -186,11 +186,11 @@ func (u base[T, S]) avgDepth(cur nodePtr[T, S], h uint) uint {
 	return a
 }
 
-func (u base[T, S]) AverageDepth() uint {
+func (u *base[T, S]) AverageDepth() uint {
 	return u.avgDepth(u.root, 0) / u.Size()
 }
 
-func (u base[T, S]) _Print(c nodePtr[T, S], d uint) {
+func (u *base[T, S]) _Print(c nodePtr[T, S], d uint) {
 	if c == u.nilPtr {
 		return
 	} else {
@@ -200,13 +200,13 @@ func (u base[T, S]) _Print(c nodePtr[T, S], d uint) {
 	}
 }
 
-func (u base[T, S]) Print() {
+func (u *base[T, S]) Print() {
 	u._Print(u.root, 0)
 }
 
 // InOrder [Tree.InOrder]
 // Time: f(): amortized O(1) at each call to the returned function. Space: O(1)
-func (u base[T, S]) InOrder() func() (T, bool) {
+func (u *base[T, S]) InOrder() func() (T, bool) {
 	cur := u.root
 	return func() (r T, has bool) {
 		if cur == u.nilPtr {
@@ -245,7 +245,7 @@ func (u base[T, S]) InOrder() func() (T, bool) {
 // This function utilizes the fact that base balances according to the
 // sizes of each subtree to provide O(D) performance with very small constant.
 // Time: O(D); Space: O(1)
-func (u base[T, S]) KLargest(k uint) (T, bool) {
+func (u *base[T, S]) KLargest(k uint) (T, bool) {
 	if cur, t := u.root, S(k); t <= cur.sz {
 		for cur != u.nilPtr {
 			if t < cur.l.sz+1 {

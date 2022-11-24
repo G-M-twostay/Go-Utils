@@ -136,7 +136,7 @@ func (u *SBTree[T, S]) Remove(v T) bool {
 
 // Has [Tree.Has]
 // Time: O(D); Space: O(1)
-func (u SBTree[T, S]) Has(v T) bool {
+func (u *SBTree[T, S]) Has(v T) bool {
 	for cur := u.root; cur != u.nilPtr; {
 		if v < cur.v {
 			cur = cur.l
@@ -151,7 +151,7 @@ func (u SBTree[T, S]) Has(v T) bool {
 
 // Predecessor [Tree.Predecessor]
 // Time: O(D); Space: O(1)
-func (u SBTree[T, S]) Predecessor(v T) (T, bool) {
+func (u *SBTree[T, S]) Predecessor(v T) (T, bool) {
 	cur, p := u.root, u.nilPtr
 	for cur != u.nilPtr {
 		if v <= cur.v {
@@ -166,7 +166,7 @@ func (u SBTree[T, S]) Predecessor(v T) (T, bool) {
 
 // Successor [Tree.Successor]
 // Time: O(D); Space: O(1)
-func (u SBTree[T, S]) Successor(v T) (T, bool) {
+func (u *SBTree[T, S]) Successor(v T) (T, bool) {
 	cur, p := u.root, u.nilPtr
 	for cur != u.nilPtr {
 		if v < cur.v {
@@ -183,7 +183,7 @@ func (u SBTree[T, S]) Successor(v T) (T, bool) {
 // This function utilizes the fact that SBTree balances according to the
 // sizes of each subtree to provide O(D) performance with very small constant.
 // Time: O(D); Space: O(1)
-func (u SBTree[T, S]) RankOf(v T) uint {
+func (u *SBTree[T, S]) RankOf(v T) uint {
 	cur := u.root
 	var ra S = 0
 	for cur != u.nilPtr {
@@ -199,7 +199,7 @@ func (u SBTree[T, S]) RankOf(v T) uint {
 	return 0
 }
 
-func (u SBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
+func (u *SBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
 	if cur.l != u.nilPtr {
 		if cur.l.v >= cur.v || u.corrupt(cur.l) {
 			return true
@@ -213,6 +213,6 @@ func (u SBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
 	return false
 }
 
-func (u SBTree[T, S]) Corrupt() bool {
+func (u *SBTree[T, S]) Corrupt() bool {
 	return u.corrupt(u.root)
 }
