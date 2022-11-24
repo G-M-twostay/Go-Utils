@@ -42,8 +42,7 @@ type Tree[T any] interface {
 	//if some value exists, as Has should be optimized for this purpose
 	//in implementations.
 	Has(v T) bool
-	MaxDepth() uint
-	MinDepth() uint
+	AverageDepth() uint
 	//Size of the tree.
 	Size() uint
 	//InOrder returns A closure function f acting like an iterator. f
