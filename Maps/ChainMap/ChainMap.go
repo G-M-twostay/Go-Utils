@@ -141,7 +141,7 @@ func (u *ChainMap[K, V]) LoadOrStore(key K, val V) (V, bool) {
 func (u *ChainMap[K, V]) LoadAndDelete(key K) (val V, loaded bool) {
 	hash := u.rehash(key)
 	if _, _, _, r, f := u.findHash(hash).searchKey(key, hash); f {
-		loaded = !r.delete()
+		loaded = r.delete()
 		if loaded {
 			u.size.Add(^uint64(1 - 1))
 			u.tryMerge()
