@@ -2,14 +2,9 @@ package ChainMap
 
 import (
 	"GMUtils/Maps"
-	"math"
 	"math/bits"
 	"sync/atomic"
 	"unsafe"
-)
-
-const ( //both inclusive
-	maxArrayLen uint = math.MaxInt //so maxArrayLen+1 won't overflow
 )
 
 type ChainMap[K Maps.Hashable, V any] struct {
@@ -24,7 +19,7 @@ func MakeChainMap[K Maps.Hashable, V any](minBucketLen, maxBucketLen byte, maxHa
 	M := new(ChainMap[K, V])
 
 	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen
-	M.maxHash = (Maps.MaxUintHash >> bits.LeadingZeros(maxHash)) & maxArrayLen
+	M.maxHash = (Maps.MaxUintHash >> bits.LeadingZeros(maxHash)) & Maps.MaxArrayLen
 
 	M.buckets.Store(&[]*node[K]{makeRelay[K](0, nil)})
 
@@ -32,7 +27,7 @@ func MakeChainMap[K Maps.Hashable, V any](minBucketLen, maxBucketLen byte, maxHa
 }
 
 func (u *ChainMap[K, V]) rehash(k K) uint {
-	return k.Hash() & maxArrayLen
+	return k.Hash() & Maps.MaxArrayLen
 }
 
 // chunk=n

@@ -3,8 +3,9 @@ package Maps
 import "math"
 
 const (
-	MaxUintHash = math.MaxUint
-	MinUintHash = 0
+	MaxUintHash      = math.MaxUint
+	MinUintHash      = 0
+	MaxArrayLen uint = math.MaxInt
 )
 
 type Hashable interface {
