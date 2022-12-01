@@ -93,7 +93,7 @@ func (u *SpinMap[K, V]) findHash(hash uint) *node[K] {
 func (u *SpinMap[K, V]) Store(key K, val V) {
 	for hash, vPtr := u.rehash(key), unsafe.Pointer(&val); ; {
 		if l, r, f := u.findHash(hash).searchKeyAndAcquire(key, hash); f {
-			l.release()
+			l.Unlock()
 			r.set(vPtr)
 			return
 		} else if l.addAndRelease(makeNode[K](key, hash, vPtr)) {
