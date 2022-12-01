@@ -45,12 +45,12 @@ func (u *SpinMap[K, V]) trySplit() {
 
 				newBuckets[i<<1] = v
 				newRelay := new(node[K])
-				newRelay.hash = (u.maxHash/ul+1)*uint(i) + u.maxHash/(ul<<1)
+				newRelay.pinfo = (u.maxHash/ul+1)*uint(i) + u.maxHash/(ul<<1)
 				newBuckets[(i<<1)+1] = newRelay
 
 				for {
-					l, _ := v.searchHashAndAcquire(newRelay.hash)
-					if l.addAndRelease(newRelay) {
+					l, _ := v.searchHashAndAcquire(newRelay.hash())
+					if l.addAndUnlock(newRelay) {
 						break
 					}
 				}
@@ -96,7 +96,7 @@ func (u *SpinMap[K, V]) Store(key K, val V) {
 			l.Unlock()
 			r.set(vPtr)
 			return
-		} else if l.addAndRelease(makeNode[K](key, hash, vPtr)) {
+		} else if l.addAndUnlock(makeNode[K](key, hash, vPtr)) {
 			u.size.Add(1)
 			u.trySplit()
 			return
