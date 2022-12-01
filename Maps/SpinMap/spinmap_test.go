@@ -10,8 +10,8 @@ import (
 const (
 	blockSize   = 64
 	blockNum    = 64
-	iter0       = 1 << 4
-	elementNum0 = 1 << 13
+	iter0       = 1 << 3
+	elementNum0 = 1 << 10
 )
 
 type O int
@@ -90,7 +90,7 @@ func TestChainMap_All(t *testing.T) {
 func BenchmarkSpinMap_Case1(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < b.N; i++ {
 		M := MakeSpinMap[O, int](0, 2, elementNum0*iter0-1)
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
@@ -120,7 +120,7 @@ func BenchmarkSpinMap_Case1(b *testing.B) {
 func BenchmarkChainMap_Case1(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < b.N; i++ {
 		M := ChainMap.MakeChainMap[O, int](0, 2, elementNum0*iter0-1)
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
@@ -151,7 +151,7 @@ func BenchmarkSpinMap_Case2(b *testing.B) {
 	//runtime.GC()
 	b.StopTimer()
 	wg := sync.WaitGroup{}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < b.N; i++ {
 		M := MakeSpinMap[O, int](0, 2, elementNum0*iter0-1)
 		for j := 0; j < elementNum0*iter0; j++ {
 			M.Store(O(j), j)
@@ -185,7 +185,7 @@ func BenchmarkSpinMap_Case2(b *testing.B) {
 func BenchmarkChainMap_Case2(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < b.N; i++ {
 		M := ChainMap.MakeChainMap[O, int](0, 2, elementNum0*iter0-1)
 		for j := 0; j < elementNum0*iter0; j++ {
 			M.Store(O(j), j)
@@ -220,7 +220,7 @@ func BenchmarkSpinMap_Case3(b *testing.B) {
 	//runtime.GC()
 	b.StopTimer()
 	wg := &sync.WaitGroup{}
-	for a := 0; a < 10; a++ {
+	for a := 0; a < b.N; a++ {
 		M := MakeSpinMap[O, int](2, 8, iter0*elementNum0-1)
 		b.StartTimer()
 		for j := 0; j < iter0; j++ {
@@ -256,7 +256,7 @@ func BenchmarkSpinMap_Case3(b *testing.B) {
 func BenchmarkChainMap_Case3(b *testing.B) {
 	b.StopTimer()
 	wg := &sync.WaitGroup{}
-	for a := 0; a < 10; a++ {
+	for a := 0; a < b.N; a++ {
 		M := ChainMap.MakeChainMap[O, int](2, 8, iter0*elementNum0-1)
 		b.StartTimer()
 		for j := 0; j < iter0; j++ {

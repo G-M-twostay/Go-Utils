@@ -96,7 +96,7 @@ func (u *SpinMap[K, V]) Store(key K, val V) {
 			l.release()
 			r.set(vPtr)
 			return
-		} else if l.addAndRelease(&node[K]{key, hash, vPtr, nil, 0}) {
+		} else if l.addAndRelease(makeNode[K](key, hash, vPtr)) {
 			u.size.Add(1)
 			u.trySplit()
 			return
