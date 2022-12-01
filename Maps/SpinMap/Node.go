@@ -19,9 +19,7 @@ type node[K Maps.Hashable] struct {
 	hash uint
 	v    unsafe.Pointer
 	nx   *node[K]
-	//info uint32 //1 bit: updating; 2 bit: delete
-	updating atomic.Bool
-	del      bool
+	info uint32 //1 bit: updating; 2 bit: delete
 }
 
 func makeNode[K Maps.Hashable](k K, hash uint, v unsafe.Pointer) *node[K] {
@@ -31,41 +29,29 @@ func makeNode[K Maps.Hashable](k K, hash uint, v unsafe.Pointer) *node[K] {
 }
 
 func (cur *node[K]) acquire() {
-	//for infoPtr := &cur.info; ; {
-	//	curInfo := atomic.LoadUint32(infoPtr)
-	//	if atomic.CompareAndSwapUint32(infoPtr, curInfo&free, curInfo|locked) {
-	//		break
-	//	}
-	//}
-	for !cur.updating.CompareAndSwap(false, true) {
-		runtime.Gosched()
+	for infoPtr := &cur.info; ; {
+		if curInfo := atomic.LoadUint32(infoPtr); atomic.CompareAndSwapUint32(infoPtr, curInfo&free, curInfo|locked) {
+			break
+		} else {
+			runtime.Gosched()
+		}
 	}
 }
 
 func (cur *node[K]) release() {
-	//if info := atomic.LoadUint32(&cur.info); info&locked == locked {
-	//	atomic.StoreUint32(&cur.info, info&free)
-	//} else {
+	//if atomic.SwapUint32(&cur.info, cur.info&free)&locked != locked {
 	//	panic("not locked, can't release")
 	//}
-	if !cur.updating.Swap(false) {
-		panic("not locked, can't release")
-	}
+	atomic.StoreUint32(&cur.info, cur.info&free)
 }
 
 func (cur *node[K]) safeDelete() bool {
 	cur.acquire()
 	defer cur.release()
-	//if info := atomic.LoadUint32(&cur.info); info&del == del {
-	//	return false
-	//} else {
-	//	atomic.StoreUint32(&cur.info, info|del)
-	//	return true
-	//}
-	if cur.del {
+	if cur.info&del == del {
 		return false
 	} else {
-		cur.del = true
+		atomic.StoreUint32(&cur.info, cur.info|del)
 		return true
 	}
 }
@@ -78,14 +64,14 @@ func (cur *node[K]) safeNext() *node[K] {
 
 func (cur *node[K]) dangerNext() *node[K] {
 	for {
-		if oldNx := cur.nx; oldNx != nil {
-			oldNx.acquire()
-			if oldNx.del {
-				cur.nx = oldNx.nx
-				oldNx.release()
+		if nx := cur.nx; nx != nil {
+			nx.acquire()
+			if nx.info&del == del {
+				cur.nx = nx.nx
+				nx.release()
 			} else {
-				oldNx.release()
-				return oldNx
+				nx.release()
+				return nx
 			}
 		} else {
 			return nil
@@ -96,7 +82,7 @@ func (cur *node[K]) dangerNext() *node[K] {
 // release cur
 func (cur *node[K]) addAndRelease(newNx *node[K]) bool {
 	defer cur.release()
-	if !cur.del {
+	if cur.info&del != del {
 		newNx.nx = cur.nx
 		cur.nx = newNx
 		return true
@@ -173,5 +159,5 @@ func (cur *node[K]) set(v unsafe.Pointer) {
 }
 
 func (u *node[K]) String() string {
-	return fmt.Sprintf("key: %#v; val: %#v; hash: %d; info: %t", u.k, u.get(), u.hash, u.del)
+	return fmt.Sprintf("key: %#v; val: %#v; hash: %d; info: %t", u.k, u.get(), u.hash, u.info&del == del)
 }
