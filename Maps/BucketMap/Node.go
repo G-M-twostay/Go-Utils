@@ -8,6 +8,12 @@ import (
 	"unsafe"
 )
 
+const(
+	noLock=iota
+	rLock
+	wLock
+)
+
 var noOpLock sync.Locker = NoLock{}
 
 type NoLock struct{}
@@ -34,8 +40,13 @@ func (cur *node[K]) Next() unsafe.Pointer {
 	return atomic.LoadPointer(&cur.nx)
 }
 
-func (cur *node[K]) tryLink(oldRight, newRight unsafe.Pointer) bool {
+func (cur *node[K]) tryLazyLink(oldRight, newRight unsafe.Pointer) bool {
 	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, newRight)
+}
+
+func (cur *node[K]) tryLink(oldRight unsafe.Pointer, newRight *node[K], newRightPtr unsafe.Pointer) bool {
+	newRight.nx = oldRight
+	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, newRightPtr)
 }
 
 func (cur *node[K]) dangerUnlinkNext(next *node[K], nextPtr unsafe.Pointer) {
@@ -46,8 +57,13 @@ func (cur *node[K]) isRelay() bool {
 	return cur.RWMutex != nil
 }
 
-func (cur *node[K]) searchHash(at uint) (*node[K], *node[K], unsafe.Pointer) {
+func (cur *node[K]) searchHash(at uint,acquire bool) (*node[K], *node[K], unsafe.Pointer, sync.Locker) {
+	prevLock:=noOpLock
 	for left := cur; ; {
+		if acquire&&left.isRelay(){
+			prevLock.Unlock()
+			prevLock=
+		}
 		if rightPtr := left.Next(); rightPtr == nil {
 			return left, nil, nil
 		} else if right := (*node[K])(rightPtr); at <= right.hash {

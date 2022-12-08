@@ -58,7 +58,7 @@ func (b bucket[K]) setOrAdd(k K, at uint, v unsafe.Pointer) bool {
 		if f {
 			r.set(v)
 			return false
-		} else if l.tryLink(rp, unsafe.Pointer(&node[K]{k, at, v, rp})) {
+		} else if l.tryLazyLink(rp, unsafe.Pointer(&node[K]{k, at, v, rp})) {
 			return true
 		}
 	}
@@ -74,7 +74,7 @@ func (b bucket[K]) getOrAdd(k K, at uint, v unsafe.Pointer) unsafe.Pointer {
 		l, r, rp, f = l.searchKey(k, at)
 		if f {
 			return r.get()
-		} else if l.tryLink(rp, unsafe.Pointer(&node[K]{k, at, v, rp})) {
+		} else if l.tryLazyLink(rp, unsafe.Pointer(&node[K]{k, at, v, rp})) {
 			return nil
 		}
 	}
@@ -88,7 +88,7 @@ func (b bucket[K]) addNode(newRelay *node[K]) {
 	for {
 		l, _, rp = l.searchHash(newRelay.hash)
 		newRelay.nx = rp
-		if l.tryLink(rp, unsafe.Pointer(newRelay)) {
+		if l.tryLazyLink(rp, unsafe.Pointer(newRelay)) {
 			break
 		}
 	}

@@ -56,9 +56,18 @@ func (u *BucketMap[K, V]) trySplit() {
 						prevLock.Lock()
 					}
 					if rightPtr := left.Next(); rightPtr == nil {
-						left.tryLink(rightPtr, unsafe.Pointer(newRelay))
+						if left.tryLink(rightPtr, newRelay, unsafe.Pointer(newRelay)) {
+							break
+						}
+					} else if right := (*node[K])(rightPtr); newRelay.hash <= right.hash {
+						if left.tryLink(rightPtr, newRelay, unsafe.Pointer(newRelay)) {
+							break
+						}
+					} else {
+						left = right
 					}
 				}
+				prevLock.Unlock()
 			}
 
 			u.buckets.Store(&newBuckets)
