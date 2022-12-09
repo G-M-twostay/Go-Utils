@@ -8,8 +8,10 @@ import (
 	"unsafe"
 )
 
-const(
-	noLock=iota
+type lockLevel uint8
+
+const (
+	noLock lockLevel = iota
 	rLock
 	wLock
 )
@@ -44,34 +46,17 @@ func (cur *node[K]) tryLazyLink(oldRight, newRight unsafe.Pointer) bool {
 	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, newRight)
 }
 
-func (cur *node[K]) tryLink(oldRight unsafe.Pointer, newRight *node[K], newRightPtr unsafe.Pointer) bool {
+func (cur *node[K]) tryLink(oldRight unsafe.Pointer, newRight *node[K]) bool {
 	newRight.nx = oldRight
-	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, newRightPtr)
+	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, unsafe.Pointer(newRight))
 }
 
 func (cur *node[K]) dangerUnlinkNext(next *node[K], nextPtr unsafe.Pointer) {
-	atomic.StorePointer(&cur.nx, next.nx)
+	atomic.StorePointer(&cur.nx, next.Next())
 }
 
 func (cur *node[K]) isRelay() bool {
 	return cur.RWMutex != nil
-}
-
-func (cur *node[K]) searchHash(at uint,acquire bool) (*node[K], *node[K], unsafe.Pointer, sync.Locker) {
-	prevLock:=noOpLock
-	for left := cur; ; {
-		if acquire&&left.isRelay(){
-			prevLock.Unlock()
-			prevLock=
-		}
-		if rightPtr := left.Next(); rightPtr == nil {
-			return left, nil, nil
-		} else if right := (*node[K])(rightPtr); at <= right.hash {
-			return left, right, rightPtr
-		} else {
-			left = right
-		}
-	}
 }
 
 func (cur *node[K]) searchKey(k K, at uint) (*node[K], *node[K], unsafe.Pointer, bool) {
@@ -88,6 +73,32 @@ func (cur *node[K]) searchKey(k K, at uint) (*node[K], *node[K], unsafe.Pointer,
 			left = right
 		} else {
 			return left, right, rightPtr, false
+		}
+	}
+}
+
+func (cur *node[K]) searchKeyW(k K, at uint) (*node[K], *node[K], unsafe.Pointer, bool, sync.Locker) {
+	prevLock := noOpLock
+	for left := cur; ; {
+
+		if left.isRelay() {
+			prevLock.Unlock()
+			prevLock = left
+			prevLock.Lock()
+		}
+
+		if rightPtr := left.Next(); rightPtr == nil {
+			return left, nil, nil, false, prevLock
+		} else if right := (*node[K])(rightPtr); at == right.hash {
+			if k.Equal(right.k) && !right.isRelay() {
+				return left, right, rightPtr, true, prevLock
+			} else {
+				left = right
+			}
+		} else if at > right.hash {
+			left = right
+		} else {
+			return left, right, rightPtr, false, prevLock
 		}
 	}
 }

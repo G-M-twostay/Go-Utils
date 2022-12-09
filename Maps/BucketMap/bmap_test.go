@@ -24,8 +24,8 @@ func (u O) Hash() uint {
 	return uint(u)
 }
 
-func TestChainMap_All(t *testing.T) {
-	M := MakeBucketMap[O, int](1, 4, blockNum*blockSize-1)
+func TestBucketMap_All(t *testing.T) {
+	M := MakeBucketMap[O, int](1, 1, blockNum*blockSize-1)
 	wg := &sync.WaitGroup{}
 	wg.Add(blockNum)
 	for j := 0; j < blockNum; j++ {
@@ -38,7 +38,7 @@ func TestChainMap_All(t *testing.T) {
 			for i := l; i < h; i++ {
 				if !M.HasKey(O(i)) {
 					t.Errorf("not put: %v\n", O(i))
-					//return
+					return
 				}
 			}
 			for i := l; i < h; i++ {
@@ -55,7 +55,7 @@ func TestChainMap_All(t *testing.T) {
 		}(j*blockSize, (j+1)*blockSize)
 	}
 	wg.Wait()
-	for cur := (*M.buckets.Load())[0].node; cur != nil; cur = (*node[O])(cur.nx) {
+	for cur := (*M.buckets.Load())[0]; cur != nil; cur = (*node[O])(cur.nx) {
 		if !cur.isRelay() {
 			t.Log("have", M.HasKey(cur.k))
 		}
@@ -80,12 +80,14 @@ func TestChainMap_All(t *testing.T) {
 	//M.Store(O(0), 1)
 	//M.Store(O(1), 2)
 	//M.Store(O(2), 3)
+	//t.Log("added")
 	//M.Delete(O(0))
+	//t.Log("delted 0")
 	//M.Delete(O(1))
 	//t.Log("removed 0 and 1")
 	//M.Delete(O(2))
 	//t.Log("removed 0 and 1 and 2")
-	//for cur := M.bucketsPtr[0]; cur != nil; cur = (*state[O])(cur.s).nx {
+	//for cur := (*M.buckets.Load())[0]; cur != nil; cur = (*node[O])(cur.nx) {
 	//	t.Log(cur.String(), "\n")
 	//}
 	//M.Load(O(0))
