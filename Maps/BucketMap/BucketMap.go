@@ -9,7 +9,7 @@ import (
 
 type BucketMap[K Maps.Hashable, V any] struct {
 	minAvgLen, maxAvgLen byte
-	resizing             atomic.Bool
+	resizing             atomic.Uint32
 	maxHash              uint
 	size                 atomic.Uint64
 	buckets              atomic.Pointer[[]*node[K]]
@@ -35,7 +35,7 @@ func (u *BucketMap[K, V]) Size() uint {
 }
 
 func (u *BucketMap[K, V]) trySplit() {
-	if u.resizing.CompareAndSwap(false, true) {
+	if u.resizing.CompareAndSwap(0, 1) {
 		s := *u.buckets.Load()
 		if ul := uint(len(s)); u.Size()/ul > uint(u.maxAvgLen) {
 
@@ -68,12 +68,12 @@ func (u *BucketMap[K, V]) trySplit() {
 			u.buckets.Store(&newBuckets)
 
 		}
-		u.resizing.Store(false)
+		u.resizing.Store(0)
 	}
 }
 
 func (u *BucketMap[K, V]) tryMerge() {
-	if u.resizing.CompareAndSwap(false, true) {
+	if u.resizing.CompareAndSwap(0, 1) {
 		s := *u.buckets.Load()
 		if ul := uint(len(s)); u.Size()/ul < uint(u.minAvgLen) && ul > 1 {
 
@@ -86,19 +86,21 @@ func (u *BucketMap[K, V]) tryMerge() {
 			u.buckets.Store(&newBuckets)
 
 			for i := uint(0); i < ul; i += 2 {
-				s[i].Lock()
+				s[i].RLock()
 				for left := s[i]; ; {
-					if right := (*node[K])(left.Next()); right == s[i+1] {
-						left.dangerUnlinkNext(right)
-						break
+					rightPtr := left.Next()
+					if right := (*node[K])(rightPtr); right == s[i+1] {
+						if left.unlinkRelay(right, rightPtr) {
+							break
+						}
 					} else {
 						left = right
 					}
 				}
-				s[i].Unlock()
+				s[i].RUnlock()
 			}
 		}
-		u.resizing.Store(false)
+		u.resizing.Store(0)
 	}
 }
 
@@ -186,7 +188,7 @@ func (u *BucketMap[K, V]) LoadAndDelete(key K) (V, bool) {
 			return *new(V), false
 		} else if right := (*node[K])(rightPtr); hash == right.hash {
 			if key.Equal(right.k) && !right.isRelay() {
-				left.dangerUnlinkNext(right)
+				left.dangerUnlink(right)
 				prevLock.Unlock()
 				u.size.Add(^uint64(1 - 1))
 				u.tryMerge()
