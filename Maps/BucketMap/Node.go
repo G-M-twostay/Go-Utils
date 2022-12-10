@@ -62,9 +62,7 @@ func (cur *node[K]) tryLink(oldRight unsafe.Pointer, newRight *node[K]) bool {
 func (cur *node[K]) unlinkRelay(next *node[K], nextPtr unsafe.Pointer) bool {
 	next.Lock()
 	defer next.Unlock()
-	if atomic.CompareAndSwapPointer(&cur.nx, nextPtr, next.Next()) {
-		next.del = true
-	}
+	next.del = atomic.CompareAndSwapPointer(&cur.nx, nextPtr, next.Next())
 	return next.del
 }
 
