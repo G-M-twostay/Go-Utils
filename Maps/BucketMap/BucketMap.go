@@ -88,10 +88,8 @@ func (u *BucketMap[K, V]) tryMerge() {
 			for i := uint(0); i < ul; i += 2 {
 				s[i].Lock()
 				for left := s[i]; ; {
-					if rightPtr := left.Next(); rightPtr == nil {
-						panic("unexpected")
-					} else if right := (*node[K])(rightPtr); right == s[i+1] {
-						left.dangerUnlinkNext(right, rightPtr)
+					if right := (*node[K])(left.Next()); right == s[i+1] {
+						left.dangerUnlinkNext(right)
 						break
 					} else {
 						left = right
@@ -111,23 +109,29 @@ func (u *BucketMap[K, V]) findHash(hash uint) *node[K] {
 
 func (u *BucketMap[K, V]) Store(key K, val V) {
 	hash, vPtr := u.rehash(key), unsafe.Pointer(&val)
-	prevLock := noOpLock
+	var prevLock *relayLock = nil
 	for left := u.findHash(hash); ; {
 		if left.isRelay() {
-			prevLock.Unlock()
-			prevLock = left.RLocker()
-			prevLock.Lock()
+			if prevLock != nil {
+				prevLock.RUnlock()
+			}
+			prevLock = left.relayLock
+			if !prevLock.safeRLock() {
+				prevLock = nil
+				left = u.findHash(hash)
+				continue
+			}
 		}
 		if rightPtr := left.Next(); rightPtr == nil {
 			if left.tryLazyLink(nil, unsafe.Pointer(&node[K]{key, hash, vPtr, nil, nil})) {
-				prevLock.Unlock()
+				prevLock.RUnlock()
 				u.size.Add(1)
 				u.trySplit()
 				return
 			}
 		} else if right := (*node[K])(rightPtr); hash == right.hash {
 			if key.Equal(right.k) && !right.isRelay() {
-				prevLock.Unlock()
+				prevLock.RUnlock()
 				right.set(vPtr)
 				return
 			} else {
@@ -137,7 +141,7 @@ func (u *BucketMap[K, V]) Store(key K, val V) {
 			left = right
 		} else {
 			if left.tryLazyLink(rightPtr, unsafe.Pointer(&node[K]{key, hash, vPtr, rightPtr, nil})) {
-				prevLock.Unlock()
+				prevLock.RUnlock()
 				u.size.Add(1)
 				u.trySplit()
 				return
@@ -164,19 +168,25 @@ func (u *BucketMap[K, V]) HasKey(key K) bool {
 
 func (u *BucketMap[K, V]) LoadAndDelete(key K) (V, bool) {
 	hash := u.rehash(key)
-	prevLock := noOpLock
+	var prevLock *relayLock = nil
 	for left := u.findHash(hash); ; {
 		if left.isRelay() {
-			prevLock.Unlock()
-			prevLock = left
-			prevLock.Lock()
+			if prevLock != nil {
+				prevLock.Unlock()
+			}
+			prevLock = left.relayLock
+			if !prevLock.safeLock() {
+				prevLock = nil
+				left = u.findHash(hash)
+				continue
+			}
 		}
 		if rightPtr := left.Next(); rightPtr == nil {
 			prevLock.Unlock()
 			return *new(V), false
 		} else if right := (*node[K])(rightPtr); hash == right.hash {
 			if key.Equal(right.k) && !right.isRelay() {
-				left.dangerUnlinkNext(right, rightPtr)
+				left.dangerUnlinkNext(right)
 				prevLock.Unlock()
 				u.size.Add(^uint64(1 - 1))
 				u.tryMerge()
