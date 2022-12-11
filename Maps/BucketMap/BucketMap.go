@@ -8,11 +8,11 @@ import (
 )
 
 type BucketMap[K Maps.Hashable, V any] struct {
-	minAvgLen, maxAvgLen byte
-	resizing             atomic.Uint32
-	maxHash              uint
-	size                 atomic.Uint64
 	buckets              atomic.Pointer[[]*node[K]]
+	size                 atomic.Uint64
+	maxHash              uint
+	resizing             atomic.Uint32
+	minAvgLen, maxAvgLen byte
 }
 
 func MakeBucketMap[K Maps.Hashable, V any](minBucketLen, maxBucketLen byte, maxHash uint) *BucketMap[K, V] {
@@ -152,6 +152,54 @@ func (u *BucketMap[K, V]) Store(key K, val V) {
 	}
 }
 
+func (u *BucketMap[K, V]) LoadOrStore(key K, val V) (v V, loaded bool) {
+	hash, vPtr := u.rehash(key), unsafe.Pointer(&val)
+	var prevLock *relayLock = nil
+	for left := u.findHash(hash); ; {
+		if left.isRelay() {
+			if prevLock != nil {
+				prevLock.RUnlock()
+			}
+			prevLock = left.relayLock
+			if !prevLock.safeRLock() {
+				prevLock = nil
+				left = u.findHash(hash)
+				continue
+			}
+		}
+		if rightPtr := left.Next(); rightPtr == nil {
+			if left.tryLazyLink(nil, unsafe.Pointer(&node[K]{key, hash, vPtr, nil, nil})) {
+				prevLock.RUnlock()
+				u.size.Add(1)
+				u.trySplit()
+				return
+			}
+		} else if right := (*node[K])(rightPtr); hash == right.hash {
+			if key.Equal(right.k) && !right.isRelay() {
+				prevLock.RUnlock()
+				return *(*V)(right.get()), true
+			} else {
+				left = right
+			}
+		} else if hash > right.hash {
+			left = right
+		} else {
+			if left.tryLazyLink(rightPtr, unsafe.Pointer(&node[K]{key, hash, vPtr, rightPtr, nil})) {
+				prevLock.RUnlock()
+				u.size.Add(1)
+				u.trySplit()
+				return
+			}
+		}
+	}
+}
+
+func (u *BucketMap[K, V]) LoadPtr(key K) *V {
+	hash := u.rehash(key)
+	_, r, _, _ := u.findHash(hash).searchKey(key, hash)
+	return (*V)(r.get())
+}
+
 func (u *BucketMap[K, V]) Load(key K) (V, bool) {
 	hash := u.rehash(key)
 	_, r, _, f := u.findHash(hash).searchKey(key, hash)
@@ -168,7 +216,7 @@ func (u *BucketMap[K, V]) HasKey(key K) bool {
 	return f
 }
 
-func (u *BucketMap[K, V]) LoadAndDelete(key K) (V, bool) {
+func (u *BucketMap[K, V]) LoadAndDelete(key K) (v V, loaded bool) {
 	hash := u.rehash(key)
 	var prevLock *relayLock = nil
 	for left := u.findHash(hash); ; {
@@ -183,9 +231,9 @@ func (u *BucketMap[K, V]) LoadAndDelete(key K) (V, bool) {
 				continue
 			}
 		}
-		if rightPtr := left.Next(); rightPtr == nil {
+		if rightPtr := left.nx; rightPtr == nil {
 			prevLock.Unlock()
-			return *new(V), false
+			return
 		} else if right := (*node[K])(rightPtr); hash == right.hash {
 			if key.Equal(right.k) && !right.isRelay() {
 				left.dangerUnlink(right)
@@ -200,11 +248,29 @@ func (u *BucketMap[K, V]) LoadAndDelete(key K) (V, bool) {
 			left = right
 		} else {
 			prevLock.Unlock()
-			return *new(V), false
+			return
 		}
 	}
 }
 
 func (u *BucketMap[K, V]) Delete(key K) {
 	u.LoadAndDelete(key)
+}
+
+func (u *BucketMap[K, V]) Range(f func(K, V) bool) {
+	for cur := u.findHash(0); cur != nil; cur = (*node[K])(cur.Next()) {
+		if !cur.isRelay() {
+			if !f(cur.k, *(*V)(cur.get())) {
+				break
+			}
+		}
+	}
+}
+
+func (u *BucketMap[K, V]) Take() (key K, val V) {
+	if firstPtr := u.findHash(0).Next(); firstPtr != nil {
+		first := (*node[K])(firstPtr)
+		key, val = first.k, *(*V)(first.get())
+	}
+	return
 }
