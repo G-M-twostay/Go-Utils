@@ -119,7 +119,6 @@ func (u *BucketMap[K, V]) Store(key K, val V) {
 			}
 			prevLock = left.relayLock
 			if !prevLock.safeRLock() {
-				prevLock = nil
 				left = u.findHash(hash)
 				continue
 			}
@@ -162,7 +161,6 @@ func (u *BucketMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
 			}
 			prevLock = left.relayLock
 			if !prevLock.safeRLock() {
-				prevLock = nil
 				left = u.findHash(hash)
 				continue
 			}
@@ -234,7 +232,6 @@ func (u *BucketMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 			}
 			prevLock = left.relayLock
 			if !prevLock.safeLock() {
-				prevLock = nil
 				left = u.findHash(hash)
 				continue
 			}

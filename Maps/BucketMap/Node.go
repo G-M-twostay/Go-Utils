@@ -15,20 +15,12 @@ type relayLock struct {
 
 func (l *relayLock) safeLock() bool {
 	l.Lock()
-	if l.del {
-		l.Unlock()
-		return false
-	}
-	return true
+	return !l.del
 }
 
 func (l *relayLock) safeRLock() bool {
 	l.RLock()
-	if l.del {
-		l.RUnlock()
-		return false
-	}
-	return true
+	return !l.del
 }
 
 type node[K Maps.Hashable] struct {
