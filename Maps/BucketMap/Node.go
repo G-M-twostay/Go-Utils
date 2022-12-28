@@ -46,9 +46,9 @@ func (cur *node[K]) tryLazyLink(oldRight, newRight unsafe.Pointer) bool {
 	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, newRight)
 }
 
-func (cur *node[K]) tryLink(oldRight unsafe.Pointer, newRight *node[K]) bool {
+func (cur *node[K]) tryLink(oldRight unsafe.Pointer, newRight *node[K], newRightPtr unsafe.Pointer) bool {
 	newRight.nx = oldRight
-	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, unsafe.Pointer(newRight))
+	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, newRightPtr)
 }
 
 func (cur *node[K]) unlinkRelay(next *node[K], nextPtr unsafe.Pointer) bool {
@@ -66,20 +66,20 @@ func (cur *node[K]) isRelay() bool {
 	return cur.relayLock != nil
 }
 
-func (cur *node[K]) searchKey(k K, at uint) (*node[K], *node[K], unsafe.Pointer, bool) {
+func (cur *node[K]) searchKey(k K, at uint) (*node[K], *node[K], bool) {
 	for left := cur; ; {
 		if rightPtr := left.Next(); rightPtr == nil {
-			return left, nil, nil, false
+			return left, nil, false
 		} else if right := (*node[K])(rightPtr); at == right.hash {
 			if k.Equal(right.k) && !right.isRelay() {
-				return left, right, rightPtr, true
+				return left, right, true
 			} else {
 				left = right
 			}
 		} else if at > right.hash {
 			left = right
 		} else {
-			return left, right, rightPtr, false
+			return left, right, false
 		}
 	}
 }

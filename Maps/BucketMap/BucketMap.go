@@ -49,13 +49,13 @@ func (u *BucketMap[K, V]) trySplit() {
 				newBuckets[(i<<1)+1] = newRelay
 
 				v.RLock()
-				for left := v; ; {
+				for left, newRelayPtr := v, unsafe.Pointer(newRelay); ; {
 					if rightPtr := left.Next(); rightPtr == nil {
-						if left.tryLink(nil, newRelay) {
+						if left.tryLink(nil, newRelay, newRelayPtr) {
 							break
 						}
 					} else if right := (*node[K])(rightPtr); newRelay.hash <= right.hash {
-						if left.tryLink(rightPtr, newRelay) {
+						if left.tryLink(rightPtr, newRelay, newRelayPtr) {
 							break
 						}
 					} else {
@@ -202,13 +202,13 @@ func (u *BucketMap[K, V]) LoadOrStore(key K, val V) (v V, loaded bool) {
 
 func (u *BucketMap[K, V]) LoadPtr(key K) *V {
 	hash := u.rehash(key)
-	_, r, _, _ := u.findHash(hash).searchKey(key, hash)
+	_, r, _ := u.findHash(hash).searchKey(key, hash)
 	return (*V)(r.get())
 }
 
 func (u *BucketMap[K, V]) Load(key K) (V, bool) {
 	hash := u.rehash(key)
-	_, r, _, f := u.findHash(hash).searchKey(key, hash)
+	_, r, f := u.findHash(hash).searchKey(key, hash)
 	var v V
 	if f {
 		v = *(*V)(r.get())
@@ -218,7 +218,7 @@ func (u *BucketMap[K, V]) Load(key K) (V, bool) {
 
 func (u *BucketMap[K, V]) HasKey(key K) bool {
 	hash := u.rehash(key)
-	_, _, _, f := u.findHash(hash).searchKey(key, hash)
+	_, _, f := u.findHash(hash).searchKey(key, hash)
 	return f
 }
 
