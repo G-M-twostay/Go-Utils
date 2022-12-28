@@ -56,7 +56,7 @@ func TestBucketMap_All(t *testing.T) {
 	}
 	wg.Wait()
 	for cur := (*M.buckets.Load())[0]; cur != nil; cur = (*node[O])(cur.nx) {
-		if !cur.isRelay() {
+		if !cur.flag {
 			t.Log("have", M.HasKey(cur.k))
 		}
 		t.Log(cur.String(), "\n")
