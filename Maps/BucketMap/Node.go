@@ -28,19 +28,14 @@ type node[K Maps.Hashable] struct {
 	hash uint
 	v    unsafe.Pointer
 	nx   unsafe.Pointer
-	flag bool //true if relay
+	*relayLock
 }
 
 func makeRelay[K Maps.Hashable](hash uint) *node[K] {
 	t := new(node[K])
-	t.v = unsafe.Pointer(new(relayLock))
 	t.hash = hash
-	t.flag = true
+	t.relayLock = new(relayLock)
 	return t
-}
-
-func (cur *node[K]) lock() *relayLock {
-	return (*relayLock)(cur.v)
 }
 
 func (cur *node[K]) Next() unsafe.Pointer {
@@ -57,19 +52,22 @@ func (cur *node[K]) tryLink(oldRight unsafe.Pointer, newRight *node[K], newRight
 }
 
 func (cur *node[K]) unlinkRelay(next *node[K], nextPtr unsafe.Pointer) bool {
-	t := next.lock()
-	t.Lock()
-	defer t.Unlock()
-	t.del = atomic.CompareAndSwapPointer(&cur.nx, nextPtr, next.nx)
-	return t.del
+	next.Lock()
+	defer next.Unlock()
+	next.del = atomic.CompareAndSwapPointer(&cur.nx, nextPtr, next.nx)
+	return next.del
 }
 
 func (cur *node[K]) dangerUnlink(next *node[K]) {
 	atomic.StorePointer(&cur.nx, next.nx)
 }
 
+func (cur *node[K]) isRelay() bool {
+	return cur.relayLock != nil
+}
+
 func (cur *node[K]) cmpKey(k K) bool {
-	return k.Equal(cur.k) && !cur.flag
+	return k.Equal(cur.k) && cur.relayLock == nil
 }
 
 func (cur *node[K]) searchKey(k K, at uint) (*node[K], *node[K], bool) {
