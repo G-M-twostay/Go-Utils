@@ -2,7 +2,7 @@ package BucketMap
 
 import (
 	"GMUtils/Maps"
-	"GMUtils/Maps/ChainMap"
+	"github.com/cornelk/hashmap"
 	"sync"
 	"testing"
 )
@@ -55,7 +55,7 @@ func TestBucketMap_All(t *testing.T) {
 		}(j*blockSize, (j+1)*blockSize)
 	}
 	wg.Wait()
-	for cur := (*M.buckets.Load())[0]; cur != nil; cur = (*node[O])(cur.nx) {
+	for cur := (M.buckets.Load().Get(0)); cur != nil; cur = (*node[O])(cur.nx) {
 		if !cur.isRelay() {
 			t.Log("have", M.HasKey(cur.k))
 		}
@@ -93,28 +93,28 @@ func TestBucketMap_All(t *testing.T) {
 	//M.Load(O(0))
 }
 func TestIntMap_All(t *testing.T) {
-	M := MakeIntMap[O, int](1, 1, blockNum*blockSize-1, func(x O) uint { return x.Hash() })
+	M := MakeIntMap[int, int](1, 1, blockNum*blockSize-1, func(x int) uint { return uint(x) })
 	wg := &sync.WaitGroup{}
 	wg.Add(blockNum)
 	for j := 0; j < blockNum; j++ {
 		go func(l, h int) {
 			defer wg.Done()
 			for i := l; i < h; i++ {
-				M.Store(O(i), i)
+				M.Store(i, i)
 			}
 
 			for i := l; i < h; i++ {
-				if !M.HasKey(O(i)) {
-					t.Errorf("not put: %v\n", O(i))
+				if !M.HasKey(i) {
+					t.Errorf("not put: %v\n", i)
 					return
 				}
 			}
 			for i := l; i < h; i++ {
-				M.Delete(O(i))
+				M.Delete(i)
 
 			}
 			for i := l; i < h; i++ {
-				if M.HasKey(O(i)) {
+				if M.HasKey(i) {
 					t.Errorf("not removed: %v\n", O(i))
 					return
 				}
@@ -123,7 +123,7 @@ func TestIntMap_All(t *testing.T) {
 		}(j*blockSize, (j+1)*blockSize)
 	}
 	wg.Wait()
-	for cur := (*M.buckets.Load())[0]; cur != nil; cur = (*intNode[O])(cur.nx) {
+	for cur := (M.buckets.Load().Get(0)); cur != nil; cur = (*intNode[int])(cur.nx) {
 		if !cur.flag {
 			t.Log("have", M.HasKey(cur.k))
 		}
@@ -160,6 +160,7 @@ func TestIntMap_All(t *testing.T) {
 	//}
 	//M.Load(O(0))
 }
+
 func BenchmarkBucketMap_Case1(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
@@ -220,27 +221,28 @@ func BenchmarkIntMap_Case1(b *testing.B) {
 		b.StopTimer()
 	}
 }
-func BenchmarkChainMap_Case1(b *testing.B) {
+func BenchmarkHashMap_Case1(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := ChainMap.MakeChainMap[O, int](0, 2, elementNum0*iter0-1)
+		M := hashmap.New[int, int]()
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					M.Store(O(j), j)
+					M.Insert(j, j)
 				}
 				for j := l; j < h; j++ {
-					if !M.HasKey(O(j)) {
-						b.Error("key doesn't exist")
+					_, a := M.Get(j)
+					if !a {
+						b.Error("key doesn't exist", j)
 					}
 				}
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Get(j)
 					if x != j {
-						b.Error("incorrect value")
+						b.Error("incorrect value", j, x)
 					}
 				}
 				wg.Done()
@@ -320,31 +322,31 @@ func BenchmarkIntMap_Case2(b *testing.B) {
 		b.StopTimer()
 	}
 }
-func BenchmarkChainMap_Case2(b *testing.B) {
+func BenchmarkHashMap_Case2(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := ChainMap.MakeChainMap[O, int](0, 2, elementNum0*iter0-1)
+		M := hashmap.New[int, int]()
 		for j := 0; j < elementNum0*iter0; j++ {
-			M.Store(O(j), j)
+			M.Insert(j, j)
 		}
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Get(j)
 					if x != j {
-						b.Error("incorrect value")
+						b.Error("incorrect value 1")
 					}
 				}
 				for j := l; j < h; j++ {
-					M.Store(O(j), j+1)
+					M.Set(j, j+1)
 				}
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Get(j)
 					if x != j+1 {
-						b.Error("incorrect value")
+						b.Error("incorrect value 2")
 					}
 				}
 				wg.Done()
@@ -428,31 +430,33 @@ func BenchmarkIntMap_Case3(b *testing.B) {
 	}
 
 }
-func BenchmarkChainMap_Case3(b *testing.B) {
+func BenchmarkHashMap_Case3(b *testing.B) {
 	b.StopTimer()
 	wg := &sync.WaitGroup{}
 	for a := 0; a < b.N; a++ {
-		M := ChainMap.MakeChainMap[O, int](2, 8, iter0*elementNum0-1)
+		M := hashmap.New[int, int]()
 		b.StartTimer()
 		for j := 0; j < iter0; j++ {
 			wg.Add(1)
 			go func(l, h int) {
 				defer wg.Done()
 				for i := l; i < h; i++ {
-					M.Store(O(i), i)
+					M.Insert(i, i)
 				}
 
 				for i := l; i < h; i++ {
-					if !M.HasKey(O(i)) {
+					_, x := M.Get(i)
+					if !x {
 						b.Errorf("not put: %v\n", O(i))
 					}
 				}
 				for i := l; i < h; i++ {
-					M.Delete(O(i))
+					M.Del(i)
 
 				}
 				for i := l; i < h; i++ {
-					if M.HasKey(O(i)) {
+					_, x := M.Get(i)
+					if x {
 						b.Errorf("not removed: %v\n", O(i))
 					}
 				}

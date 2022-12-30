@@ -8,43 +8,44 @@ import (
 	"unsafe"
 )
 
+// IntMap is a specialized version of BucketMap for integers. It avoids all the interface operations.
 type IntMap[K constraints.Integer, V any] struct {
-	rehash               func(K) uint
-	buckets              atomic.Pointer[[]*intNode[K]]
-	size                 atomic.Uint64
-	maxHash              uint
-	resizing             atomic.Uint32
-	minAvgLen, maxAvgLen byte
+	rehash                         func(K) uint
+	buckets                        atomic.Pointer[Maps.HashList[*intNode[K]]]
+	size                           atomic.Uint64
+	resizing                       atomic.Uint32
+	minAvgLen, maxAvgLen, maxChunk byte
 }
 
 func MakeIntMap[K constraints.Integer, V any](minBucketLen, maxBucketLen byte, maxHash uint, hasher func(K) uint) *IntMap[K, V] {
 	M := new(IntMap[K, V])
 
 	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen
-	M.maxHash = Maps.MaxUintHash >> bits.LeadingZeros(maxHash)
+	M.maxChunk = byte(bits.Len(maxHash))
 	M.rehash = hasher
 
-	M.buckets.Store(&([]*intNode[K]{&intNode[K]{0, unsafe.Pointer(new(relayLock)), nil, 0, true}}))
+	t := []*intNode[K]{&intNode[K]{hash: 0, v: unsafe.Pointer(new(relayLock)), flag: true}}
+	M.buckets.Store(&Maps.HashList[*intNode[K]]{Array: t, Chunk: M.maxChunk})
 
 	return M
 }
 
-func (u *IntMap[K, V]) Size() uint {
-	return uint(u.size.Load())
+func (u *IntMap[K, V]) Size() uint64 {
+	return u.size.Load()
 }
 
 func (u *IntMap[K, V]) trySplit() {
 	if u.resizing.CompareAndSwap(0, 1) {
 		s := *u.buckets.Load()
-		if ul := uint(len(s)); u.Size()/ul > uint(u.maxAvgLen) {
+		if u.Size()>>(u.maxChunk-s.Chunk) > uint64(u.maxAvgLen) {
 
-			newBuckets := make([]*intNode[K], ul<<1)
+			newBuckets := make([]*intNode[K], len(s.Array)<<1)
 
-			for i, v := range s {
+			for i, v := range s.Array {
 
 				newBuckets[i<<1] = v
 
-				newRelay := &intNode[K]{(u.maxHash/ul+1)*uint(i) + u.maxHash/(ul<<1), unsafe.Pointer(new(relayLock)), nil, 0, true}
+				newRelay := &intNode[K]{hash: (1<<s.Chunk)*uint(i) + (1 << (s.Chunk - 1)), v: unsafe.Pointer(new(relayLock)), flag: true}
 				newBuckets[(i<<1)+1] = newRelay
 
 				t := v.lock()
@@ -65,7 +66,7 @@ func (u *IntMap[K, V]) trySplit() {
 				t.RUnlock()
 			}
 
-			u.buckets.Store(&newBuckets)
+			u.buckets.Store(&Maps.HashList[*intNode[K]]{Array: newBuckets, Chunk: s.Chunk - 1})
 
 		}
 		u.resizing.Store(0)
@@ -75,22 +76,22 @@ func (u *IntMap[K, V]) trySplit() {
 func (u *IntMap[K, V]) tryMerge() {
 	if u.resizing.CompareAndSwap(0, 1) {
 		s := *u.buckets.Load()
-		if ul := uint(len(s)); u.Size()/ul < uint(u.minAvgLen) && ul > 1 {
+		if u.Size()>>(u.maxChunk-s.Chunk) < uint64(u.minAvgLen) && len(s.Array) > 1 {
 
-			newBuckets := make([]*intNode[K], ul>>1)
+			newBuckets := make([]*intNode[K], len(s.Array)>>1)
 
 			for i := range newBuckets {
-				newBuckets[i] = s[i<<1]
+				newBuckets[i] = s.Array[i<<1]
 			}
 
-			u.buckets.Store(&newBuckets)
+			u.buckets.Store(&Maps.HashList[*intNode[K]]{Array: newBuckets, Chunk: s.Chunk + 1})
 
-			for i := uint(0); i < ul; i += 2 {
-				t := s[i].lock()
+			for i := 0; i < len(s.Array); i += 2 {
+				t := s.Array[i].lock()
 				t.RLock()
-				for left := s[i]; ; {
+				for left := s.Array[i]; ; {
 					rightPtr := left.Next()
-					if right := (*intNode[K])(rightPtr); right == s[i+1] {
+					if right := (*intNode[K])(rightPtr); right.flag {
 						if left.unlinkRelay(right, rightPtr) {
 							break
 						}
@@ -105,22 +106,17 @@ func (u *IntMap[K, V]) tryMerge() {
 	}
 }
 
-func (u *IntMap[K, V]) findHash(hash uint) *intNode[K] {
-	s := *u.buckets.Load()
-	return s[hash/((u.maxHash+1)/uint(len(s)))]
-}
-
 func (u *IntMap[K, V]) Store(key K, val V) {
 	hash, vPtr := u.rehash(key), unsafe.Pointer(&val)
 	var prevLock *relayLock = nil
-	for left := u.findHash(hash); ; {
+	for left := u.buckets.Load().Get(hash); ; {
 		if left.flag {
 			if prevLock != nil {
 				prevLock.RUnlock()
 			}
 			prevLock = left.lock()
 			if !prevLock.safeRLock() {
-				left = u.findHash(hash)
+				left = u.buckets.Load().Get(hash)
 				continue
 			}
 		}
@@ -151,14 +147,14 @@ func (u *IntMap[K, V]) Store(key K, val V) {
 func (u *IntMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
 	hash, vPtr := u.rehash(key), unsafe.Pointer(&val)
 	var prevLock *relayLock = nil
-	for left := u.findHash(hash); ; {
+	for left := u.buckets.Load().Get(hash); ; {
 		if left.flag {
 			if prevLock != nil {
 				prevLock.RUnlock()
 			}
 			prevLock = left.lock()
 			if !prevLock.safeRLock() {
-				left = u.findHash(hash)
+				left = u.buckets.Load().Get(hash)
 				continue
 			}
 		}
@@ -195,13 +191,13 @@ func (u *IntMap[K, V]) LoadOrStore(key K, val V) (v V, loaded bool) {
 
 func (u *IntMap[K, V]) LoadPtr(key K) *V {
 	hash := u.rehash(key)
-	_, r, _ := u.findHash(hash).searchKey(key, hash)
+	_, r, _ := u.buckets.Load().Get(hash).searchKey(key, hash)
 	return (*V)(r.get())
 }
 
 func (u *IntMap[K, V]) Load(key K) (V, bool) {
 	hash := u.rehash(key)
-	_, r, f := u.findHash(hash).searchKey(key, hash)
+	_, r, f := u.buckets.Load().Get(hash).searchKey(key, hash)
 	var v V
 	if f {
 		v = *(*V)(r.get())
@@ -211,21 +207,21 @@ func (u *IntMap[K, V]) Load(key K) (V, bool) {
 
 func (u *IntMap[K, V]) HasKey(key K) bool {
 	hash := u.rehash(key)
-	_, _, f := u.findHash(hash).searchKey(key, hash)
+	_, _, f := u.buckets.Load().Get(hash).searchKey(key, hash)
 	return f
 }
 
 func (u *IntMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 	hash := u.rehash(key)
 	var prevLock *relayLock = nil
-	for left := u.findHash(hash); ; {
+	for left := u.buckets.Load().Get(hash); ; {
 		if left.flag {
 			if prevLock != nil {
 				prevLock.Unlock()
 			}
 			prevLock = left.lock()
 			if !prevLock.safeLock() {
-				left = u.findHash(hash)
+				left = u.buckets.Load().Get(hash)
 				continue
 			}
 		}
@@ -260,7 +256,7 @@ func (u *IntMap[K, V]) Delete(key K) {
 }
 
 func (u *IntMap[K, V]) RangePtr(f func(K, *V) bool) {
-	for cur := u.findHash(0); cur != nil; cur = (*intNode[K])(cur.Next()) {
+	for cur := u.buckets.Load().Get(0); cur != nil; cur = (*intNode[K])(cur.Next()) {
 		if !cur.flag {
 			if !f(cur.k, (*V)(cur.get())) {
 				break
@@ -281,7 +277,7 @@ func (u *IntMap[K, V]) Take() (key K, val V) {
 }
 
 func (u *IntMap[K, V]) TakePtr() (key K, val *V) {
-	if firstPtr := u.findHash(0).Next(); firstPtr != nil {
+	if firstPtr := u.buckets.Load().Get(0).Next(); firstPtr != nil {
 		first := (*intNode[K])(firstPtr)
 		key, val = first.k, (*V)(first.get())
 	}

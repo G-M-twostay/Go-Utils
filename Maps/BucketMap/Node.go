@@ -31,13 +31,6 @@ type node[K Maps.Hashable] struct {
 	*relayLock
 }
 
-func makeRelay[K Maps.Hashable](hash uint) *node[K] {
-	t := new(node[K])
-	t.hash = hash
-	t.relayLock = new(relayLock)
-	return t
-}
-
 func (cur *node[K]) Next() unsafe.Pointer {
 	return atomic.LoadPointer(&cur.nx)
 }
