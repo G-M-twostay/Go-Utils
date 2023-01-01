@@ -1,6 +1,8 @@
 package Maps
 
-import "math"
+import (
+	"math"
+)
 
 const (
 	MaxUintHash      = math.MaxUint
@@ -29,7 +31,7 @@ type Map[K Hashable, V any] interface {
 type ExtendedMap[K Hashable, V any] interface {
 	Map[K, V]
 	HasKey(K) bool
-	Size() uint
+	Size() uint64
 	//Take an arbitrary key value pair from the Map.
 	Take() (K, V)
 	TakePtr(K, *V)
@@ -37,4 +39,5 @@ type ExtendedMap[K Hashable, V any] interface {
 	LoadPtrAndDelete(K) (*V, bool)
 	LoadPtrOrStore(K, V) (*V, bool)
 	RangePtr(func(K, *V) bool)
+	Set(K, V) *V
 }
