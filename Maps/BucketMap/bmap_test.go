@@ -2,7 +2,6 @@ package BucketMap
 
 import (
 	"GMUtils/Maps"
-	"github.com/cornelk/hashmap"
 	"sync"
 	"testing"
 )
@@ -221,37 +220,38 @@ func BenchmarkIntMap_Case1(b *testing.B) {
 		b.StopTimer()
 	}
 }
-func BenchmarkHashMap_Case1(b *testing.B) {
-	b.StopTimer()
-	wg := sync.WaitGroup{}
-	for i := 0; i < b.N; i++ {
-		M := hashmap.New[int, int]()
-		b.StartTimer()
-		for k := 0; k < iter0; k++ {
-			wg.Add(1)
-			go func(l, h int) {
-				for j := l; j < h; j++ {
-					M.Insert(j, j)
-				}
-				for j := l; j < h; j++ {
-					_, a := M.Get(j)
-					if !a {
-						b.Error("key doesn't exist", j)
-					}
-				}
-				for j := l; j < h; j++ {
-					x, _ := M.Get(j)
-					if x != j {
-						b.Error("incorrect value", j, x)
-					}
-				}
-				wg.Done()
-			}(k*elementNum0, (k+1)*elementNum0)
-		}
-		wg.Wait()
-		b.StopTimer()
-	}
-}
+
+//	func BenchmarkHashMap_Case1(b *testing.B) {
+//		b.StopTimer()
+//		wg := sync.WaitGroup{}
+//		for i := 0; i < b.N; i++ {
+//			M := hashmap.New[int, int]()
+//			b.StartTimer()
+//			for k := 0; k < iter0; k++ {
+//				wg.Add(1)
+//				go func(l, h int) {
+//					for j := l; j < h; j++ {
+//						M.Insert(j, j)
+//					}
+//					for j := l; j < h; j++ {
+//						_, a := M.Get(j)
+//						if !a {
+//							b.Error("key doesn't exist", j)
+//						}
+//					}
+//					for j := l; j < h; j++ {
+//						x, _ := M.Get(j)
+//						if x != j {
+//							b.Error("incorrect value", j, x)
+//						}
+//					}
+//					wg.Done()
+//				}(k*elementNum0, (k+1)*elementNum0)
+//			}
+//			wg.Wait()
+//			b.StopTimer()
+//		}
+//	}
 func BenchmarkBucketMap_Case2(b *testing.B) {
 	//runtime.GC()
 	b.StopTimer()
@@ -322,40 +322,41 @@ func BenchmarkIntMap_Case2(b *testing.B) {
 		b.StopTimer()
 	}
 }
-func BenchmarkHashMap_Case2(b *testing.B) {
-	b.StopTimer()
-	wg := sync.WaitGroup{}
-	for i := 0; i < b.N; i++ {
-		M := hashmap.New[int, int]()
-		for j := 0; j < elementNum0*iter0; j++ {
-			M.Insert(j, j)
-		}
-		b.StartTimer()
-		for k := 0; k < iter0; k++ {
-			wg.Add(1)
-			go func(l, h int) {
-				for j := l; j < h; j++ {
-					x, _ := M.Get(j)
-					if x != j {
-						b.Error("incorrect value 1")
-					}
-				}
-				for j := l; j < h; j++ {
-					M.Set(j, j+1)
-				}
-				for j := l; j < h; j++ {
-					x, _ := M.Get(j)
-					if x != j+1 {
-						b.Error("incorrect value 2")
-					}
-				}
-				wg.Done()
-			}(k*elementNum0, (k+1)*elementNum0)
-		}
-		wg.Wait()
-		b.StopTimer()
-	}
-}
+
+//	func BenchmarkHashMap_Case2(b *testing.B) {
+//		b.StopTimer()
+//		wg := sync.WaitGroup{}
+//		for i := 0; i < b.N; i++ {
+//			M := hashmap.New[int, int]()
+//			for j := 0; j < elementNum0*iter0; j++ {
+//				M.Insert(j, j)
+//			}
+//			b.StartTimer()
+//			for k := 0; k < iter0; k++ {
+//				wg.Add(1)
+//				go func(l, h int) {
+//					for j := l; j < h; j++ {
+//						x, _ := M.Get(j)
+//						if x != j {
+//							b.Error("incorrect value 1")
+//						}
+//					}
+//					for j := l; j < h; j++ {
+//						M.Set(j, j+1)
+//					}
+//					for j := l; j < h; j++ {
+//						x, _ := M.Get(j)
+//						if x != j+1 {
+//							b.Error("incorrect value 2")
+//						}
+//					}
+//					wg.Done()
+//				}(k*elementNum0, (k+1)*elementNum0)
+//			}
+//			wg.Wait()
+//			b.StopTimer()
+//		}
+//	}
 func BenchmarkBucketMap_Case3(b *testing.B) {
 	//runtime.GC()
 	b.StopTimer()
@@ -430,41 +431,42 @@ func BenchmarkIntMap_Case3(b *testing.B) {
 	}
 
 }
-func BenchmarkHashMap_Case3(b *testing.B) {
-	b.StopTimer()
-	wg := &sync.WaitGroup{}
-	for a := 0; a < b.N; a++ {
-		M := hashmap.New[int, int]()
-		b.StartTimer()
-		for j := 0; j < iter0; j++ {
-			wg.Add(1)
-			go func(l, h int) {
-				defer wg.Done()
-				for i := l; i < h; i++ {
-					M.Insert(i, i)
-				}
 
-				for i := l; i < h; i++ {
-					_, x := M.Get(i)
-					if !x {
-						b.Errorf("not put: %v\n", O(i))
-					}
-				}
-				for i := l; i < h; i++ {
-					M.Del(i)
-
-				}
-				for i := l; i < h; i++ {
-					_, x := M.Get(i)
-					if x {
-						b.Errorf("not removed: %v\n", O(i))
-					}
-				}
-
-			}(j*elementNum0, (j+1)*elementNum0)
-		}
-		wg.Wait()
-		b.StopTimer()
-	}
-
-}
+//func BenchmarkHashMap_Case3(b *testing.B) {
+//	b.StopTimer()
+//	wg := &sync.WaitGroup{}
+//	for a := 0; a < b.N; a++ {
+//		M := hashmap.New[int, int]()
+//		b.StartTimer()
+//		for j := 0; j < iter0; j++ {
+//			wg.Add(1)
+//			go func(l, h int) {
+//				defer wg.Done()
+//				for i := l; i < h; i++ {
+//					M.Insert(i, i)
+//				}
+//
+//				for i := l; i < h; i++ {
+//					_, x := M.Get(i)
+//					if !x {
+//						b.Errorf("not put: %v\n", O(i))
+//					}
+//				}
+//				for i := l; i < h; i++ {
+//					M.Del(i)
+//
+//				}
+//				for i := l; i < h; i++ {
+//					_, x := M.Get(i)
+//					if x {
+//						b.Errorf("not removed: %v\n", O(i))
+//					}
+//				}
+//
+//			}(j*elementNum0, (j+1)*elementNum0)
+//		}
+//		wg.Wait()
+//		b.StopTimer()
+//	}
+//
+//}
