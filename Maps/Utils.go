@@ -1,8 +1,10 @@
 package Maps
 
+import "sync"
+
 type HashList[V any] struct {
 	Array []V
-	Chunk byte //hash range of the first segment is [0,2^chunk)
+	Chunk byte //HashAny range of the first segment is [0,2^chunk)
 }
 
 func (u HashList[V]) Get(hash uint) V {
@@ -23,4 +25,19 @@ func Mark(hash uint) uint {
 
 func Mask(hash uint) uint {
 	return hash & MaxArrayLen
+}
+
+type FlagLock struct {
+	sync.RWMutex
+	Del bool
+}
+
+func (l *FlagLock) SafeLock() bool {
+	l.Lock()
+	return !l.Del
+}
+
+func (l *FlagLock) SafeRLock() bool {
+	l.RLock()
+	return !l.Del
 }
