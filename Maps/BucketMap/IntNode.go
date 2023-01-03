@@ -27,11 +27,6 @@ func (cur *intNode[K]) tryLazyLink(oldRight, newRight unsafe.Pointer) bool {
 	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, newRight)
 }
 
-func (cur *intNode[K]) tryLink(oldRight unsafe.Pointer, newRight *intNode[K], newRightPtr unsafe.Pointer) bool {
-	newRight.nx = oldRight
-	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, newRightPtr)
-}
-
 func (cur *intNode[K]) unlinkRelay(next *intNode[K], nextPtr unsafe.Pointer) bool {
 	t := next.lock()
 	t.Lock()

@@ -51,12 +51,10 @@ func (u *IntMap[K, V]) trySplit() {
 				t := v.lock()
 				t.RLock()
 				for left, newRelayPtr := v, unsafe.Pointer(newRelay); ; {
-					if rightPtr := left.Next(); rightPtr == nil {
-						if left.tryLink(rightPtr, newRelay, newRelayPtr) {
-							break
-						}
-					} else if right := (*intNode[K])(rightPtr); newRelay.hash <= right.hash {
-						if left.tryLink(rightPtr, newRelay, newRelayPtr) {
+					rightPtr := left.Next()
+					if right := (*intNode[K])(rightPtr); right == nil || newRelay.hash <= right.hash {
+						newRelay.nx = rightPtr
+						if left.tryLazyLink(rightPtr, newRelayPtr) {
 							break
 						}
 					} else {
@@ -117,14 +115,8 @@ func (u *IntMap[K, V]) Store(key K, val V) {
 	}
 
 	for {
-		if rightPtr := left.Next(); rightPtr == nil {
-			if left.tryLazyLink(nil, unsafe.Pointer(&intNode[K]{hash, vPtr, rightPtr, key, false})) {
-				prevLock.RUnlock()
-				u.size.Add(1)
-				u.trySplit()
-				return
-			}
-		} else if right := (*intNode[K])(rightPtr); hash < right.hash {
+		rightPtr := left.Next()
+		if right := (*intNode[K])(rightPtr); right == nil || hash < right.hash {
 			if left.tryLazyLink(rightPtr, unsafe.Pointer(&intNode[K]{hash, vPtr, rightPtr, key, false})) {
 				prevLock.RUnlock()
 				u.size.Add(1)
@@ -162,14 +154,8 @@ func (u *IntMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
 	}
 
 	for {
-		if rightPtr := left.Next(); rightPtr == nil {
-			if left.tryLazyLink(nil, unsafe.Pointer(&intNode[K]{hash, vPtr, rightPtr, key, false})) {
-				prevLock.RUnlock()
-				u.size.Add(1)
-				u.trySplit()
-				return
-			}
-		} else if right := (*intNode[K])(rightPtr); hash < right.hash {
+		rightPtr := left.Next()
+		if right := (*intNode[K])(rightPtr); right == nil || hash < right.hash {
 			if left.tryLazyLink(rightPtr, unsafe.Pointer(&intNode[K]{hash, vPtr, rightPtr, key, false})) {
 				prevLock.RUnlock()
 				u.size.Add(1)
@@ -236,10 +222,8 @@ func (u *IntMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 	}
 
 	for {
-		if rightPtr := left.nx; rightPtr == nil {
-			prevLock.Unlock()
-			return
-		} else if right := (*intNode[K])(rightPtr); hash < right.hash {
+		rightPtr := left.nx
+		if right := (*intNode[K])(rightPtr); right == nil || hash < right.hash {
 			prevLock.Unlock()
 			return
 		} else if right.cmpKey(key) {
