@@ -1,13 +1,14 @@
-package BucketMap
+package IntMap
 
 import (
 	"GMUtils/Maps"
 	"fmt"
+	"golang.org/x/exp/constraints"
 	"sync/atomic"
 	"unsafe"
 )
 
-type node[K any] struct {
+type node[K constraints.Integer] struct {
 	k    K
 	info uint
 	v    unsafe.Pointer
@@ -46,11 +47,11 @@ func (cur *node[K]) dangerUnlink(next *node[K]) {
 	atomic.StorePointer(&cur.nx, next.nx)
 }
 
-func (cur *node[K]) search(k K, at uint, cmp func(K, K) bool) *node[K] {
+func (cur *node[K]) search(k K, at uint) *node[K] {
 	for left := cur; ; {
 		if right := (*node[K])(left.Next()); right == nil || at < right.Hash() {
 			return nil
-		} else if at == right.info && cmp(k, right.k) {
+		} else if at == right.info && k == right.k {
 			return right
 		} else {
 			left = right
@@ -65,7 +66,6 @@ func (cur *node[K]) set(v unsafe.Pointer) {
 func (cur *node[K]) get() unsafe.Pointer {
 	return atomic.LoadPointer(&cur.v)
 }
-
 func (cur *node[K]) swap(v unsafe.Pointer) unsafe.Pointer {
 	return atomic.SwapPointer(&cur.v, v)
 }

@@ -1,7 +1,13 @@
 package Maps
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/gob"
+	"hash/maphash"
 	"math"
+	"math/bits"
+	"unsafe"
 )
 
 const (
@@ -40,4 +46,34 @@ type ExtendedMap[K Hashable, V any] interface {
 	LoadPtrOrStore(K, V) (*V, bool)
 	RangePtr(func(K, *V) bool)
 	Set(K, V) *V
+}
+
+type Hasher maphash.Seed
+
+func (u Hasher) HashAny(v any) uint {
+	buf := bytes.NewBuffer(make([]byte, unsafe.Sizeof(v)))
+	gob.NewEncoder(buf).Encode(v)
+	return uint(maphash.Bytes(maphash.Seed(u), buf.Bytes()))
+}
+
+func (u Hasher) HashUint(v uint) uint {
+	b := make([]byte, bits.UintSize/8)
+	binary.PutUvarint(b, uint64(v))
+	return uint(maphash.Bytes(maphash.Seed(u), b))
+}
+
+func (u Hasher) HashFloat(v float32) uint {
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, math.Float32bits(v))
+	return uint(maphash.Bytes(maphash.Seed(u), b))
+}
+
+func (u Hasher) HashDouble(v float64) uint {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, math.Float64bits(v))
+	return uint(maphash.Bytes(maphash.Seed(u), b))
+}
+
+func (u Hasher) HashString(v string) uint {
+	return uint(maphash.String(maphash.Seed(u), v))
 }

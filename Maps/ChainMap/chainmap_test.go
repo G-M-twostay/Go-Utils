@@ -1,7 +1,6 @@
 package ChainMap
 
 import (
-	"GMUtils/Maps"
 	"sync"
 	"testing"
 )
@@ -13,47 +12,45 @@ const (
 	elementNum0 = 1 << 10
 )
 
-type O int
-
-func (u O) Equal(o Maps.Hashable) bool {
-	return u == o.(O)
+func hasher(x int) uint {
+	return uint(x)
 }
 
-func (u O) Hash() uint {
-	return uint(u)
+func cmp(x, y int) bool {
+	return x == y
 }
 
 func TestChainMap_All(t *testing.T) {
-	M := MakeChainMap[O, int](2, 4, blockNum*blockSize-1)
+	M := New[int, int](2, 4, blockNum*blockSize-1, hasher, cmp)
 	wg := &sync.WaitGroup{}
 	wg.Add(blockNum)
 	for j := 0; j < blockNum; j++ {
 		go func(l, h int) {
 			defer wg.Done()
 			for i := l; i < h; i++ {
-				M.Store(O(i), i)
+				M.Store(i, i)
 			}
 
 			for i := l; i < h; i++ {
-				if !M.HasKey(O(i)) {
-					t.Errorf("not put: %v\n", O(i))
+				if !M.HasKey(i) {
+					t.Errorf("not put: %v\n", i)
 					//return
 				}
 			}
 			for i := l; i < h; i++ {
-				M.Delete(O(i))
+				M.Delete(i)
 
 			}
 			for i := l; i < h; i++ {
-				if M.HasKey(O(i)) {
-					t.Errorf("not removed: %v\n", O(i))
+				if M.HasKey(i) {
+					t.Errorf("not removed: %v\n", i)
 				}
 			}
 
 		}(j*blockSize, (j+1)*blockSize)
 	}
 	wg.Wait()
-	for cur := (*M.buckets.Load())[0]; cur != nil; cur = (*state[O])(cur.s).nx {
+	for cur := (*M.buckets.Load())[0]; cur != nil; cur = (*state[int])(cur.s).nx {
 		t.Log(cur.String(), "\n")
 	}
 	//for i := 0; i < 8; i++ {
@@ -90,21 +87,21 @@ func BenchmarkChainMap_Case1(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := MakeChainMap[O, int](0, 2, elementNum0*iter0-1)
+		M := New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp)
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					M.Store(O(j), j)
+					M.Store(j, j)
 				}
 				for j := l; j < h; j++ {
-					if !M.HasKey(O(j)) {
+					if !M.HasKey(j) {
 						b.Error("key doesn't exist")
 					}
 				}
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j {
 						b.Error("incorrect value")
 					}
@@ -127,16 +124,16 @@ func BenchmarkSyncMap_Case1(b *testing.B) {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					M.Store(O(j), j)
+					M.Store(j, j)
 				}
 				for j := l; j < h; j++ {
-					_, x := M.Load(O(j))
+					_, x := M.Load(j)
 					if !x {
 						b.Error("key doesn't exist")
 					}
 				}
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j {
 						b.Error("incorrect value")
 					}
@@ -154,19 +151,19 @@ func BenchmarkMutexMap_Case1(b *testing.B) {
 	wg := sync.WaitGroup{}
 	lc := sync.RWMutex{}
 	for i := 0; i < b.N; i++ {
-		M := make(map[O]int)
+		M := make(map[int]int)
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
 					lc.Lock()
-					M[O(j)] = j
+					M[j] = j
 					lc.Unlock()
 				}
 				for j := l; j < h; j++ {
 					lc.RLock()
-					_, x := M[O(j)]
+					_, x := M[j]
 					lc.RUnlock()
 					if !x {
 						b.Error("key doesn't exist")
@@ -174,7 +171,7 @@ func BenchmarkMutexMap_Case1(b *testing.B) {
 				}
 				for j := l; j < h; j++ {
 					lc.RLock()
-					x, _ := M[O(j)]
+					x, _ := M[j]
 					lc.RUnlock()
 					if x != j {
 						b.Error("incorrect value")
@@ -192,25 +189,25 @@ func BenchmarkChainMap_Case2(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := MakeChainMap[O, int](0, 2, elementNum0*iter0-1)
+		M := New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp)
 		for j := 0; j < elementNum0*iter0; j++ {
-			M.Store(O(j), j)
+			M.Store(j, j)
 		}
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j {
 						b.Error("incorrect value")
 					}
 				}
 				for j := l; j < h; j++ {
-					M.Store(O(j), j+1)
+					M.Store(j, j+1)
 				}
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j+1 {
 						b.Error("incorrect value")
 					}
@@ -229,23 +226,23 @@ func BenchmarkSyncMap_Case2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		M := sync.Map{}
 		for j := 0; j < elementNum0*iter0; j++ {
-			M.Store(O(j), j)
+			M.Store(j, j)
 		}
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j {
 						b.Error("incorrect value 1")
 					}
 				}
 				for j := l; j < h; j++ {
-					M.Store(O(j), j+1)
+					M.Store(j, j+1)
 				}
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j+1 {
 						b.Error("incorrect value 2")
 					}
@@ -263,9 +260,9 @@ func BenchmarkMutexMap_Case2(b *testing.B) {
 	wg := sync.WaitGroup{}
 	lc := sync.RWMutex{}
 	for i := 0; i < b.N; i++ {
-		M := make(map[O]int)
+		M := make(map[int]int)
 		for j := 0; j < iter0*elementNum0; j++ {
-			M[O(j)] = j
+			M[j] = j
 		}
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
@@ -273,7 +270,7 @@ func BenchmarkMutexMap_Case2(b *testing.B) {
 			go func(l, h int) {
 				for j := l; j < h; j++ {
 					lc.RLock()
-					x, _ := M[O(j)]
+					x, _ := M[j]
 					lc.RUnlock()
 					if x != j {
 						b.Error("incorrect value 1")
@@ -281,12 +278,12 @@ func BenchmarkMutexMap_Case2(b *testing.B) {
 				}
 				for j := l; j < h; j++ {
 					lc.Lock()
-					M[O(j)]++
+					M[j]++
 					lc.Unlock()
 				}
 				for j := l; j < h; j++ {
 					lc.RLock()
-					x, _ := M[O(j)]
+					x, _ := M[j]
 					lc.RUnlock()
 					if x != j+1 {
 						b.Error("incorrect value 2")
@@ -304,28 +301,28 @@ func BenchmarkChainMap_Case3(b *testing.B) {
 	b.StopTimer()
 	wg := &sync.WaitGroup{}
 	for a := 0; a < b.N; a++ {
-		M := MakeChainMap[O, int](2, 8, iter0*elementNum0-1)
+		M := New[int, int](2, 8, iter0*elementNum0-1, hasher, cmp)
 		b.StartTimer()
 		for j := 0; j < iter0; j++ {
 			wg.Add(1)
 			go func(l, h int) {
 				defer wg.Done()
 				for i := l; i < h; i++ {
-					M.Store(O(i), i)
+					M.Store(i, i)
 				}
 
 				for i := l; i < h; i++ {
-					if !M.HasKey(O(i)) {
-						b.Errorf("not put: %v\n", O(i))
+					if !M.HasKey(i) {
+						b.Errorf("not put: %v\n", i)
 					}
 				}
 				for i := l; i < h; i++ {
-					M.Delete(O(i))
+					M.Delete(i)
 
 				}
 				for i := l; i < h; i++ {
-					if M.HasKey(O(i)) {
-						b.Errorf("not removed: %v\n", O(i))
+					if M.HasKey(i) {
+						b.Errorf("not removed: %v\n", i)
 					}
 				}
 
@@ -348,22 +345,22 @@ func BenchmarkSyncMap_Case3(b *testing.B) {
 			go func(l, h int) {
 				defer wg.Done()
 				for i := l; i < h; i++ {
-					M.Store(O(i), i)
+					M.Store(i, i)
 				}
 
 				for i := l; i < h; i++ {
-					_, x := M.Load(O(i))
+					_, x := M.Load(i)
 					if !x {
-						b.Errorf("not put: %v\n", O(i))
+						b.Errorf("not put: %v\n", i)
 					}
 				}
 				for i := l; i < h; i++ {
-					M.Delete(O(i))
+					M.Delete(i)
 				}
 				for i := l; i < h; i++ {
-					_, x := M.Load(O(i))
+					_, x := M.Load(i)
 					if x {
-						b.Errorf("not deleted: %v\n", O(i))
+						b.Errorf("not deleted: %v\n", i)
 					}
 				}
 
@@ -380,7 +377,7 @@ func BenchmarkMutexMap_Case3(b *testing.B) {
 	wg := &sync.WaitGroup{}
 	lc := sync.RWMutex{}
 	for a := 0; a < b.N; a++ {
-		M := make(map[O]int)
+		M := make(map[int]int)
 		b.StartTimer()
 		for j := 0; j < iter0; j++ {
 			wg.Add(1)
@@ -388,29 +385,29 @@ func BenchmarkMutexMap_Case3(b *testing.B) {
 				defer wg.Done()
 				for i := l; i < h; i++ {
 					lc.Lock()
-					M[O(i)] = i
+					M[i] = i
 					lc.Unlock()
 				}
 
 				for i := l; i < h; i++ {
 					lc.RLock()
-					_, x := M[O(i)]
+					_, x := M[i]
 					lc.RUnlock()
 					if !x {
-						b.Errorf("not put: %v\n", O(i))
+						b.Errorf("not put: %v\n", i)
 					}
 				}
 				for i := l; i < h; i++ {
 					lc.Lock()
-					delete(M, O(i))
+					delete(M, i)
 					lc.Unlock()
 				}
 				for i := l; i < h; i++ {
 					lc.RLock()
-					_, x := M[O(i)]
+					_, x := M[i]
 					lc.RUnlock()
 					if x {
-						b.Errorf("not deleted: %v\n", O(i))
+						b.Errorf("not deleted: %v\n", i)
 					}
 				}
 
