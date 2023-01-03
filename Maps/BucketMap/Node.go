@@ -86,6 +86,6 @@ func (cur *node[K]) get() unsafe.Pointer {
 }
 
 func (cur *node[K]) String() string {
-	return fmt.Sprintf("key: %#v; val: %#v; hash: %d", cur.k, cur.get(), cur.hash)
+	return fmt.Sprintf("key: %#v; val: %#v; info: %d", cur.k, cur.get(), cur.hash)
 
 }

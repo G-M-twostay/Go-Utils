@@ -123,7 +123,7 @@ func TestIntMap_All(t *testing.T) {
 	}
 	wg.Wait()
 	for cur := (M.buckets.Load().Get(0)); cur != nil; cur = (*intNode[int])(cur.nx) {
-		if !cur.flag {
+		if !cur.isRelay() {
 			t.Log("have", M.HasKey(cur.k))
 		}
 		t.Log(cur.String(), "\n")

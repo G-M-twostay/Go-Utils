@@ -16,3 +16,11 @@ func (u HashList[V]) Index(hash uint) uint {
 func (u HashList[V]) Intv() uint {
 	return 1 << u.Chunk
 }
+
+func Mark(hash uint) uint {
+	return hash | ^MaxArrayLen
+}
+
+func Mask(hash uint) uint {
+	return hash & MaxArrayLen
+}
