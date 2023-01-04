@@ -4,6 +4,10 @@ However, for single threaded case, you are probably better-off using default map
 for these implementations. In the worst case, these implementations are all very simple and easy to understand(a sorted
 linked list with array as indexes), and you can easily modify them.
 
+Changes in the Map are reflected immediately at any time(even during resizing). Unlike some other implementations, if
+operation B happens at any time after operation A completed, then operation A is guaranteed to be visible to operation
+B. In contrast, if B happened before operation A completes, then A is guaranteed to be not visible.
+
 ChainMap is more of a demonstration of how a simple completely lock-free hash map is possible in Go. It's slower than
 the not completely lock-free implementation Bucketmap and puts a bigger strain on GC. ChainMap is better implemented in
 C++ because of manual memory management and the ability to use pointer tagging. In conclusion, use BucketMap; ChainMap
