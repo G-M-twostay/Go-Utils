@@ -26,6 +26,8 @@ func cmp(x, y uintptr) bool {
 	return x == y
 }
 
+// compares with https://github.com/cornelk/hashmap using https://github.com/cornelk/hashmap/blob/main/benchmarks/benchmark_test.go.
+// Note that this hashmap isn't correct, see IntMap/imap_test.go
 func setupHashMap(b *testing.B) *hashmap.Map[uintptr, uintptr] {
 	b.Helper()
 

@@ -2,6 +2,8 @@ package Maps
 
 import "sync"
 
+//These are all internal helper structs/functions, these will eventually all be sealed.
+
 type HashList[V any] struct {
 	Array []V
 	Chunk byte //HashAny range of the first segment is [0,2^chunk)
