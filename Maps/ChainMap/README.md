@@ -1,34 +1,35 @@
 ChainMap is a fast concurrent hash map implementation.
 
 ChainMap is implemented using a concurrent(lock free) sorted singly linked list. This is the reason that this
-implementation can be fast, memory-efficient, and _completely_ lock free.
+implementation can be _completely_ lock free without complicated logics.
 If `Go` allows double CAS or manual memory management like `C++`, this implementation can be even more efficient. Yes,
 implementing ChainMap in `C++` would be way faster than in `Go`.
 
-Here are the benchmarks I did to compare ChainMap to sync.Map and a normal map with RWMutex.
+Here are the benchmarks I did to compare ChainMap to sync.Map and a normal map with RWMutex. These test cases are
+inspired by https://github.com/dustinxie/lockfree/blob/master/map_test.go.
 
 1. This is to mimic the first use case described for sync.Map. Some keys are inserted and read multiple times.
 2. This is to mimic the second use case described for sync.Map. Disjoint set of keys are read and write.
 3. This is a general case to mimic a concurrent environment where keys are inserted, read, and deleted.
 
-BenchmarkChainMap_Case1-16 1410 768560 ns/op 1045891 B/op 60988 allocs/op
-
-BenchmarkSyncMap_Case1-16 368 3172170 ns/op 1439990 B/op 40749 allocs/op
-
-BenchmarkMutexMap_Case1-16 332 3457266 ns/op 686377 B/op 293 allocs/op
-
-BenchmarkChainMap_Case2-16 7620 194309 ns/op 256552 B/op 32016 allocs/op
-
-BenchmarkSyncMap_Case2-16 1081 1128869 ns/op 258839 B/op 24084 allocs/op
-
-BenchmarkMutexMap_Case2-16 470 2657474 ns/op 659 B/op 16 allocs/op
-
-BenchmarkChainMap_Case3-16 1704 734508 ns/op 1062006 B/op 68149 allocs/op
-
-BenchmarkSyncMap_Case3-16 368 3253068 ns/op 1472779 B/op 40751 allocs/op
-
-BenchmarkMutexMap_Case3-16 195 5962092 ns/op 623006 B/op 306 allocs/op
-
+BenchmarkChainMap_Case1
+BenchmarkChainMap_Case1-16 1528 748276 ns/op 918799 B/op 45113 allocs/op
+BenchmarkSyncMap_Case1
+BenchmarkSyncMap_Case1-16 370 3212790 ns/op 1438684 B/op 40750 allocs/op
+BenchmarkMutexMap_Case1
+BenchmarkMutexMap_Case1-16 337 3540829 ns/op 686400 B/op 293 allocs/op
+BenchmarkChainMap_Case2
+BenchmarkChainMap_Case2-16 9228 113376 ns/op 66072 B/op 8208 allocs/op
+BenchmarkSyncMap_Case2
+BenchmarkSyncMap_Case2-16 1004 1147019 ns/op 258789 B/op 24083 allocs/op
+BenchmarkMutexMap_Case2
+BenchmarkMutexMap_Case2-16 450 2665258 ns/op 644 B/op 16 allocs/op
+BenchmarkChainMap_Case3
+BenchmarkChainMap_Case3-16 1230 999950 ns/op 1016945 B/op 55616 allocs/op
+BenchmarkSyncMap_Case3
+BenchmarkSyncMap_Case3-16 364 3304403 ns/op 1461508 B/op 40750 allocs/op
+BenchmarkMutexMap_Case3
+BenchmarkMutexMap_Case3-16 188 6297385 ns/op 622392 B/op 306 allocs/op
 
 Observations:
 

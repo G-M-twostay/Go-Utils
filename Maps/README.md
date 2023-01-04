@@ -1,25 +1,37 @@
-All the Map implementations are intended for concurrent uses, they shouldn't be used in single-threaded cases. ChainMap and BucketMap 
-are completed and ready to use. 
+High performance, simple concurrent HashMap implementations.
 
-PoolMap is a version of ChainMap using sync.Pool for states. It's not completed
-and only a test. 
+However, for single threaded case, you are probably better-off using default map as this wasn't the intended use case
+for these implementations. In the worst case, these implementations are all very simple and easy to understand(a sorted
+linked list with array as indexes), and you can easily modify them.
 
-SpinMap is ChainMap but instead of using states uses a lock on all nodes. It's not completed but the
-written functions are ready to use. It's faster than ChainMap in case 1 and 3, a bit slower in case 2. The significant
-part is the less memory usage and fewer allocations. SpinMap is only good for high-end multicore CPU, otherwise it's
-slower than ChainMap. 
+Changes in the Map are reflected immediately at any time(even during resizing). Unlike some other implementations, if
+operation B happens at any time after operation A completed, then operation A is guaranteed to be visible to operation
+B. In contrast, if B happened before operation A completes, then A is guaranteed to be not visible.
+
+ChainMap is more of a demonstration of how a simple completely lock-free hash map is possible in Go. It's slower than
+the not completely lock-free implementation Bucketmap and puts a bigger strain on GC. ChainMap is better implemented in
+C++ because of manual memory management and the ability to use pointer tagging. In conclusion, use BucketMap; ChainMap
+is just a demonstration.
 
 BucketMap is a version of ChainMap that instead uses a lock to ensure deletion and insertion don't
 happen simultaneously. This proved to be a very good strategy as more assumptions about the list structure can be made,
-which made this map the fastest implementation. It's faster than ChainMap in all cases. Takes less memory(slightly more
-than SpinMap) and makes fewer allocations(slightly more than SpinMap).
+which made this map the fastest implementation. It's faster than ChainMap in all cases.
+
+IntMap is a specialized version of BucketMap for all types satisfying comparable. It mainly reduces the comparator
+function overhead because we can use "==".
+
+Map.go also includes a general purpose thread-safe hasher for any struct written using hash/maphash(thus it's not
+secure). It's a hash function based on memory content, so you should make sure that the memory accessed aren't modified
+concurrently. However, I do recommend designing your own hash function if possible as all map implementations are highly
+flexible with hash values. It's designed for cases where you are lazy to write the hash function.
 
 All these implementations support concurrent expanding/shrinking(rehashing) without complicated logics, as this was one
-of the design goal. However, I used interface for handling the hash part, which is probably not a very good practice,
-which also means that the performance can be further improved(by quite a decent amount) by using a non-interface
-approach.
-
-All these maps don't have an internal hash function for rehashing, only a simply bitmask. So it's important to use a
+of the design goal. Previously, I had a Map.Hashable interfacce to handle the hashing and comparing; however, interface
+are very slow, so turned to a functional approach. All these maps don't have an internal hash function for rehashing,
+only a simple bitmask. So it's important to use a
 good hash function yourself. In fact, the performance of all these implementations depends heavily on the hash function.
+Also, BucketMap doesn't use the most significant bit of the hash value, so don't use it.
 
-The Map[K,V] interface is for compatibility with sync.Map(so you can switch to mine by changing the name). All my implementations also implement this interface. ExtendedMap interface is for some additional operations that my implementations support.
+The Map[K,V] interface is for compatibility with sync.Map(so you can switch to mine by changing the name). All my
+implementations also implement this interface. ExtendedMap interface is for some additional operations that my
+implementations support.

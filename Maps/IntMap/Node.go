@@ -3,12 +3,11 @@ package IntMap
 import (
 	"GMUtils/Maps"
 	"fmt"
-	"golang.org/x/exp/constraints"
 	"sync/atomic"
 	"unsafe"
 )
 
-type node[K constraints.Integer] struct {
+type node[K comparable] struct {
 	k    K
 	info uint
 	v    unsafe.Pointer

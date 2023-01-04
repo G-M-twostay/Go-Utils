@@ -2,14 +2,13 @@ package IntMap
 
 import (
 	"GMUtils/Maps"
-	"golang.org/x/exp/constraints"
 	"math/bits"
 	"sync/atomic"
 	"unsafe"
 )
 
 // IntMap is a specialized version of BucketMap for integers. It avoids all the interface operations.
-type IntMap[K constraints.Integer, V any] struct {
+type IntMap[K comparable, V any] struct {
 	rehash                         func(K) uint
 	buckets                        atomic.Pointer[Maps.HashList[*node[K]]]
 	size                           atomic.Uint64
@@ -17,7 +16,7 @@ type IntMap[K constraints.Integer, V any] struct {
 	minAvgLen, maxAvgLen, maxChunk byte
 }
 
-func New[K constraints.Integer, V any](minBucketLen, maxBucketLen byte, maxHash uint, hasher func(K) uint) *IntMap[K, V] {
+func New[K comparable, V any](minBucketLen, maxBucketLen byte, maxHash uint, hasher func(K) uint) *IntMap[K, V] {
 	M := new(IntMap[K, V])
 
 	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen

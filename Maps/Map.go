@@ -1,30 +1,18 @@
 package Maps
 
 import (
-	"bytes"
-	"encoding/binary"
-	"encoding/gob"
 	"hash/maphash"
 	"math"
-	"math/bits"
 	"unsafe"
 )
 
 const (
 	MaxUintHash      = math.MaxUint
-	MinUintHash      = 0
 	MaxArrayLen uint = math.MaxInt
 )
 
-type Hashable interface {
-	//Hash of the object
-	Hash() uint
-	//Equal with other
-	Equal(other Hashable) bool
-}
-
 // Map is designed for compatibility with sync.Map. All the below functions have the exact same usage/behavior as documented in sync.Map.
-type Map[K Hashable, V any] interface {
+type Map[K any, V any] interface {
 	Delete(K)
 	Load(K) (V, bool)
 	LoadAndDelete(K) (V, bool)
@@ -34,8 +22,9 @@ type Map[K Hashable, V any] interface {
 }
 
 // ExtendedMap is the additional operation that my implementation support. Note that these operations aren't explicit implemented, meaning that they're merely taking advantage of the implementation. For example, values are internally stored as pointers in all implementations, so why not just provide a method to access the pointers directly?
-type ExtendedMap[K Hashable, V any] interface {
+type ExtendedMap[K any, V any] interface {
 	Map[K, V]
+	//HasKey is a convenient alias for _,x:=M.Load(K)
 	HasKey(K) bool
 	Size() uint64
 	//Take an arbitrary key value pair from the Map.
@@ -45,33 +34,16 @@ type ExtendedMap[K Hashable, V any] interface {
 	LoadPtrAndDelete(K) (*V, bool)
 	LoadPtrOrStore(K, V) (*V, bool)
 	RangePtr(func(K, *V) bool)
+	//Set is equivalent to Store(K,V) on a existing key, it won't do anything on a key that's not in the Map. In the prior case, it should be designed to be faster than Store.
 	Set(K, V) *V
 }
 
+// Hasher is an ailas for maphash.Seed, create it using Hasher(maphash.MakeSeed()). The receivers are thread-safe, but the memory contents aren't read in a thread-safe way, so only use it on synchronized memory.
 type Hasher maphash.Seed
 
 func (u Hasher) HashAny(v any) uint {
-	buf := bytes.NewBuffer(make([]byte, unsafe.Sizeof(v)))
-	gob.NewEncoder(buf).Encode(v)
-	return uint(maphash.Bytes(maphash.Seed(u), buf.Bytes()))
-}
-
-func (u Hasher) HashUint(v uint) uint {
-	b := make([]byte, bits.UintSize/8)
-	binary.PutUvarint(b, uint64(v))
-	return uint(maphash.Bytes(maphash.Seed(u), b))
-}
-
-func (u Hasher) HashFloat(v float32) uint {
-	b := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b, math.Float32bits(v))
-	return uint(maphash.Bytes(maphash.Seed(u), b))
-}
-
-func (u Hasher) HashDouble(v float64) uint {
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, math.Float64bits(v))
-	return uint(maphash.Bytes(maphash.Seed(u), b))
+	b := (*[unsafe.Sizeof(v)]byte)(unsafe.Pointer(&v))
+	return uint(maphash.Bytes(maphash.Seed(u), b[:]))
 }
 
 func (u Hasher) HashString(v string) uint {

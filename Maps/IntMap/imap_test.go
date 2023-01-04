@@ -90,6 +90,8 @@ func TestIntMap_All(t *testing.T) {
 	//M.Load(O(0))
 }
 
+//https://github.com/cornelk/hashmap/ is incorrect in all 3 test cases, see https://github.com/cornelk/hashmap/issues/73.
+
 func BenchmarkBucketMap_Case1(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
