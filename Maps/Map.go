@@ -24,15 +24,20 @@ type Map[K any, V any] interface {
 // ExtendedMap is the additional operation that my implementation support. Note that these operations aren't explicit implemented, meaning that they're merely taking advantage of the implementation. For example, values are internally stored as pointers in all implementations, so why not just provide a method to access the pointers directly?
 type ExtendedMap[K any, V any] interface {
 	Map[K, V]
-	//HasKey is a convenient alias for _,x:=M.Load(K)
+	//HasKey is a convenient alias for `_,x:=M.Load(K)`
 	HasKey(K) bool
 	Size() uint64
 	//Take an arbitrary key value pair from the Map.
 	Take() (K, V)
+	//TakePtr is the pointer variant of Take.
 	TakePtr(K, *V)
+	//LoadPtr is the pointer variant of Map.Load.
 	LoadPtr(K) *V
+	//LoadPtrAndDelete is the pointer variant of Map.LoadAndDelete.
 	LoadPtrAndDelete(K) (*V, bool)
+	//LoadPtrOrStore is the pointer variant of Map.LoadOrStore.
 	LoadPtrOrStore(K, V) (*V, bool)
+	//RangePtr is the pointer variant of Map.Range.
 	RangePtr(func(K, *V) bool)
 	//Set is equivalent to Store(K,V) on a existing key, it won't do anything on a key that's not in the Map. In the prior case, it should be designed to be faster than Store.
 	Set(K, V) *V
@@ -41,11 +46,13 @@ type ExtendedMap[K any, V any] interface {
 // Hasher is an ailas for maphash.Seed, create it using Hasher(maphash.MakeSeed()). The receivers are thread-safe, but the memory contents aren't read in a thread-safe way, so only use it on synchronized memory.
 type Hasher maphash.Seed
 
+// HashAny hash v based on memory content of v.
 func (u Hasher) HashAny(v any) uint {
 	b := (*[unsafe.Sizeof(v)]byte)(unsafe.Pointer(&v))
 	return uint(maphash.Bytes(maphash.Seed(u), b[:]))
 }
 
+// HashString directly hashes a string, it's faster than HashAny(string).
 func (u Hasher) HashString(v string) uint {
 	return uint(maphash.String(maphash.Seed(u), v))
 }

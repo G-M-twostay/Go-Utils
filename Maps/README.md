@@ -23,7 +23,7 @@ function overhead because we can use "==".
 Map.go also includes a general purpose thread-safe hasher for any struct written using hash/maphash(thus it's not
 secure). It's a hash function based on memory content, so you should make sure that the memory accessed aren't modified
 concurrently. However, I do recommend designing your own hash function if possible as all map implementations are highly
-flexible with hash values. It's designed for cases where you are lazy to write the hash function.
+flexible with hash values. It's designed for cases where you are lazy to write the hash function. A optimal hash function should be evenly distributed in [0,2^n).
 
 All these implementations support concurrent expanding/shrinking(rehashing) without complicated logics, as this was one
 of the design goal. Previously, I had a Map.Hashable interfacce to handle the hashing and comparing; however, interface
