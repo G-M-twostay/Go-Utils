@@ -9,7 +9,7 @@ import (
 
 type node[K any] struct {
 	k    K
-	info uint
+	info uint //first bit: relay or not; other bits: hash value
 	v    unsafe.Pointer
 	nx   unsafe.Pointer
 }
@@ -22,6 +22,7 @@ func (cur *node[K]) isRelay() bool {
 	return cur.info > Maps.MaxArrayLen
 }
 
+// lock returns the pointer to the lock by node.v; this will panic if cur isn't a relay
 func (cur *node[K]) lock() *Maps.FlagLock {
 	return (*Maps.FlagLock)(cur.v)
 }
@@ -34,6 +35,7 @@ func (cur *node[K]) dangerLink(oldRight, newRight unsafe.Pointer) bool {
 	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, newRight)
 }
 
+// unlinkRelay performs CAS on cur.nx with next and sets next.Del to true if success. next is a relay.
 func (cur *node[K]) unlinkRelay(next *node[K], nextPtr unsafe.Pointer) bool {
 	t := next.lock()
 	t.Lock()
@@ -46,6 +48,7 @@ func (cur *node[K]) dangerUnlink(next *node[K]) {
 	atomic.StorePointer(&cur.nx, next.nx)
 }
 
+// search the given key with hash value at from cur. Return nil if not found.
 func (cur *node[K]) search(k K, at uint, cmp func(K, K) bool) *node[K] {
 	for left := cur; ; {
 		if right := (*node[K])(left.Next()); right == nil || at < right.Hash() {

@@ -42,7 +42,7 @@ func (u *BucketMap[K, V]) trySplit() {
 
 			for i, v := range s.Array {
 
-				newBuckets[i<<1] = v
+				newBuckets[i<<1] = v //copies the old value
 
 				hash := (1<<s.Chunk)*uint(i) + (1 << (s.Chunk - 1))
 				newRelay := &node[K]{info: Maps.Mark(hash), v: unsafe.Pointer(new(Maps.FlagLock))}
@@ -82,7 +82,7 @@ func (u *BucketMap[K, V]) tryMerge() {
 				newBuckets[i] = s.Array[i<<1]
 			}
 
-			u.buckets.Store(&Maps.HashList[*node[K]]{Array: newBuckets, Chunk: s.Chunk + 1})
+			u.buckets.Store(&Maps.HashList[*node[K]]{Array: newBuckets, Chunk: s.Chunk + 1}) //makes the old value not available for new access.
 
 			for i := 0; i < len(s.Array); i += 2 {
 				t := s.Array[i].lock()
@@ -109,7 +109,7 @@ func (u *BucketMap[K, V]) Store(key K, val V) {
 
 	left := u.buckets.Load().Get(hash)
 	prevLock := left.lock()
-	for ; !prevLock.SafeRLock(); prevLock = left.lock() {
+	for ; !prevLock.SafeRLock(); prevLock = left.lock() { //make sure lock is update-to-date, i.e. Del is false
 		prevLock.RUnlock()
 		left = u.buckets.Load().Get(hash)
 	}
@@ -132,7 +132,7 @@ func (u *BucketMap[K, V]) Store(key K, val V) {
 		}
 
 		if left.isRelay() {
-			if cl := left.lock(); cl != prevLock {
+			if cl := left.lock(); cl != prevLock { //in case of failed CAS operation, there is no need to redo the locking procedure because we're still in the same bucket.
 				prevLock.RUnlock()
 				for prevLock = cl; !prevLock.SafeRLock(); prevLock = left.lock() {
 					prevLock.RUnlock()
@@ -238,7 +238,7 @@ func (u *BucketMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 		}
 
 		if left.isRelay() {
-			prevLock.Unlock()
+			prevLock.Unlock() //deletion always success, so left will always be a new relay.
 			for prevLock = left.lock(); !prevLock.SafeLock(); prevLock = left.lock() {
 				prevLock.Unlock()
 				left = u.buckets.Load().Get(hash)
