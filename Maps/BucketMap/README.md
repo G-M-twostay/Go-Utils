@@ -1,3 +1,32 @@
+This implementation is extremely fast, I compared it wo some other implementations:
+
+BenchmarkReadHashMapUint
+BenchmarkReadHashMapUint-16                      1496050               729.5 ns/ op             0 B/op          0 allocs/op
+BenchmarkReadBMapUint
+BenchmarkReadBMapUint-16                         1352514               886.7 ns/ op             0 B/op          0 allocs/op
+BenchmarkReadIntMapUint
+BenchmarkReadIntMapUint-16                       1939606               620.1 ns/ op             0 B/op          0 allocs/op
+BenchmarkReadHaxMapUint
+BenchmarkReadHaxMapUint-16                       1693029               702.5 ns/ op             0 B/op          0 allocs/op
+BenchmarkReadHashMapWithWritesUint
+BenchmarkReadHashMapWithWritesUint-16            1547737               784.0 ns/ op            50 B/op          6 allocs/op
+BenchmarkReadBMapWithWritesUint
+BenchmarkReadBMapWithWritesUint-16               1295151               899.2 ns/ op            50 B/op          6 allocs/op
+BenchmarkReadIntMapWithWritesUint
+BenchmarkReadIntMapWithWritesUint-16             1804292               649.5 ns/ op            54 B/op          6 allocs/op
+BenchmarkReadHaxMapWithWritesUint
+BenchmarkReadHaxMapWithWritesUint-16             1530337               784.0 ns/ op            48 B/op          6 allocs/op
+BenchmarkWriteHashMapUint
+BenchmarkWriteHashMapUint-16                       48426             24823 ns/op             8193 B/op       1024 allocs/op
+BenchmarkWriteBMapUint
+BenchmarkWriteBMapUint-16                          49976             24101 ns/op             8193 B/op       1024 allocs/op
+BenchmarkWriteIntMapUint
+BenchmarkWriteIntMapUint-16                        52161             23081 ns/op             8193 B/op       1024 allocs/op
+BenchmarkWriteHaxMapUint
+BenchmarkWriteHaxMapUint-16                        43310             27194 ns/op             8193 B/op       1024 allocs/op
+
+See comparisons/cmp1_test.go for detailed information.
+
 This implementation has the same underlying sorted linked list structure like ChainMap. However, it has a RWLock on
 every relay nodes. This lock is to make sure deletion doesn't happen simultaneously with insertion in a hope to simplify
 and speed things up(all the complex logics in ChainMap are caused by deletion).
