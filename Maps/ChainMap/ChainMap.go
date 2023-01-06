@@ -1,7 +1,7 @@
 package ChainMap
 
 import (
-	"GMUtils/Maps"
+	"math"
 	"math/bits"
 	"sync/atomic"
 	"unsafe"
@@ -21,7 +21,7 @@ func New[K any, V any](minBucketLen, maxBucketLen byte, maxHash uint, hasher fun
 	M := new(ChainMap[K, V])
 
 	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen
-	M.maxHash = (Maps.MaxUintHash >> bits.LeadingZeros(maxHash)) & Maps.MaxArrayLen
+	M.maxHash = math.MaxUint >> bits.LeadingZeros(maxHash)
 	M.rehash, M.cmp = hasher, comparator
 
 	M.buckets.Store(&[]*node[K]{{hash: 0, s: unsafe.Pointer(new(state[K]))}})

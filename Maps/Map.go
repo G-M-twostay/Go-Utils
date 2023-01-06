@@ -7,7 +7,6 @@ import (
 )
 
 const (
-	MaxUintHash      = math.MaxUint
 	MaxArrayLen uint = math.MaxInt
 )
 
