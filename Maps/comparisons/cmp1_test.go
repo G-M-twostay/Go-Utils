@@ -1,8 +1,9 @@
-package comparsions
+package comparisons
 
 import (
 	"GMUtils/Maps/BucketMap"
 	"GMUtils/Maps/IntMap"
+	"github.com/alphadose/haxmap"
 	"github.com/cornelk/hashmap"
 	"sync/atomic"
 	"testing"
@@ -18,7 +19,7 @@ const (
 	maxLen3            byte = 5
 )
 
-func hasher(x uintptr) uint {
+func hashUintptr(x uintptr) uint {
 	return uint(x)
 }
 
@@ -27,7 +28,8 @@ func cmp(x, y uintptr) bool {
 }
 
 // compares with https://github.com/cornelk/hashmap using https://github.com/cornelk/hashmap/blob/main/benchmarks/benchmark_test.go.
-// Note that this hashmap isn't correct, see IntMap/imap_test.go
+// compares with https://github.com/alphadose/haxmap using the above benchmarks.
+// Note that these 2 implementations are both incorrect, see cmp2_test.go
 func setupHashMap(b *testing.B) *hashmap.Map[uintptr, uintptr] {
 	b.Helper()
 
@@ -40,7 +42,7 @@ func setupHashMap(b *testing.B) *hashmap.Map[uintptr, uintptr] {
 
 func setupBMap(b *testing.B, a byte, c byte) *BucketMap.BucketMap[uintptr, uintptr] {
 	b.Helper()
-	m := BucketMap.New[uintptr, uintptr](a, c, benchmarkItemCount, hasher, cmp)
+	m := BucketMap.New[uintptr, uintptr](a, c, benchmarkItemCount, hashUintptr, cmp)
 	for i := uintptr(0); i < benchmarkItemCount; i++ {
 		m.Store(i, i)
 	}
@@ -52,6 +54,16 @@ func setupIntMap(b *testing.B, a, c byte) *IntMap.IntMap[uintptr, uintptr] {
 	m := IntMap.New[uintptr, uintptr](a, c, benchmarkItemCount, func(x uintptr) uint { return uint(x) })
 	for i := uintptr(0); i < benchmarkItemCount; i++ {
 		m.Store(i, i)
+	}
+	return m
+}
+
+func setupHaxMap(b *testing.B) *haxmap.Map[uintptr, uintptr] {
+	b.Helper()
+
+	m := haxmap.New[uintptr, uintptr]()
+	for i := uintptr(0); i < benchmarkItemCount; i++ {
+		m.Set(i, i)
 	}
 	return m
 }
@@ -96,6 +108,22 @@ func BenchmarkReadIntMapUint(b *testing.B) {
 		for pb.Next() {
 			for i := uintptr(0); i < benchmarkItemCount; i++ {
 				j, _ := m.Load(i)
+				if j != i {
+					b.Fail()
+				}
+			}
+		}
+	})
+}
+
+func BenchmarkReadHaxMapUint(b *testing.B) {
+	m := setupHaxMap(b)
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			for i := uintptr(0); i < benchmarkItemCount; i++ {
+				j, _ := m.Get(i)
 				if j != i {
 					b.Fail()
 				}
@@ -182,6 +210,32 @@ func BenchmarkReadIntMapWithWritesUint(b *testing.B) {
 	})
 }
 
+func BenchmarkReadHaxMapWithWritesUint(b *testing.B) {
+	m := setupHaxMap(b)
+	var writer uintptr
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		// use 1 thread as writer
+		if atomic.CompareAndSwapUintptr(&writer, 0, 1) {
+			for pb.Next() {
+				for i := uintptr(0); i < benchmarkItemCount; i++ {
+					m.Set(i, i)
+				}
+			}
+		} else {
+			for pb.Next() {
+				for i := uintptr(0); i < benchmarkItemCount; i++ {
+					j, _ := m.Get(i)
+					if j != i {
+						b.Fail()
+					}
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkWriteHashMapUint(b *testing.B) {
 	m := hashmap.New[uintptr, uintptr]()
 	b.ResetTimer()
@@ -194,7 +248,7 @@ func BenchmarkWriteHashMapUint(b *testing.B) {
 }
 
 func BenchmarkWriteBMapUint(b *testing.B) {
-	m := BucketMap.New[uintptr, uintptr](minLen3, maxLen3, benchmarkItemCount, hasher, cmp)
+	m := BucketMap.New[uintptr, uintptr](minLen3, maxLen3, benchmarkItemCount, hashUintptr, cmp)
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
@@ -210,7 +264,18 @@ func BenchmarkWriteIntMapUint(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		for i := uintptr(0); i < benchmarkItemCount; i++ {
-			m.Store(uintptr(i), i)
+			m.Store(i, i)
+		}
+	}
+}
+
+func BenchmarkWriteHaxMapUint(b *testing.B) {
+	m := haxmap.New[uintptr, uintptr]()
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		for i := uintptr(0); i < benchmarkItemCount; i++ {
+			m.Set(i, i)
 		}
 	}
 }

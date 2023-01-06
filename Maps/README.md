@@ -1,4 +1,4 @@
-High performance, simple concurrent HashMap implementations.
+High performance, simple concurrent HashMap implementations. Most importantly, they're correct.
 
 However, for single threaded case, you are probably better-off using default map as this wasn't the intended use case
 for these implementations. In the worst case, these implementations are all very simple and easy to understand(a sorted
@@ -35,3 +35,5 @@ Also, BucketMap doesn't use the most significant bit of the hash value, so don't
 The Map[K,V] interface is for compatibility with sync.Map(so you can switch to mine by changing the name). All my
 implementations also implement this interface. ExtendedMap interface is for some additional operations that my
 implementations support.
+
+See detailed information under each implementations' own directory. 
