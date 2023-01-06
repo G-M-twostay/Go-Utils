@@ -1,13 +1,12 @@
 package ChainMap
 
 import (
-	"GMUtils/Maps"
 	"fmt"
 	"sync/atomic"
 	"unsafe"
 )
 
-type state[K Maps.Hashable] struct {
+type state[K any] struct {
 	del bool
 	nx  *node[K]
 }
@@ -16,18 +15,11 @@ func (u *state[K]) changeNext(nx *node[K]) *state[K] {
 	return &state[K]{u.del, nx}
 }
 
-type node[K Maps.Hashable] struct {
+type node[K any] struct {
 	k    K
 	hash uint
 	v    unsafe.Pointer
 	s    unsafe.Pointer
-}
-
-func makeRelay[K Maps.Hashable](hash uint, next *node[K]) *node[K] {
-	n, s := new(node[K]), new(state[K])
-	s.nx = next
-	n.hash, n.s = hash, unsafe.Pointer(s)
-	return n
 }
 
 func (u *node[K]) addAfter(oldSt *state[K], oldStPtr unsafe.Pointer, newRight *node[K]) bool {
@@ -62,12 +54,12 @@ func (u *node[K]) searchHash(at uint) (*node[K], *state[K], unsafe.Pointer, *nod
 
 }
 
-func (u *node[K]) searchKey(k K, at uint) (*node[K], *state[K], unsafe.Pointer, *node[K], bool) {
+func (u *node[K]) searchKey(k K, at uint, cmp func(K, K) bool) (*node[K], *state[K], unsafe.Pointer, *node[K], bool) {
 	for left := u; ; {
 		if right, leftSt, leftStPtr := left.next(); right == nil {
 			return left, leftSt, leftStPtr, nil, false
 		} else if at == right.hash {
-			if k.Equal(right.k) && !right.isRelay() { //found
+			if cmp(k, right.k) && !right.isRelay() { //found
 				return left, leftSt, leftStPtr, right, true
 			} else {
 				left = right
@@ -91,12 +83,16 @@ func (u *node[K]) delete() bool {
 	}
 }
 
-func (u *node[K]) getVPtr() unsafe.Pointer {
+func (u *node[K]) get() unsafe.Pointer {
 	return atomic.LoadPointer(&u.v)
 }
 
-func (u *node[K]) setVPtr(newPtr unsafe.Pointer) {
+func (u *node[K]) set(newPtr unsafe.Pointer) {
 	atomic.StorePointer(&u.v, newPtr)
+}
+
+func (cur *node[K]) swap(v unsafe.Pointer) unsafe.Pointer {
+	return atomic.SwapPointer(&cur.v, v)
 }
 
 func (u *node[K]) isRelay() bool {
@@ -105,5 +101,5 @@ func (u *node[K]) isRelay() bool {
 
 func (u *node[K]) String() string {
 	t := (*state[K])(atomic.LoadPointer(&u.s))
-	return fmt.Sprintf("key: %#v; val: %#v; hash: %d; del: %t", u.k, u.getVPtr(), u.hash, t.del)
+	return fmt.Sprintf("key: %#v; val: %#v; hash: %d; del: %t", u.k, u.get(), u.hash, t.del)
 }

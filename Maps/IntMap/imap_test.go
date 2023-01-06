@@ -1,8 +1,7 @@
-package PoolMap
+package IntMap
 
 import (
-	"GMUtils/Maps"
-	"GMUtils/Maps/ChainMap"
+	"GMUtils/Maps/BucketMap"
 	"sync"
 	"testing"
 )
@@ -14,47 +13,49 @@ const (
 	elementNum0 = 1 << 10
 )
 
-type O int
-
-func (u O) Equal(o Maps.Hashable) bool {
-	return u == o.(O)
+func hasher(x int) uint {
+	return uint(x)
 }
 
-func (u O) Hash() uint {
-	return uint(u)
+func cmp(x, y int) bool {
+	return x == y
 }
 
-func TestChainMap_All(t *testing.T) {
-	M := MakePoolMap[O, int](2, 4, blockNum*blockSize-1)
+func TestIntMap_All(t *testing.T) {
+	M := New[int, int](1, 1, blockNum*blockSize-1, func(x int) uint { return uint(x) })
 	wg := &sync.WaitGroup{}
 	wg.Add(blockNum)
 	for j := 0; j < blockNum; j++ {
 		go func(l, h int) {
 			defer wg.Done()
 			for i := l; i < h; i++ {
-				M.Store(O(i), i)
+				M.Store(i, i)
 			}
 
 			for i := l; i < h; i++ {
-				if !M.HasKey(O(i)) {
-					t.Errorf("not put: %v\n", O(i))
-					//return
+				if !M.HasKey(i) {
+					t.Errorf("not put: %v\n", i)
+					return
 				}
 			}
 			for i := l; i < h; i++ {
-				M.Delete(O(i))
+				M.Delete(i)
 
 			}
 			for i := l; i < h; i++ {
-				if M.HasKey(O(i)) {
-					t.Errorf("not removed: %v\n", O(i))
+				if M.HasKey(i) {
+					t.Errorf("not removed: %v\n", i)
+					return
 				}
 			}
 
 		}(j*blockSize, (j+1)*blockSize)
 	}
 	wg.Wait()
-	for cur := (*M.buckets.Load())[0]; cur != nil; cur = (*state[O])(cur.s).nx {
+	for cur := (M.buckets.Load().Get(0)); cur != nil; cur = (*node[int])(cur.nx) {
+		if !cur.isRelay() {
+			t.Log("have", M.HasKey(cur.k))
+		}
 		t.Log(cur.String(), "\n")
 	}
 	//for i := 0; i < 8; i++ {
@@ -76,41 +77,38 @@ func TestChainMap_All(t *testing.T) {
 	//M.Store(O(0), 1)
 	//M.Store(O(1), 2)
 	//M.Store(O(2), 3)
+	//t.Log("added")
 	//M.Delete(O(0))
+	//t.Log("delted 0")
 	//M.Delete(O(1))
 	//t.Log("removed 0 and 1")
 	//M.Delete(O(2))
 	//t.Log("removed 0 and 1 and 2")
-	//for cur := M.bucketsPtr[0]; cur != nil; cur = (*state[O])(cur.s).nx {
+	//for cur := (*M.buckets.Load())[0]; cur != nil; cur = (*node[O])(cur.nx) {
 	//	t.Log(cur.String(), "\n")
 	//}
 	//M.Load(O(0))
 }
 
-func BenchmarkPoolMap_Case1(b *testing.B) {
+func BenchmarkBucketMap_Case1(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := MakePoolMap[O, int](0, 2, elementNum0*iter0-1)
-		statesPool = sync.Pool{
-			New: func() any {
-				return new(state[O])
-			},
-		}
+		M := BucketMap.New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp)
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					M.Store(O(j), j)
+					M.Store(j, j)
 				}
 				for j := l; j < h; j++ {
-					if !M.HasKey(O(j)) {
+					if !M.HasKey(j) {
 						b.Error("key doesn't exist")
 					}
 				}
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j {
 						b.Error("incorrect value")
 					}
@@ -122,25 +120,25 @@ func BenchmarkPoolMap_Case1(b *testing.B) {
 		b.StopTimer()
 	}
 }
-func BenchmarkChainMap_Case1(b *testing.B) {
+func BenchmarkIntMap_Case1(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := ChainMap.MakeChainMap[O, int](0, 2, elementNum0*iter0-1)
+		M := New[int, int](0, 2, elementNum0*iter0-1, hasher)
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					M.Store(O(j), j)
+					M.Store(j, j)
 				}
 				for j := l; j < h; j++ {
-					if !M.HasKey(O(j)) {
+					if !M.HasKey(j) {
 						b.Error("key doesn't exist")
 					}
 				}
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j {
 						b.Error("incorrect value")
 					}
@@ -152,35 +150,31 @@ func BenchmarkChainMap_Case1(b *testing.B) {
 		b.StopTimer()
 	}
 }
-func BenchmarkPoolMap_Case2(b *testing.B) {
+
+func BenchmarkBucketMap_Case2(b *testing.B) {
 	//runtime.GC()
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := MakePoolMap[O, int](0, 2, elementNum0*iter0-1)
-		statesPool = sync.Pool{
-			New: func() any {
-				return new(state[O])
-			},
-		}
+		M := BucketMap.New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp)
 		for j := 0; j < elementNum0*iter0; j++ {
-			M.Store(O(j), j)
+			M.Store(j, j)
 		}
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j {
 						b.Error("incorrect value")
 					}
 				}
 				for j := l; j < h; j++ {
-					M.Store(O(j), j+1)
+					M.Store(j, j+1)
 				}
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j+1 {
 						b.Error("incorrect value")
 					}
@@ -192,29 +186,30 @@ func BenchmarkPoolMap_Case2(b *testing.B) {
 		b.StopTimer()
 	}
 }
-func BenchmarkChainMap_Case2(b *testing.B) {
+func BenchmarkIntMap_Case2(b *testing.B) {
+	//runtime.GC()
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := ChainMap.MakeChainMap[O, int](0, 2, elementNum0*iter0-1)
+		M := New[int, int](0, 2, elementNum0*iter0-1, hasher)
 		for j := 0; j < elementNum0*iter0; j++ {
-			M.Store(O(j), j)
+			M.Store(j, j)
 		}
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
 			go func(l, h int) {
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j {
 						b.Error("incorrect value")
 					}
 				}
 				for j := l; j < h; j++ {
-					M.Store(O(j), j+1)
+					M.Store(j, j+1)
 				}
 				for j := l; j < h; j++ {
-					x, _ := M.Load(O(j))
+					x, _ := M.Load(j)
 					if x != j+1 {
 						b.Error("incorrect value")
 					}
@@ -226,38 +221,34 @@ func BenchmarkChainMap_Case2(b *testing.B) {
 		b.StopTimer()
 	}
 }
-func BenchmarkPoolMap_Case3(b *testing.B) {
+
+func BenchmarkBucketMap_Case3(b *testing.B) {
 	//runtime.GC()
 	b.StopTimer()
 	wg := &sync.WaitGroup{}
 	for a := 0; a < b.N; a++ {
-		M := MakePoolMap[O, int](2, 8, iter0*elementNum0-1)
-		statesPool = sync.Pool{
-			New: func() any {
-				return new(state[O])
-			},
-		}
+		M := BucketMap.New[int, int](2, 8, iter0*elementNum0-1, hasher, cmp)
 		b.StartTimer()
 		for j := 0; j < iter0; j++ {
 			wg.Add(1)
 			go func(l, h int) {
 				defer wg.Done()
 				for i := l; i < h; i++ {
-					M.Store(O(i), i)
+					M.Store(i, i)
 				}
 
 				for i := l; i < h; i++ {
-					if !M.HasKey(O(i)) {
-						b.Errorf("not put: %v\n", O(i))
+					if !M.HasKey(i) {
+						b.Errorf("not put: %v\n", i)
 					}
 				}
 				for i := l; i < h; i++ {
-					M.Delete(O(i))
+					M.Delete(i)
 
 				}
 				for i := l; i < h; i++ {
-					if M.HasKey(O(i)) {
-						b.Errorf("not removed: %v\n", O(i))
+					if M.HasKey(i) {
+						b.Errorf("not removed: %v\n", i)
 					}
 				}
 
@@ -268,32 +259,33 @@ func BenchmarkPoolMap_Case3(b *testing.B) {
 	}
 
 }
-func BenchmarkChainMap_Case3(b *testing.B) {
+func BenchmarkIntMap_Case3(b *testing.B) {
+	//runtime.GC()
 	b.StopTimer()
 	wg := &sync.WaitGroup{}
 	for a := 0; a < b.N; a++ {
-		M := ChainMap.MakeChainMap[O, int](2, 8, iter0*elementNum0-1)
+		M := New[int, int](2, 8, iter0*elementNum0-1, hasher)
 		b.StartTimer()
 		for j := 0; j < iter0; j++ {
 			wg.Add(1)
 			go func(l, h int) {
 				defer wg.Done()
 				for i := l; i < h; i++ {
-					M.Store(O(i), i)
+					M.Store(i, i)
 				}
 
 				for i := l; i < h; i++ {
-					if !M.HasKey(O(i)) {
-						b.Errorf("not put: %v\n", O(i))
+					if !M.HasKey(i) {
+						b.Errorf("not put: %v\n", i)
 					}
 				}
 				for i := l; i < h; i++ {
-					M.Delete(O(i))
+					M.Delete(i)
 
 				}
 				for i := l; i < h; i++ {
-					if M.HasKey(O(i)) {
-						b.Errorf("not removed: %v\n", O(i))
+					if M.HasKey(i) {
+						b.Errorf("not removed: %v\n", i)
 					}
 				}
 
