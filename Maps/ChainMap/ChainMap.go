@@ -11,7 +11,7 @@ type ChainMap[K any, V any] struct {
 	minAvgLen, maxAvgLen byte
 	resizing             atomic.Bool
 	maxHash              uint
-	size                 atomic.Uint64
+	size                 atomic.Uintptr
 	buckets              atomic.Pointer[[]*node[K]]
 	rehash               func(K) uint
 	cmp                  func(K, K) bool
@@ -24,7 +24,7 @@ func New[K any, V any](minBucketLen, maxBucketLen byte, maxHash uint, hasher fun
 	M.maxHash = (Maps.MaxUintHash >> bits.LeadingZeros(maxHash)) & Maps.MaxArrayLen
 	M.rehash, M.cmp = hasher, comparator
 
-	M.buckets.Store(&[]*node[K]{&node[K]{hash: 0, s: unsafe.Pointer(new(state[K]))}})
+	M.buckets.Store(&[]*node[K]{{hash: 0, s: unsafe.Pointer(new(state[K]))}})
 
 	return M
 }
@@ -37,7 +37,7 @@ func New[K any, V any](minBucketLen, maxBucketLen byte, maxHash uint, hasher fun
 func (u *ChainMap[K, V]) trySplit() {
 	if u.resizing.CompareAndSwap(false, true) {
 		s := *u.buckets.Load()
-		if ul := uint(len(s)); uint(u.Size())/ul > uint(u.maxAvgLen) {
+		if ul := uint(len(s)); u.Size()/ul > uint(u.maxAvgLen) {
 
 			newBuckets := make([]*node[K], ul<<1)
 
@@ -67,7 +67,7 @@ func (u *ChainMap[K, V]) trySplit() {
 func (u *ChainMap[K, V]) tryMerge() {
 	if u.resizing.CompareAndSwap(false, true) {
 		s := *u.buckets.Load()
-		if ul := uint(len(s)); uint(u.Size())/ul < uint(u.minAvgLen) && ul > 1 {
+		if ul := uint(len(s)); u.Size()/ul < uint(u.minAvgLen) && ul > 1 {
 
 			newBuckets := make([]*node[K], ul>>1)
 
@@ -147,7 +147,7 @@ func (u *ChainMap[K, V]) LoadPtrAndDelete(key K) (val *V, loaded bool) {
 	if _, _, _, r, f := u.findHash(hash).searchKey(key, hash, u.cmp); f {
 		loaded = r.delete()
 		if loaded {
-			u.size.Add(^uint64(1 - 1))
+			u.size.Add(^uintptr(1 - 1))
 			u.tryMerge()
 			val = (*V)(r.get())
 		}
@@ -155,8 +155,8 @@ func (u *ChainMap[K, V]) LoadPtrAndDelete(key K) (val *V, loaded bool) {
 	return
 }
 
-func (u *ChainMap[K, V]) Size() uint64 {
-	return u.size.Load()
+func (u *ChainMap[K, V]) Size() uint {
+	return uint(u.size.Load())
 }
 
 func (u *ChainMap[K, V]) TakePtr() (K, *V) {

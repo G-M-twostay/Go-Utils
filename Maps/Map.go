@@ -26,7 +26,7 @@ type ExtendedMap[K any, V any] interface {
 	Map[K, V]
 	//HasKey is a convenient alias for `_,x:=M.Load(K)`
 	HasKey(K) bool
-	Size() uint64
+	Size() uint
 	//Take an arbitrary key value pair from the Map.
 	Take() (K, V)
 	//TakePtr is the pointer variant of Take.

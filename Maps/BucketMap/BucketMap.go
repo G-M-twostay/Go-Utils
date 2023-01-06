@@ -11,7 +11,7 @@ type BucketMap[K any, V any] struct {
 	rehash                         func(K) uint
 	cmp                            func(K, K) bool
 	buckets                        atomic.Pointer[Maps.HashList[*node[K]]]
-	size                           atomic.Uint64
+	size                           atomic.Uintptr
 	state                          atomic.Uint32
 	minAvgLen, maxAvgLen, maxChunk byte
 }
@@ -29,14 +29,14 @@ func New[K any, V any](minBucketLen, maxBucketLen byte, maxHash uint, hasher fun
 	return M
 }
 
-func (u *BucketMap[K, V]) Size() uint64 {
-	return u.size.Load()
+func (u *BucketMap[K, V]) Size() uint {
+	return uint(u.size.Load())
 }
 
 func (u *BucketMap[K, V]) trySplit() {
 	if u.state.CompareAndSwap(0, 1) {
 		s := *u.buckets.Load()
-		if u.Size()>>(u.maxChunk-s.Chunk) > uint64(u.maxAvgLen) {
+		if u.Size()>>(u.maxChunk-s.Chunk) > uint(u.maxAvgLen) {
 
 			newBuckets := make([]*node[K], len(s.Array)<<1)
 
@@ -74,7 +74,7 @@ func (u *BucketMap[K, V]) trySplit() {
 func (u *BucketMap[K, V]) tryMerge() {
 	if u.state.CompareAndSwap(0, 1) {
 		s := *u.buckets.Load()
-		if u.Size()>>(u.maxChunk-s.Chunk) < uint64(u.minAvgLen) && len(s.Array) > 1 {
+		if u.Size()>>(u.maxChunk-s.Chunk) < uint(u.minAvgLen) && len(s.Array) > 1 {
 
 			newBuckets := make([]*node[K], len(s.Array)>>1)
 
@@ -230,7 +230,7 @@ func (u *BucketMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 		} else if hash == right.info && u.cmp(key, right.k) {
 			left.dangerUnlink(right)
 			prevLock.Unlock()
-			u.size.Add(^uint64(1 - 1))
+			u.size.Add(^uintptr(1 - 1))
 			u.tryMerge()
 			return (*V)(right.get()), true
 		} else {
