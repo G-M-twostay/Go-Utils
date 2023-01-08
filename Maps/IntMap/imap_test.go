@@ -152,7 +152,6 @@ func BenchmarkIntMap_Case1(b *testing.B) {
 }
 
 func BenchmarkBucketMap_Case2(b *testing.B) {
-	//runtime.GC()
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
@@ -187,7 +186,6 @@ func BenchmarkBucketMap_Case2(b *testing.B) {
 	}
 }
 func BenchmarkIntMap_Case2(b *testing.B) {
-	//runtime.GC()
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {

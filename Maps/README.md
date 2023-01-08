@@ -1,12 +1,12 @@
-High performance, simple concurrent HashMap implementations. Most importantly, they're correct.
+Thread-safe, high-performance, and simple concurrent hash map implementations. Most importantly, they're correct. Contains a blocking and a non-blocking version.
 
 However, for single threaded case, you are probably better-off using default map as this wasn't the intended use case
 for these implementations. In the worst case, these implementations are all very simple and easy to understand(a sorted
 linked list with array as indexes), and you can easily modify them.
 
 Changes in the Map are reflected immediately at any time(even during resizing). Unlike some other implementations, if
-operation B started at any time after operation A completed, then operation A is guaranteed to be visible to operation
-B. In contrast, if B ended before operation A ended, then A is guaranteed to be not visible. An operation ends slightly before the function returns.
+operation B started at any time after operation A completed(slightly before function call returns), then operation A is guaranteed to be visible to operation
+B. In other words, operation A happens-before/synchronizes-before all operations starting after A completes.
 
 ChainMap is more of a demonstration of how a simple completely lock-free hash map is possible in Go. It's slower than
 the not completely lock-free implementation Bucketmap and puts a bigger strain on GC. ChainMap is better implemented in
