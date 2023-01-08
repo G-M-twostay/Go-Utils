@@ -2,6 +2,7 @@ package Go_Utils
 
 import "sync/atomic"
 
+// AtomicUint backed by uintptr
 type AtomicUint struct {
 	v uintptr
 }
@@ -22,6 +23,7 @@ func (u *AtomicUint) CompareAndSwap(exp, v uint) bool {
 	return atomic.CompareAndSwapUintptr(&u.v, uintptr(exp), uintptr(v))
 }
 
+// AtomicInt backed by uintptr
 type AtomicInt struct {
 	v uintptr
 }
