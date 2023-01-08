@@ -109,9 +109,11 @@ func (u *BucketMap[K, V]) Store(key K, val V) {
 
 	left := u.buckets.Load().Get(hash)
 	prevLock := left.lock()
-	for ; !prevLock.SafeRLock(); prevLock = left.lock() { //make sure lock is update-to-date, i.e. Del is false
+	if !prevLock.SafeRLock() {
 		prevLock.RUnlock()
 		left = u.buckets.Load().Get(hash)
+		prevLock = left.lock()
+		prevLock.RLock()
 	}
 
 	for {
@@ -134,9 +136,11 @@ func (u *BucketMap[K, V]) Store(key K, val V) {
 		if left.isRelay() {
 			if cl := left.lock(); cl != prevLock { //in case of failed CAS operation, there is no need to redo the locking procedure because we're still in the same bucket.
 				prevLock.RUnlock()
-				for prevLock = cl; !prevLock.SafeRLock(); prevLock = left.lock() {
+				if prevLock = cl; !prevLock.SafeRLock() {
 					prevLock.RUnlock()
 					left = u.buckets.Load().Get(hash)
+					prevLock = left.lock()
+					prevLock.RLock()
 				}
 			}
 		}
@@ -148,9 +152,11 @@ func (u *BucketMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
 
 	left := u.buckets.Load().Get(hash)
 	prevLock := left.lock()
-	for ; !prevLock.SafeRLock(); prevLock = left.lock() {
+	if !prevLock.SafeRLock() {
 		prevLock.RUnlock()
 		left = u.buckets.Load().Get(hash)
+		prevLock = left.lock()
+		prevLock.RLock()
 	}
 
 	for {
@@ -172,9 +178,11 @@ func (u *BucketMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
 		if left.isRelay() {
 			if cl := left.lock(); cl != prevLock {
 				prevLock.RUnlock()
-				for prevLock = cl; !prevLock.SafeRLock(); prevLock = left.lock() {
+				if prevLock = cl; !prevLock.SafeRLock() {
 					prevLock.RUnlock()
 					left = u.buckets.Load().Get(hash)
+					prevLock = left.lock()
+					prevLock.RLock()
 				}
 			}
 		}
@@ -217,9 +225,11 @@ func (u *BucketMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 
 	left := u.buckets.Load().Get(hash)
 	prevLock := left.lock()
-	for ; !prevLock.SafeLock(); prevLock = left.lock() {
+	if !prevLock.SafeLock() {
 		prevLock.Unlock()
 		left = u.buckets.Load().Get(hash)
+		prevLock = left.lock()
+		prevLock.Lock()
 	}
 
 	for {
@@ -239,9 +249,11 @@ func (u *BucketMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 
 		if left.isRelay() {
 			prevLock.Unlock() //deletion always success, so left will always be a new relay.
-			for prevLock = left.lock(); !prevLock.SafeLock(); prevLock = left.lock() {
+			if prevLock = left.lock(); !prevLock.SafeLock() {
 				prevLock.Unlock()
 				left = u.buckets.Load().Get(hash)
+				prevLock = left.lock()
+				prevLock.Lock()
 			}
 		}
 	}
