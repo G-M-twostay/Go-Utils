@@ -20,7 +20,7 @@ func New[K comparable, V any](minBucketLen, maxBucketLen byte, maxHash uint, has
 	M := new(IntMap[K, V])
 
 	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen
-	M.maxChunk = byte(bits.Len(maxHash))
+	M.maxChunk = byte(bits.Len(Maps.Mask(maxHash)))
 	M.rehash = hasher
 
 	t := []*node[K]{{info: Maps.Mark(0), v: unsafe.Pointer(new(Maps.FlagLock))}}

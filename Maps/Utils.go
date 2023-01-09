@@ -1,6 +1,9 @@
 package Maps
 
-import "sync"
+import (
+	"sync"
+	"unsafe"
+)
 
 //These are all internal helper structs/functions, these will eventually all be sealed.
 
@@ -46,4 +49,9 @@ func (l *FlagLock) SafeLock() bool {
 func (l *FlagLock) SafeRLock() bool {
 	l.RLock()
 	return !l.Del
+}
+
+type hold struct {
+	rtype unsafe.Pointer
+	ptr   uintptr
 }

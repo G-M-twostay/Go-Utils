@@ -20,7 +20,7 @@ func New[K any, V any](minBucketLen, maxBucketLen byte, maxHash uint, hasher fun
 	M := new(BucketMap[K, V])
 
 	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen
-	M.maxChunk = byte(bits.Len(maxHash))
+	M.maxChunk = byte(bits.Len(Maps.Mask(maxHash)))
 	M.rehash, M.cmp = hasher, comparator
 
 	t := []*node[K]{{info: Maps.Mark(0), v: unsafe.Pointer(new(Maps.FlagLock))}}
