@@ -3,6 +3,7 @@ package Maps
 import (
 	"hash/maphash"
 	"math"
+	"reflect"
 	"unsafe"
 )
 
@@ -45,8 +46,25 @@ type ExtendedMap[K any, V any] interface {
 // Hasher is an ailas for maphash.Seed, create it using Hasher(maphash.MakeSeed()). The receivers are thread-safe, but the memory contents aren't read in a thread-safe way, so only use it on synchronized memory.
 type Hasher maphash.Seed
 
-// HashAny hash v based on memory content of v.
+// HashAny hashes v based on memory content of v. It uses internal struct's memory layout, which is unsafe practice. Avoid using it.
 func (u Hasher) HashAny(v any) uint {
+	h := (*hold)(unsafe.Pointer(&v))
+	return u.HashMem(h.ptr, *(*int)(h.rtype))
+}
+
+// HashMem hashes the memory contents in the range [addr, addr+length) as bytes.
+func (u Hasher) HashMem(addr uintptr, length int) uint {
+	s := reflect.SliceHeader{addr, length, length}
+	return uint(maphash.Bytes(maphash.Seed(u), *(*[]byte)(unsafe.Pointer(&s))))
+}
+
+// HashBytes hashes the given byte slice.
+func (u Hasher) HashBytes(b []byte) uint {
+	return uint(maphash.Bytes(maphash.Seed(u), b))
+}
+
+// HashInt hashes v.
+func (u Hasher) HashInt(v int) uint {
 	b := (*[unsafe.Sizeof(v)]byte)(unsafe.Pointer(&v))
 	return uint(maphash.Bytes(maphash.Seed(u), b[:]))
 }

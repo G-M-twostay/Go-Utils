@@ -22,8 +22,7 @@ import (
 // if converted to uint32. Generally, you should let S be a wide upperbound
 // for the size of the tree.
 type SBTree[T constraints.Ordered, S constraints.Unsigned] struct {
-	//the root of the tree. It should be nilPtr initially. nilPtr is the pointer used instead of nil here, it follows the description in nodePtr
-	root, nilPtr nodePtr[T, S]
+	base[T, S]
 }
 
 // MakeSBTree returns a SBTree satisfying the above definitions for nilPtr, root, and types.
@@ -31,7 +30,7 @@ type SBTree[T constraints.Ordered, S constraints.Unsigned] struct {
 func MakeSBTree[T constraints.Ordered, S constraints.Unsigned]() *SBTree[T, S] {
 	z := new(node[T, S])
 	z.l, z.r = z, z
-	return &SBTree[T, S]{z, z}
+	return &SBTree[T, S]{base[T, S]{z, z}}
 }
 
 // BuildSBTree builds a SBTree using the given sorted slice recursively. This is faster than
@@ -48,52 +47,12 @@ func BuildSBTree[T constraints.Ordered, S constraints.Unsigned](sli []T) *SBTree
 	build = func(s []T) nodePtr[T, S] {
 		if len(s) > 0 {
 			mid := len(s) >> 1
-			return &node[T, S]{s[mid], build(s[0:mid]), build(s[mid+1:]), S(len(s))}
+			return &node[T, S]{s[mid], S(len(s)), build(s[0:mid]), build(s[mid+1:])}
 		} else {
 			return z
 		}
 	}
-	return &SBTree[T, S]{build(sli), z}
-}
-
-// Size returns the size of the tree.
-// Time: O(1); Space: O(1)
-func (u *SBTree[T, S]) Size() uint {
-	return uint(u.root.sz)
-}
-
-// maintain the subtree rooting at cur recursively to satisfy the SBTree properties
-// using rotateLeft and rotateRight.
-// right Bigger indicates whether the right subtree is larger than the left,
-// this is for removing redundant size comparisons.
-// curPtr is passed by reference.
-// Time: amortized O(1)
-func (u *SBTree[T, S]) maintain(curPtr *nodePtr[T, S], rightBigger bool) {
-	cur := *curPtr
-	if rc, lc := cur.r, cur.l; rightBigger {
-		if rc.r.sz > lc.sz {
-			rotateLeft(curPtr)
-		} else if rc.l.sz > lc.sz {
-			rotateRight(&cur.r)
-			rotateLeft(curPtr)
-		} else {
-			return
-		}
-	} else {
-		if lc.l.sz > rc.sz {
-			rotateRight(curPtr)
-		} else if lc.r.sz > rc.sz {
-			rotateLeft(&cur.l)
-			rotateRight(curPtr)
-		} else {
-			return
-		}
-	}
-	u.maintain(&cur.l, false)
-	u.maintain(&cur.r, true)
-	u.maintain(curPtr, false)
-	u.maintain(curPtr, true)
-
+	return &SBTree[T, S]{base[T, S]{build(sli), z}}
 }
 
 // insert the value v to the subtree rooting at cur recursively. cur is
@@ -101,7 +60,7 @@ func (u *SBTree[T, S]) maintain(curPtr *nodePtr[T, S], rightBigger bool) {
 // happens when the value is already in u, in which case it returns false.
 func (u *SBTree[T, S]) insert(curPtr *nodePtr[T, S], v T) bool {
 	if cur := *curPtr; cur == u.nilPtr {
-		*curPtr = &node[T, S]{v, u.nilPtr, u.nilPtr, 1}
+		*curPtr = &node[T, S]{v, 1, u.nilPtr, u.nilPtr}
 		return true
 	} else {
 		inserted := false
@@ -177,7 +136,7 @@ func (u *SBTree[T, S]) Remove(v T) bool {
 
 // Has [Tree.Has]
 // Time: O(D); Space: O(1)
-func (u SBTree[T, S]) Has(v T) bool {
+func (u *SBTree[T, S]) Has(v T) bool {
 	for cur := u.root; cur != u.nilPtr; {
 		if v < cur.v {
 			cur = cur.l
@@ -190,107 +149,9 @@ func (u SBTree[T, S]) Has(v T) bool {
 	return false
 }
 
-// Minimum [Tree.Minimum]
-// Time: O(D); Space: O(1)
-func (u SBTree[T, S]) Minimum() (T, bool) {
-	if cur := u.root; cur == u.nilPtr {
-		return cur.v, false
-	} else {
-		for cur.l != u.nilPtr {
-			cur = cur.l
-		}
-		return cur.v, true
-	}
-}
-
-// Maximum [Tree.Maximum]
-// Time: O(D); Space: O(1)
-func (u SBTree[T, S]) Maximum() (T, bool) {
-	if cur := u.root; cur == u.nilPtr {
-		return cur.v, false
-	} else {
-		for cur.r != u.nilPtr {
-			cur = cur.r
-		}
-		return cur.v, true
-	}
-}
-
-func (u SBTree[T, S]) minDepth(c nodePtr[T, S], cd uint) uint {
-	if c == u.nilPtr {
-		return cd - 1
-	}
-	return Min(u.minDepth(c.l, cd+1), u.minDepth(c.r, cd+1))
-}
-
-func (u SBTree[T, S]) MinDepth() uint {
-	return u.minDepth(u.root, 0)
-}
-
-func (u SBTree[T, S]) maxDepth(c nodePtr[T, S], cd uint) uint {
-	if c == u.nilPtr {
-		return cd - 1
-	}
-	return Max(u.maxDepth(c.l, cd+1), u.maxDepth(c.r, cd+1))
-}
-
-func (u SBTree[T, S]) MaxDepth() uint {
-	return u.maxDepth(u.root, 0)
-}
-
-func (u SBTree[T, S]) _Print(c nodePtr[T, S], d uint) {
-	if c == u.nilPtr {
-		return
-	} else {
-		println("node", c.v, "depth", d)
-		u._Print(c.l, d+1)
-		u._Print(c.r, d+1)
-	}
-}
-
-func (u SBTree[T, S]) Print() {
-	u._Print(u.root, 0)
-}
-
-// InOrder [Tree.InOrder]
-// Time: f(): amortized O(1) at each call to the returned function. Space: O(1)
-func (u SBTree[T, S]) InOrder() func() (T, bool) {
-	cur := u.root
-	return func() (r T, has bool) {
-		if cur == u.nilPtr {
-			return
-		} else {
-			has = true
-			for cur != u.nilPtr {
-				if cur.l == u.nilPtr {
-					r = cur.v
-					cur = cur.r
-					break
-				} else {
-					p := cur.l
-					for p.r != u.nilPtr && p.r != cur {
-						p = p.r
-					}
-					if p.r == u.nilPtr {
-						p.r = cur
-						cur = cur.l
-					} else {
-						p.r = u.nilPtr
-						r = cur.v
-						cur = cur.r
-						break
-					}
-				}
-			}
-			return
-		}
-
-	}
-}
-
 // Predecessor [Tree.Predecessor]
 // Time: O(D); Space: O(1)
-func (u SBTree[T, S]) Predecessor(v T) (T, bool) {
+func (u *SBTree[T, S]) Predecessor(v T) (T, bool) {
 	cur, p := u.root, u.nilPtr
 	for cur != u.nilPtr {
 		if v <= cur.v {
@@ -305,7 +166,7 @@ func (u SBTree[T, S]) Predecessor(v T) (T, bool) {
 
 // Successor [Tree.Successor]
 // Time: O(D); Space: O(1)
-func (u SBTree[T, S]) Successor(v T) (T, bool) {
+func (u *SBTree[T, S]) Successor(v T) (T, bool) {
 	cur, p := u.root, u.nilPtr
 	for cur != u.nilPtr {
 		if v < cur.v {
@@ -318,35 +179,11 @@ func (u SBTree[T, S]) Successor(v T) (T, bool) {
 	return p.v, p != u.nilPtr
 }
 
-// KLargest [Tree.KLargest]
-// Returns (x,true) if k<= Size(), otherwise (0,false).
-// This function utilizes the fact that SBTree balances according to the
-// sizes of each subtree to provide O(D) performance with very small constant.
-// Time: O(D); Space: O(1)
-func (u SBTree[T, S]) KLargest(k uint) (T, bool) {
-	if cur, t := u.root, S(k); t <= cur.sz {
-		for cur != u.nilPtr {
-			if t < cur.l.sz+1 {
-				cur = cur.l
-			} else if t == cur.l.sz+1 {
-				break
-			} else {
-				t -= cur.l.sz + 1
-				cur = cur.r
-			}
-		}
-		return cur.v, true
-	} else {
-		return *new(T), false
-	}
-
-}
-
 // RankOf [Tree.RankOf]
 // This function utilizes the fact that SBTree balances according to the
 // sizes of each subtree to provide O(D) performance with very small constant.
 // Time: O(D); Space: O(1)
-func (u SBTree[T, S]) RankOf(v T) uint {
+func (u *SBTree[T, S]) RankOf(v T) uint {
 	cur := u.root
 	var ra S = 0
 	for cur != u.nilPtr {
@@ -362,7 +199,7 @@ func (u SBTree[T, S]) RankOf(v T) uint {
 	return 0
 }
 
-func (u SBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
+func (u *SBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
 	if cur.l != u.nilPtr {
 		if cur.l.v >= cur.v || u.corrupt(cur.l) {
 			return true
@@ -376,6 +213,6 @@ func (u SBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
 	return false
 }
 
-func (u SBTree[T, S]) Corrupt() bool {
+func (u *SBTree[T, S]) Corrupt() bool {
 	return u.corrupt(u.root)
 }

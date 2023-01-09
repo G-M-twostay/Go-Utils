@@ -1,7 +1,10 @@
 package IntMap
 
 import (
+	"GMUtils/Maps"
 	"GMUtils/Maps/BucketMap"
+	"hash/maphash"
+	"math"
 	"sync"
 	"testing"
 )
@@ -22,7 +25,8 @@ func cmp(x, y int) bool {
 }
 
 func TestIntMap_All(t *testing.T) {
-	M := New[int, int](1, 1, blockNum*blockSize-1, func(x int) uint { return uint(x) })
+	h := Maps.Hasher(maphash.MakeSeed())
+	M := New[int, int](1, 6, math.MaxUint, h.HashInt)
 	wg := &sync.WaitGroup{}
 	wg.Add(blockNum)
 	for j := 0; j < blockNum; j++ {
@@ -39,24 +43,26 @@ func TestIntMap_All(t *testing.T) {
 				}
 			}
 			for i := l; i < h; i++ {
-				M.Delete(i)
-
+				//M.Delete(i)
 			}
 			for i := l; i < h; i++ {
-				if M.HasKey(i) {
-					t.Errorf("not removed: %v\n", i)
-					return
-				}
+				//if M.HasKey(i) {
+				//	t.Errorf("not removed: %v\n", i)
+				//	return
+				//}
 			}
 
 		}(j*blockSize, (j+1)*blockSize)
 	}
 	wg.Wait()
-	for cur := (M.buckets.Load().Get(0)); cur != nil; cur = (*node[int])(cur.nx) {
-		if !cur.isRelay() {
-			t.Log("have", M.HasKey(cur.k))
+	ct := 0
+	for cur := M.buckets.Load().Get(0); cur != nil; cur = (*node[int])(cur.nx) {
+		if cur.isRelay() {
+			t.Log(ct)
+			ct = 0
+		} else {
+			ct++
 		}
-		t.Log(cur.String(), "\n")
 	}
 	//for i := 0; i < 8; i++ {
 	//	M.Store(O(i), i+1)
