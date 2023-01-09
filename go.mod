@@ -1,4 +1,4 @@
-module github.com/G-M-twostay/Go-Utils
+module github.com/g-m-twostay/go-utils
 
 go 1.19
 
