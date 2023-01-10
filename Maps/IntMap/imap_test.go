@@ -1,8 +1,8 @@
 package IntMap
 
 import (
-	"GMUtils/Maps"
-	"GMUtils/Maps/BucketMap"
+	"github.com/g-m-twostay/go-utils/Maps"
+	"github.com/g-m-twostay/go-utils/Maps/BucketMap"
 	"hash/maphash"
 	"math"
 	"sync"

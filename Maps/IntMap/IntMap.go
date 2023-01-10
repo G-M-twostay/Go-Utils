@@ -1,7 +1,7 @@
 package IntMap
 
 import (
-	"GMUtils/Maps"
+	"github.com/g-m-twostay/go-utils/Maps"
 	"math/bits"
 	"sync/atomic"
 	"unsafe"
