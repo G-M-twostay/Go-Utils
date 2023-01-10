@@ -1,8 +1,8 @@
 package IntMap
 
 import (
-	"GMUtils/Maps"
 	"fmt"
+	"github.com/g-m-twostay/go-utils/Maps"
 	"sync/atomic"
 	"unsafe"
 )

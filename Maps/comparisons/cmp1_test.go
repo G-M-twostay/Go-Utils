@@ -1,10 +1,10 @@
 package comparisons
 
 import (
-	"GMUtils/Maps/BucketMap"
-	"GMUtils/Maps/IntMap"
 	"github.com/alphadose/haxmap"
 	"github.com/cornelk/hashmap"
+	"github.com/g-m-twostay/go-utils/Maps/BucketMap"
+	"github.com/g-m-twostay/go-utils/Maps/IntMap"
 	"sync/atomic"
 	"testing"
 )

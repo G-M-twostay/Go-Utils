@@ -1,7 +1,7 @@
 package BucketMap
 
 import (
-	"GMUtils/Maps/ChainMap"
+	"github.com/g-m-twostay/go-utils/Maps/ChainMap"
 	"sync"
 	"testing"
 )
