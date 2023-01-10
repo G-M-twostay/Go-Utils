@@ -216,7 +216,7 @@ func (u *BucketMap[K, V]) Load(key K) (V, bool) {
 }
 
 func (u *BucketMap[K, V]) HasKey(key K) bool {
-	hash := Maps.Mask(Maps.Mask(u.rehash(key)))
+	hash := Maps.Mask(u.rehash(key))
 	return u.buckets.Load().Get(hash).search(key, hash, u.cmp) != nil
 }
 
