@@ -49,7 +49,7 @@ type Hasher maphash.Seed
 // HashAny hashes v based on memory content of v. It uses internal struct's memory layout, which is unsafe practice. Avoid using it.
 func (u Hasher) HashAny(v any) uint {
 	h := (*hold)(unsafe.Pointer(&v))
-	return u.HashMem(h.ptr, *(*int)(h.rtype))
+	return u.HashMem(h.ptr, *h.rtype)
 }
 
 // HashMem hashes the memory contents in the range [addr, addr+length) as bytes.
