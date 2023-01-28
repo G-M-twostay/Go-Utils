@@ -1,9 +1,5 @@
 package Maps
 
-import (
-	"sync"
-)
-
 //These are all internal helper structs/functions, these will eventually all be sealed.
 
 // HashList is a array with length 2^n
@@ -32,22 +28,6 @@ func Mark(hash uint) uint {
 // Mask hash to ignore the first bit.
 func Mask(hash uint) uint {
 	return hash & MaxArrayLen
-}
-
-// FlagLock is a RWMutex with a bool to signal whether it's still updated(being used).
-type FlagLock struct {
-	sync.RWMutex
-	Del bool //Del is protected by the RWMutex, so no synchronization is needed.
-}
-
-func (l *FlagLock) SafeLock() bool {
-	l.Lock()
-	return !l.Del
-}
-
-func (l *FlagLock) SafeRLock() bool {
-	l.RLock()
-	return !l.Del
 }
 
 type hold struct {

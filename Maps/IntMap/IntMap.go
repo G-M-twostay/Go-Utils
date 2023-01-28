@@ -9,7 +9,7 @@ import (
 
 // IntMap is a specialized version of BucketMap for integers. It avoids all the interface operations.
 type IntMap[K comparable, V any] struct {
-	rehash                         func(K) uint
+	hash                           func(K) uint
 	buckets                        atomic.Pointer[Maps.HashList[*relay[K]]]
 	size                           atomic.Uintptr
 	state                          atomic.Uint32
@@ -21,7 +21,7 @@ func New[K comparable, V any](minBucketLen, maxBucketLen byte, maxHash uint, has
 
 	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen
 	M.maxChunk = byte(bits.Len(Maps.Mask(maxHash)))
-	M.rehash = hasher
+	M.hash = hasher
 
 	t := []*relay[K]{{node: node[K]{info: Maps.Mark(0)}}}
 	M.buckets.Store(&Maps.HashList[*relay[K]]{Array: t, Chunk: M.maxChunk})
@@ -103,7 +103,7 @@ func (u *IntMap[K, V]) tryMerge() {
 }
 
 func (u *IntMap[K, V]) Store(key K, val V) {
-	hash, vPtr := Maps.Mask(u.rehash(key)), unsafe.Pointer(&val)
+	hash, vPtr := Maps.Mask(u.hash(key)), unsafe.Pointer(&val)
 
 	prevLock := u.buckets.Load().Get(hash)
 
@@ -141,7 +141,7 @@ func (u *IntMap[K, V]) Store(key K, val V) {
 }
 
 func (u *IntMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
-	hash, vPtr := Maps.Mask(u.rehash(key)), unsafe.Pointer(&val)
+	hash, vPtr := Maps.Mask(u.hash(key)), unsafe.Pointer(&val)
 
 	prevLock := u.buckets.Load().Get(hash)
 	if !prevLock.safeRLock() {
@@ -185,7 +185,7 @@ func (u *IntMap[K, V]) LoadOrStore(key K, val V) (v V, loaded bool) {
 }
 
 func (u *IntMap[K, V]) LoadPtr(key K) *V {
-	hash := Maps.Mask(u.rehash(key))
+	hash := Maps.Mask(u.hash(key))
 	if r := u.buckets.Load().Get(hash).search(key, hash); r == nil {
 		return nil
 	} else {
@@ -194,7 +194,7 @@ func (u *IntMap[K, V]) LoadPtr(key K) *V {
 }
 
 func (u *IntMap[K, V]) Load(key K) (V, bool) {
-	hash := Maps.Mask(u.rehash(key))
+	hash := Maps.Mask(u.hash(key))
 	if r := u.buckets.Load().Get(hash).search(key, hash); r == nil {
 		return *new(V), false
 	} else {
@@ -203,12 +203,12 @@ func (u *IntMap[K, V]) Load(key K) (V, bool) {
 }
 
 func (u *IntMap[K, V]) HasKey(key K) bool {
-	hash := Maps.Mask(u.rehash(key))
+	hash := Maps.Mask(u.hash(key))
 	return u.buckets.Load().Get(hash).search(key, hash) != nil
 }
 
 func (u *IntMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
-	hash := Maps.Mask(u.rehash(key))
+	hash := Maps.Mask(u.hash(key))
 	prevLock := u.buckets.Load().Get(hash)
 
 	if !prevLock.safeLock() {
@@ -285,7 +285,7 @@ func (u *IntMap[K, V]) TakePtr() (key K, val *V) {
 }
 
 func (u *IntMap[K, V]) Set(key K, val V) (v *V) {
-	hash := Maps.Mask(u.rehash(key))
+	hash := Maps.Mask(u.hash(key))
 	if r := u.buckets.Load().Get(hash).search(key, hash); r != nil {
 		v = (*V)(r.swap(unsafe.Pointer(&val)))
 	}
