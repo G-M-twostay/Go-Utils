@@ -8,6 +8,7 @@ import (
 	"unsafe"
 )
 
+// node doesn't have to be generic, but removing the type parameter here somehow makes the code run very slow.
 type node[K comparable] struct {
 	info uint
 	nx   unsafe.Pointer
@@ -61,6 +62,7 @@ func (cur *value[K]) swap(v unsafe.Pointer) unsafe.Pointer {
 	return atomic.SwapPointer(&cur.v, v)
 }
 
+// node doesn't have to be generic, but removing the type parameter here somehow makes the code run very slow.
 type relay[K comparable] struct {
 	node[K]
 	sync.RWMutex
