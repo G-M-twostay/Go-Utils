@@ -23,7 +23,7 @@ func New[K comparable, V any](minBucketLen, maxBucketLen byte, maxHash uint, has
 	M.maxChunk = byte(bits.Len(Maps.Mask(maxHash)))
 	M.rehash = hasher
 
-	t := []*relay[K]{{base: base[K]{info: Maps.Mark(0)}}}
+	t := []*relay[K]{{node: node[K]{info: Maps.Mark(0)}}}
 	M.buckets.Store(&Maps.HashList[*relay[K]]{Array: t, Chunk: M.maxChunk})
 
 	return M
@@ -45,13 +45,13 @@ func (u *IntMap[K, V]) trySplit() {
 				newBuckets[i<<1] = v
 
 				hash := (1<<s.Chunk)*uint(i) + (1 << (s.Chunk - 1))
-				newRelay := &relay[K]{base: base[K]{info: Maps.Mark(hash)}}
+				newRelay := &relay[K]{node: node[K]{info: Maps.Mark(hash)}}
 				newBuckets[(i<<1)+1] = newRelay
 
 				v.RLock()
-				for left, newRelayPtr := &v.base, unsafe.Pointer(newRelay); ; {
+				for left, newRelayPtr := &v.node, unsafe.Pointer(newRelay); ; {
 					rightPtr := left.Next()
-					if rightB := (*base[K])(rightPtr); rightB == nil || hash <= rightB.Hash() {
+					if rightB := (*node[K])(rightPtr); rightB == nil || hash <= rightB.Hash() {
 						newRelay.nx = rightPtr
 						if left.dangerLink(rightPtr, newRelayPtr) {
 							break
@@ -85,9 +85,9 @@ func (u *IntMap[K, V]) tryMerge() {
 
 			for i := 0; i < len(s.Array); i += 2 {
 				s.Array[i].RLock()
-				for left := &s.Array[i].base; ; {
+				for left := &s.Array[i].node; ; {
 					rightPtr := left.Next()
-					if rightB := (*base[K])(rightPtr); rightB.isRelay() {
+					if rightB := (*node[K])(rightPtr); rightB.isRelay() {
 						if left.unlinkRelay((*relay[K])(rightPtr), rightPtr) {
 							break
 						}
@@ -113,16 +113,16 @@ func (u *IntMap[K, V]) Store(key K, val V) {
 		prevLock.RLock()
 	}
 
-	for left := &prevLock.base; ; {
+	for left := &prevLock.node; ; {
 		rightPtr := left.Next()
-		if rightB := (*base[K])(rightPtr); rightB == nil || hash < rightB.Hash() {
-			if left.dangerLink(rightPtr, unsafe.Pointer(&node[K]{base: base[K]{info: hash, nx: rightPtr}, v: vPtr, k: key})) {
+		if rightB := (*node[K])(rightPtr); rightB == nil || hash < rightB.Hash() {
+			if left.dangerLink(rightPtr, unsafe.Pointer(&value[K]{node: node[K]{info: hash, nx: rightPtr}, v: vPtr, k: key})) {
 				prevLock.RUnlock()
 				u.size.Add(1)
 				u.trySplit()
 				return
 			}
-		} else if right := (*node[K])(rightPtr); hash == rightB.info && key == right.k {
+		} else if right := (*value[K])(rightPtr); hash == rightB.info && key == right.k {
 			prevLock.RUnlock()
 			right.set(vPtr)
 			return
@@ -133,7 +133,7 @@ func (u *IntMap[K, V]) Store(key K, val V) {
 					prevLock.RUnlock()
 					prevLock = u.buckets.Load().Get(hash)
 					prevLock.RLock()
-					left = &prevLock.base
+					left = &prevLock.node
 				}
 			}
 		}
@@ -150,16 +150,16 @@ func (u *IntMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
 		prevLock.RLock()
 	}
 
-	for left := &prevLock.base; ; {
+	for left := &prevLock.node; ; {
 		rightPtr := left.Next()
-		if rightB := (*base[K])(rightPtr); rightB == nil || hash < rightB.Hash() {
-			if left.dangerLink(rightPtr, unsafe.Pointer(&node[K]{base: base[K]{info: hash, nx: rightPtr}, v: vPtr, k: key})) {
+		if rightB := (*node[K])(rightPtr); rightB == nil || hash < rightB.Hash() {
+			if left.dangerLink(rightPtr, unsafe.Pointer(&value[K]{node: node[K]{info: hash, nx: rightPtr}, v: vPtr, k: key})) {
 				prevLock.RUnlock()
 				u.size.Add(1)
 				u.trySplit()
 				return
 			}
-		} else if right := (*node[K])(rightPtr); hash == rightB.info && key == right.k {
+		} else if right := (*value[K])(rightPtr); hash == rightB.info && key == right.k {
 			prevLock.RUnlock()
 			return (*V)(right.get()), true
 		} else {
@@ -169,7 +169,7 @@ func (u *IntMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
 					prevLock.RUnlock()
 					prevLock = u.buckets.Load().Get(hash)
 					prevLock.RLock()
-					left = &prevLock.base
+					left = &prevLock.node
 				}
 			}
 		}
@@ -217,12 +217,12 @@ func (u *IntMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 		prevLock.Lock()
 	}
 
-	for left := &prevLock.base; ; {
+	for left := &prevLock.node; ; {
 		rightPtr := left.nx
-		if rightB := (*base[K])(rightPtr); rightB == nil || hash < rightB.Hash() {
+		if rightB := (*node[K])(rightPtr); rightB == nil || hash < rightB.Hash() {
 			prevLock.Unlock()
 			return
-		} else if right := (*node[K])(rightPtr); hash == rightB.info && key == right.k {
+		} else if right := (*value[K])(rightPtr); hash == rightB.info && key == right.k {
 			left.dangerUnlink(rightB)
 			prevLock.Unlock()
 			u.size.Add(^uintptr(1 - 1))
@@ -235,7 +235,7 @@ func (u *IntMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 					prevLock.Unlock()
 					prevLock = u.buckets.Load().Get(hash)
 					prevLock.Lock()
-					left = &prevLock.base
+					left = &prevLock.node
 				}
 			}
 		}
@@ -256,9 +256,9 @@ func (u *IntMap[K, V]) Delete(key K) {
 }
 
 func (u *IntMap[K, V]) RangePtr(f func(K, *V) bool) {
-	for cur := (*base[K])(u.buckets.Load().Get(0).Next()); cur != nil; cur = (*base[K])(cur.Next()) {
+	for cur := (*node[K])(u.buckets.Load().Get(0).Next()); cur != nil; cur = (*node[K])(cur.Next()) {
 		if !cur.isRelay() {
-			if t := (*node[K])(unsafe.Pointer(cur)); !f(t.k, (*V)(t.get())) {
+			if t := (*value[K])(unsafe.Pointer(cur)); !f(t.k, (*V)(t.get())) {
 				break
 			}
 		}
@@ -278,7 +278,7 @@ func (u *IntMap[K, V]) Take() (key K, val V) {
 
 func (u *IntMap[K, V]) TakePtr() (key K, val *V) {
 	if firstPtr := u.buckets.Load().Get(0).Next(); firstPtr != nil {
-		first := (*node[K])(firstPtr)
+		first := (*value[K])(firstPtr)
 		key, val = first.k, (*V)(first.get())
 	}
 	return

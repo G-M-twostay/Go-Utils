@@ -56,7 +56,7 @@ func TestIntMap_All(t *testing.T) {
 	}
 	wg.Wait()
 	//ct := 0
-	//for cur := (*base)(M.buckets.Load().Get(0).Next()); cur != nil; cur = (*base)(cur.Next()) {
+	//for cur := (*node)(M.buckets.Load().Get(0).Next()); cur != nil; cur = (*node)(cur.Next()) {
 	//	if cur.isRelay() {
 	//		t.Log(ct)
 	//		ct = 0
@@ -90,7 +90,7 @@ func TestIntMap_All(t *testing.T) {
 	//t.Log("removed 0 and 1")
 	//M.Delete(O(2))
 	//t.Log("removed 0 and 1 and 2")
-	//for cur := (*M.buckets.Load())[0]; cur != nil; cur = (*node[O])(cur.nx) {
+	//for cur := (*M.buckets.Load())[0]; cur != nil; cur = (*value[O])(cur.nx) {
 	//	t.Log(cur.String(), "\n")
 	//}
 	//M.Load(O(0))
