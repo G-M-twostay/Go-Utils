@@ -43,27 +43,27 @@ func TestIntMap_All(t *testing.T) {
 				}
 			}
 			for i := l; i < h; i++ {
-				//M.Delete(i)
+				M.Delete(i)
 			}
 			for i := l; i < h; i++ {
-				//if M.HasKey(i) {
-				//	t.Errorf("not removed: %v\n", i)
-				//	return
-				//}
+				if M.HasKey(i) {
+					t.Errorf("not removed: %v\n", i)
+					return
+				}
 			}
 
 		}(j*blockSize, (j+1)*blockSize)
 	}
 	wg.Wait()
-	ct := 0
-	for cur := M.buckets.Load().Get(0); cur != nil; cur = (*node[int])(cur.nx) {
-		if cur.isRelay() {
-			t.Log(ct)
-			ct = 0
-		} else {
-			ct++
-		}
-	}
+	//ct := 0
+	//for cur := (*base)(M.buckets.Load().Get(0).Next()); cur != nil; cur = (*base)(cur.Next()) {
+	//	if cur.isRelay() {
+	//		t.Log(ct)
+	//		ct = 0
+	//	} else {
+	//		ct++
+	//	}
+	//}
 	//for i := 0; i < 8; i++ {
 	//	M.Store(O(i), i+1)
 	//}
@@ -110,7 +110,7 @@ func BenchmarkBucketMap_Case1(b *testing.B) {
 				}
 				for j := l; j < h; j++ {
 					if !M.HasKey(j) {
-						b.Error("key doesn't exist")
+						b.Error("getKey doesn't exist")
 					}
 				}
 				for j := l; j < h; j++ {
@@ -140,7 +140,7 @@ func BenchmarkIntMap_Case1(b *testing.B) {
 				}
 				for j := l; j < h; j++ {
 					if !M.HasKey(j) {
-						b.Error("key doesn't exist")
+						b.Error("getKey doesn't exist")
 					}
 				}
 				for j := l; j < h; j++ {

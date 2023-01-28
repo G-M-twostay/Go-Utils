@@ -3,59 +3,51 @@ package IntMap
 import (
 	"fmt"
 	"github.com/g-m-twostay/go-utils/Maps"
+	"sync"
 	"sync/atomic"
 	"unsafe"
 )
 
-type node[K comparable] struct {
-	k    K
+type base[K comparable] struct {
 	info uint
-	v    unsafe.Pointer
 	nx   unsafe.Pointer
 }
 
-func (cur *node[K]) Hash() uint {
-	return Maps.Mask(cur.info)
-}
-
-func (cur *node[K]) isRelay() bool {
+func (cur *base[K]) isRelay() bool {
 	return cur.info > Maps.MaxArrayLen
 }
 
-func (cur *node[K]) lock() *Maps.FlagLock {
-	return (*Maps.FlagLock)(cur.v)
+func (cur *base[K]) Hash() uint {
+	return Maps.Mask(cur.info)
 }
 
-func (cur *node[K]) Next() unsafe.Pointer {
+func (cur *base[K]) Next() unsafe.Pointer {
 	return atomic.LoadPointer(&cur.nx)
 }
 
-func (cur *node[K]) dangerLink(oldRight, newRight unsafe.Pointer) bool {
+func (cur *base[K]) dangerLink(oldRight, newRight unsafe.Pointer) bool {
 	return atomic.CompareAndSwapPointer(&cur.nx, oldRight, newRight)
 }
 
-func (cur *node[K]) unlinkRelay(next *node[K], nextPtr unsafe.Pointer) bool {
-	t := next.lock()
-	t.Lock()
-	defer t.Unlock()
-	t.Del = atomic.CompareAndSwapPointer(&cur.nx, nextPtr, next.nx)
-	return t.Del
+func (cur *base[K]) unlinkRelay(next *relay[K], nextPtr unsafe.Pointer) bool {
+	next.Lock()
+	defer next.Unlock()
+	next.del = atomic.CompareAndSwapPointer(&cur.nx, nextPtr, next.nx)
+	return next.del
 }
 
-func (cur *node[K]) dangerUnlink(next *node[K]) {
+func (cur *base[K]) dangerUnlink(next *base[K]) {
 	atomic.StorePointer(&cur.nx, next.nx)
 }
 
-func (cur *node[K]) search(k K, at uint) *node[K] {
-	for left := cur; ; {
-		if right := (*node[K])(left.Next()); right == nil || at < right.Hash() {
-			return nil
-		} else if at == right.info && k == right.k {
-			return right
-		} else {
-			left = right
-		}
-	}
+type node[K comparable] struct {
+	base[K]
+	v unsafe.Pointer
+	k K
+}
+
+func (cur *node[K]) String() string {
+	return fmt.Sprintf("key: %#v; val: %#v; hash: %d; relay: %t", cur.k, cur.get(), cur.info, cur.isRelay())
 }
 
 func (cur *node[K]) set(v unsafe.Pointer) {
@@ -69,7 +61,30 @@ func (cur *node[K]) swap(v unsafe.Pointer) unsafe.Pointer {
 	return atomic.SwapPointer(&cur.v, v)
 }
 
-func (cur *node[K]) String() string {
-	return fmt.Sprintf("key: %#v; val: %#v; info: %d; relay: %t", cur.k, cur.get(), cur.Hash(), cur.isRelay())
+type relay[K comparable] struct {
+	base[K]
+	sync.RWMutex
+	del bool
+}
 
+func (cur *relay[K]) safeLock() bool {
+	cur.Lock()
+	return !cur.del
+}
+
+func (cur *relay[K]) safeRLock() bool {
+	cur.RLock()
+	return !cur.del
+}
+
+func (cur *relay[K]) search(k K, at uint) *node[K] {
+	for left := &cur.base; ; {
+		if rightB := (*base[K])(left.Next()); rightB == nil || at < rightB.Hash() {
+			return nil
+		} else if right := (*node[K])(unsafe.Pointer(rightB)); at == rightB.info && k == right.k {
+			return right
+		} else {
+			left = rightB
+		}
+	}
 }
