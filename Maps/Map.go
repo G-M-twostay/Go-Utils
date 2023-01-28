@@ -46,10 +46,10 @@ type ExtendedMap[K any, V any] interface {
 // Hasher is an ailas for maphash.Seed, create it using Hasher(maphash.MakeSeed()). The receivers are thread-safe, but the memory contents aren't read in a thread-safe way, so only use it on synchronized memory.
 type Hasher maphash.Seed
 
-// HashAny hashes v based on memory content of v. It uses internal struct's memory layout, which is unsafe practice. Avoid using it.
+// HashAny hashes an interface value based on memory content of v. It uses internal struct's memory layout, which is unsafe practice. Avoid using it.
 func (u Hasher) HashAny(v any) uint {
 	h := (*hold)(unsafe.Pointer(&v))
-	return u.HashMem(h.ptr, *(*int)(h.rtype))
+	return u.HashMem(h.ptr, *h.rtype)
 }
 
 // HashMem hashes the memory contents in the range [addr, addr+length) as bytes.
@@ -72,4 +72,9 @@ func (u Hasher) HashInt(v int) uint {
 // HashString directly hashes a string, it's faster than HashAny(string).
 func (u Hasher) HashString(v string) uint {
 	return uint(maphash.String(maphash.Seed(u), v))
+}
+
+// HashAny is a static version of Hasher.HashAny. It uses generics instead of interfaces. It's intended for concrete values instead of interface values.
+func HashAny[T any](h Hasher, obj T) uint {
+	return h.HashMem(uintptr(unsafe.Pointer(&obj)), int(unsafe.Sizeof(obj)))
 }

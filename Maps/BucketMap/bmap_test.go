@@ -52,12 +52,6 @@ func TestBucketMap_All(t *testing.T) {
 		}(j*blockSize, (j+1)*blockSize)
 	}
 	wg.Wait()
-	for cur := (M.buckets.Load().Get(0)); cur != nil; cur = (*node[int])(cur.nx) {
-		if !cur.isRelay() {
-			t.Log("have", M.HasKey(cur.k))
-		}
-		t.Log(cur.String(), "\n")
-	}
 	//for i := 0; i < 8; i++ {
 	//	M.Store(O(i), i+1)
 	//}

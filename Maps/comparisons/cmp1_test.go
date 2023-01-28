@@ -51,7 +51,7 @@ func setupBMap(b *testing.B, a byte, c byte) *BucketMap.BucketMap[uintptr, uintp
 
 func setupIntMap(b *testing.B, a, c byte) *IntMap.IntMap[uintptr, uintptr] {
 	b.Helper()
-	m := IntMap.New[uintptr, uintptr](a, c, benchmarkItemCount, func(x uintptr) uint { return uint(x) })
+	m := IntMap.New[uintptr, uintptr](a, c, benchmarkItemCount, hashUintptr)
 	for i := uintptr(0); i < benchmarkItemCount; i++ {
 		m.Store(i, i)
 	}
