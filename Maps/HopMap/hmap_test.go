@@ -9,7 +9,7 @@ func TestHopMap_All(t *testing.T) {
 	M := New[int, int]()
 	for i := 0; i < 7; i++ {
 		M.Put(1+8*i, 1+8*i)
-		x, _ := M.modGet(uint(1 + 8*i))
+		x, _ := M.modGet(int(1 + 8*i))
 		fmt.Println(x)
 	}
 	//M.Put(1, 1)
