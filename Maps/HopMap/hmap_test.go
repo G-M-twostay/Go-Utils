@@ -22,7 +22,7 @@ func TestHopMap_All(t *testing.T) {
 	//for i := 0; i < 128; i++ {
 	//	fmt.Println(M.Get(i))
 	//}
-	fmt.Println(M.buckets)
+	fmt.Println(M.bkt)
 }
 
 func BenchmarkHopMap_Put(b *testing.B) {
@@ -63,12 +63,12 @@ out:
 				b.Error("wrong value", i, x)
 				a, _ := M.modGet(int(M.hash(i)))
 				b.Logf("%v\n", a)
-				fmt.Printf("%v\n", M.buckets)
+				fmt.Printf("%v\n", M.bkt)
 				M.Put(i, -i)
 				x, _ = M.Get(i)
 				a, _ = M.modGet(int(M.hash(i)))
 				b.Logf("%v\n", a)
-				fmt.Printf("%v\n", M.buckets)
+				fmt.Printf("%v\n", M.bkt)
 				break out
 			}
 		}
