@@ -14,7 +14,7 @@ const (
 type Element[K any, V any] struct {
 	key            K
 	val            V
-	hashOS, linkOS int8
+	hashOS, linkOS int16
 	info           bit
 }
 
