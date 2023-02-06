@@ -111,6 +111,7 @@ insert:
 				}
 				return //if an empty spot within H is found, an insertion will always be made immediately.
 			} else { //j+step>=H. so we find open spot and move it back
+			move:
 				for i := i_hash; i != i_empty; i++ { //iterate from i_hash to i_empty
 					if i0, e0 := u.modGet(i); e0.get(hashed) { //there is some value hashed to i0(i). i0 refers to the prev in the linked iteration.
 						//find the start of the chain and iterate in the chain.
@@ -126,7 +127,12 @@ insert:
 								//now e1 is copied to e_empty, and all references to e1 is now to e_empty, we can change i_empty to i1
 								i_empty, e_empty = i1, e1
 								e1.clear(used | linked) //e1 is now empty, but it may still hashes to something.
-								goto insert             //go back to retry insert or move back
+
+								if t, _ := u.modGet(i_empty - i_hash); t < int(u.H) { //i_empty is now within i_hash+H
+									goto insert
+								} else { //need move more empty spots
+									continue move
+								}
 							}
 							if !e1.get(linked) { //reached the end without finding one.
 								break
