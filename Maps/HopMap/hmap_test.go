@@ -61,12 +61,12 @@ out:
 			x, y := M.Get(i)
 			if !y || x != i {
 				b.Error("wrong value", i, x)
-				a, _ := M.modGet(int(M.hash(i)))
+				a := M.modGet(int(M.hash(i)))
 				b.Logf("%v\n", a)
 				fmt.Printf("%v\n", M.bkt)
 				M.Put(i, -i)
 				x, _ = M.Get(i)
-				a, _ = M.modGet(int(M.hash(i)))
+				a = M.modGet(int(M.hash(i)))
 				b.Logf("%v\n", a)
 				fmt.Printf("%v\n", M.bkt)
 				break out

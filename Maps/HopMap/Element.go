@@ -1,7 +1,5 @@
 package HopMap
 
-import "fmt"
-
 type bit byte
 
 const (
@@ -30,6 +28,6 @@ func (e *Element[K, V]) clear(pos bit) {
 	e.info &^= pos
 }
 
-func (e *Element[K, V]) String() string {
-	return fmt.Sprintf("key: %v, val: %v, ho: %v, lo: %v, info: %b", e.key, e.val, e.hashOS, e.linkOS, e.info)
-}
+//func (e *Element[K, V]) String() string {
+//	return fmt.Sprintf("key: %v, val: %v, ho: %v, lo: %v, info: %b", e.key, e.val, e.hashOS, e.linkOS, e.info)
+//}
