@@ -1,5 +1,11 @@
 package Maps
 
+import (
+	_ "runtime"
+	"unsafe"
+)
+import _ "hash/maphash"
+
 //These are all internal helper structs/functions, these will eventually all be sealed.
 
 // HashList is a array with length 2^n
@@ -34,3 +40,6 @@ type hold struct {
 	rtype *int
 	ptr   uintptr
 }
+
+//go:linkname RTHash runtime.memhash
+func RTHash(ptr unsafe.Pointer, seed, len uintptr) uint64
