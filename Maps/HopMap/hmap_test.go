@@ -55,22 +55,22 @@ func BenchmarkHopMap_Get(b *testing.B) {
 	var M *HopMap[int, int]
 out:
 	for _t := 0; _t < b.N; _t++ {
-		//b.StopTimer()
+		b.StopTimer()
 		M = New[int, int](128)
 		for i := 0; i < COUNT; i++ {
 			M.Put(i, i)
 		}
-		//b.StartTimer()
+		b.StartTimer()
 		for i := 0; i < COUNT; i++ {
 			x, y := M.Get(i)
 			if !y || x != i {
 				b.Error("wrong value", i, x)
-				a := M.modGet(int(M.hash(i)))
+				a := M.mod(int(M.hash(i)))
 				b.Logf("%v\n", a)
 				fmt.Printf("%v\n", M.bkt)
 				M.Put(i, -i)
 				x, _ = M.Get(i)
-				a = M.modGet(int(M.hash(i)))
+				a = M.mod(int(M.hash(i)))
 				b.Logf("%v\n", a)
 				fmt.Printf("%v\n", M.bkt)
 				break out
