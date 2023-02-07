@@ -41,5 +41,12 @@ type hold struct {
 	ptr   uintptr
 }
 
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 //go:linkname RTHash runtime.memhash
 func RTHash(ptr unsafe.Pointer, seed, len uintptr) uint64
