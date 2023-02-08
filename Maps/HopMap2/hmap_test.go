@@ -5,7 +5,7 @@ import (
 )
 
 const COUNT int = 8192
-const H_ byte = 128
+const H_ byte = 8
 
 func TestHopMap_All(t *testing.T) {
 	M := New[int, int](4, 4)

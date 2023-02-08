@@ -76,7 +76,6 @@ func (u *HopMap[K, V]) tryPut(key *K, val *V, hash uint) bool {
 		}
 	}
 	//no same key exists, try to insert by first finding a free spot using linear probe: i_free
-	var i_free int
 	for i := i_hash; i < len(u.bkt); i++ {
 		if u.bkt[i].isFree() { //found a potential free spot
 			if i < i_hash+int(u.H) { //within neighbor of i_hash
@@ -84,32 +83,29 @@ func (u *HopMap[K, V]) tryPut(key *K, val *V, hash uint) bool {
 				u.bkt[i].key, u.bkt[i].val = *key, *val
 				return true
 			} else { //outside of neighbor, we now perform swap
-				i_free = i
-				goto move
+				i_free := i
+				for i_act := Maps.Max(0, i_free-int(u.H)+1); i_act < i_free; i_act++ { //iterate in (i_free-H,i_free)
+					if u.mod(u.bkt[i_act].Hash()) > i_free-int(u.H) { //we know that everything here is used and that the actual index>=desired index.
+						//found such an element where i_free is near its desired index
+						u.bkt[i_free] = u.bkt[i_act] //regardless i_act will be copied to i_free
+						if i_act < i_hash+int(u.H) { //the actual index is within neighbor of i_hash
+							//no need to swap, just set i_des to the new value
+							u.bkt[i_act].key, u.bkt[i_act].val = *key, *val
+							u.bkt[i_act].Use(hash)
+							return true
+						}
+						//need more swaps
+						u.bkt[i_act].free() //free i_des
+						i_free = i_act
+						i_act = Maps.Max(0, i_free-int(u.H)+1)
+					}
+				}
+				//we're unable to move free spots near H
+				return false
 			}
 		}
 	}
-	//if no potential free spot are found, then we won't jump to move, so we expand
-	return false
-
-move:
-	for i_act := Maps.Max(0, i_free-int(u.H)+1); i_act < i_free; i_act++ { //iterate in (i_free-H,i_free)
-		if i_des := u.mod(u.bkt[i_act].Hash()); i_des > i_free-int(u.H) { //we know that everything here is used and that the actual index>=desired index.
-			//found such an element where i_free is near its desired index
-			u.bkt[i_free] = u.bkt[i_act] //regardless i_act will be copied to i_free
-			if i_act < i_hash+int(u.H) { //the actual index is within neighbor of i_hash
-				//no need to swap, just set i_des to the new value
-				u.bkt[i_act].key, u.bkt[i_act].val = *key, *val
-				u.bkt[i_act].Use(hash)
-				return true
-			}
-			//need more swaps
-			u.bkt[i_act].free() //free i_des
-			i_free = i_act
-			goto move
-		}
-	}
-	//if free spaces near i_hash can't be made via moving, expand
+	//if no potential free spot are found
 	return false
 }
 
