@@ -12,9 +12,6 @@ type Element[K any, V any] struct {
 }
 
 func (e *Element[K, V]) Hash() uint {
-	if e.isFree() {
-		panic("free")
-	}
 	return Maps.Mask(e.info)
 }
 

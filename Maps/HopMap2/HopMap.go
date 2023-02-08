@@ -24,7 +24,10 @@ func (u *HopMap[K, V]) expand() {
 	M := HopMap[K, V]{bkt: make([]Element[K, V], (len(u.bkt)-int(u.H))*2+int(u.H)), H: u.H, seed: u.seed}
 	for _, e := range u.bkt {
 		if !e.isFree() {
-			M.tryPut(&e.key, &e.val, e.Hash())
+			if !M.tryPut(&e.key, &e.val, e.Hash()) {
+				M.expand()
+				M.tryPut(&e.key, &e.val, e.Hash())
+			}
 		}
 	}
 	u.bkt = M.bkt
@@ -48,7 +51,9 @@ func (u *HopMap[K, V]) mod(x uint) int {
 }
 
 func (u *HopMap[K, V]) Put(key K, val V) {
-	u.tryPut(&key, &val, u.hash(key))
+	for !u.tryPut(&key, &val, u.hash(key)) {
+		u.expand()
+	}
 }
 
 func (u *HopMap[K, V]) Get(key K) (V, bool) {
@@ -61,31 +66,23 @@ func (u *HopMap[K, V]) Get(key K) (V, bool) {
 	return *new(V), false
 }
 
-func (u *HopMap[K, V]) tryPut(key *K, val *V, hash uint) {
+func (u *HopMap[K, V]) tryPut(key *K, val *V, hash uint) bool {
 	//check if this key already exists in its neighbor
 	i_hash := u.mod(hash)
 	for i := i_hash; i < i_hash+int(u.H); i++ {
 		if !u.bkt[i].isFree() && u.bkt[i].key == *key {
 			u.bkt[i].val = *val
-			return
+			return true
 		}
 	}
-	goto probe //no same key exists, try to insert by first finding a free spot using linear probe
-
-expand:
-	u.expand()
-	hash = u.hash(*key)
-	i_hash = u.mod(hash)
-
-	//linear probe for a free spot: i_free
-probe:
+	//no same key exists, try to insert by first finding a free spot using linear probe: i_free
 	var i_free int
 	for i := i_hash; i < len(u.bkt); i++ {
 		if u.bkt[i].isFree() { //found a potential free spot
 			if i < i_hash+int(u.H) { //within neighbor of i_hash
 				u.bkt[i].Use(hash)
 				u.bkt[i].key, u.bkt[i].val = *key, *val
-				return
+				return true
 			} else { //outside of neighbor, we now perform swap
 				i_free = i
 				goto move
@@ -93,7 +90,7 @@ probe:
 		}
 	}
 	//if no potential free spot are found, then we won't jump to move, so we expand
-	goto expand
+	return false
 
 move:
 	for i_act := Maps.Max(0, i_free-int(u.H)+1); i_act < i_free; i_act++ { //iterate in (i_free-H,i_free)
@@ -104,7 +101,7 @@ move:
 				//no need to swap, just set i_des to the new value
 				u.bkt[i_act].key, u.bkt[i_act].val = *key, *val
 				u.bkt[i_act].Use(hash)
-				return
+				return true
 			}
 			//need more swaps
 			u.bkt[i_act].free() //free i_des
@@ -113,7 +110,7 @@ move:
 		}
 	}
 	//if free spaces near i_hash can't be made via moving, expand
-	goto expand
+	return false
 }
 
 func (u *HopMap[K, V]) String() string {
