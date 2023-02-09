@@ -4,10 +4,13 @@ import (
 	"math/bits"
 )
 
-const LOG_UINT_SIZE int = 5 + (bits.UintSize >> 6) //2^5==32 or 2^6==64
+const LogUintSize int = 5 + (bits.UintSize >> 6) //2^5==32 or 2^6==64
 
-func New(size int) BitArray {
-	return BitArray{bits: make([]uint, 1+(size>>LOG_UINT_SIZE))}
+func NewBitArray(size uint) BitArray {
+	if size&(bits.UintSize-1) == 0 {
+		return BitArray{bits: make([]uint, size>>LogUintSize)}
+	}
+	return BitArray{bits: make([]uint, 1+(size>>LogUintSize))}
 }
 
 type BitArray struct {
@@ -15,18 +18,18 @@ type BitArray struct {
 }
 
 func (u BitArray) Len() int {
-	return len(u.bits) << LOG_UINT_SIZE
+	return len(u.bits) << LogUintSize
 }
 
 func (u BitArray) Get(i int) bool {
 	t := uint(1 << (i & (bits.UintSize - 1)))
-	return u.bits[i>>LOG_UINT_SIZE]&t == t
+	return u.bits[i>>LogUintSize]&t == t
 }
 
 func (u BitArray) Up(i int) {
-	u.bits[i>>LOG_UINT_SIZE] |= 1 << (i & (bits.UintSize - 1))
+	u.bits[i>>LogUintSize] |= 1 << (i & (bits.UintSize - 1))
 }
 
 func (u BitArray) Down(i int) {
-	u.bits[i>>LOG_UINT_SIZE] &^= 1 << (i & (bits.UintSize - 1))
+	u.bits[i>>LogUintSize] &^= 1 << (i & (bits.UintSize - 1))
 }

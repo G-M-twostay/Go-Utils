@@ -49,4 +49,5 @@ func Max(a, b int) int {
 }
 
 //go:linkname RTHash runtime.memhash
-func RTHash(ptr unsafe.Pointer, seed, len uintptr) uint64
+//go:noescape
+func RTHash(ptr unsafe.Pointer, seed, len uintptr) uintptr
