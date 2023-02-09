@@ -12,7 +12,6 @@ type Element[K any, V any] struct {
 	key            K
 	val            V
 	hashOS, linkOS int16
-	used           bool
 }
 
 func (e *Element[K, V]) hashed() bool {

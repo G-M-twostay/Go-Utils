@@ -56,12 +56,12 @@ func BenchmarkMap_Get(b *testing.B) {
 func BenchmarkHopMap_Get(b *testing.B) {
 	var M *HopMap[int, int]
 	for _t := 0; _t < b.N; _t++ {
-		//b.StopTimer()
-		M = New[int, int](COUNT, 128)
+		b.StopTimer()
+		M = New[int, int](COUNT, 16)
 		for i := 0; i < COUNT; i++ {
 			M.Put(i, i)
 		}
-		//b.StartTimer()
+		b.StartTimer()
 		for i := 0; i < COUNT; i++ {
 			x, y := M.Get(i)
 			if !y || x != i {

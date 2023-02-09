@@ -2,6 +2,7 @@ package HopMap
 
 import (
 	"github.com/cespare/xxhash"
+	Go_Utils "github.com/g-m-twostay/go-utils"
 	"github.com/g-m-twostay/go-utils/Maps"
 	"golang.org/x/exp/constraints"
 	"hash/maphash"
@@ -10,7 +11,7 @@ import (
 )
 
 func New[K constraints.Integer, V any](dl int, h byte) *HopMap[K, V] {
-	t := HopMap[K, V]{make([]Element[K, V], dl+int(h)), h, maphash.MakeSeed()}
+	t := HopMap[K, V]{make([]Element[K, V], dl+int(h)), Go_Utils.New(dl + int(h)), h, maphash.MakeSeed()}
 	for i := range t.bkt {
 		t.bkt[i].init()
 	}
@@ -19,6 +20,7 @@ func New[K constraints.Integer, V any](dl int, h byte) *HopMap[K, V] {
 
 type HopMap[K constraints.Integer, V any] struct {
 	bkt  []Element[K, V]
+	used Go_Utils.BitArray
 	H    byte
 	seed maphash.Seed
 }
@@ -41,24 +43,24 @@ func (u *HopMap[K, V]) mod(hash uint) int {
 }
 
 func (u *HopMap[K, V]) expand() {
-
-	M := HopMap[K, V]{bkt: make([]Element[K, V], (len(u.bkt)-int(u.H))*2+int(u.H)), H: u.H, seed: u.seed}
+	nb := make([]Element[K, V], (len(u.bkt)-int(u.H))*2+int(u.H))
+	M := HopMap[K, V]{bkt: nb, H: u.H, seed: u.seed, used: Go_Utils.New(len(nb))}
 	for i := range M.bkt {
 		M.bkt[i].init()
 	}
-	for _, e := range u.bkt {
-		if e.used {
+	for i, e := range u.bkt {
+		if u.used.Get(i) {
 			M.Put(e.key, e.val)
 		}
 	}
 	u.bkt = M.bkt
-
+	u.used = M.used
 }
 
 func (u *HopMap[K, V]) Get(key K) (V, bool) {
 	if i0 := u.hash(key); u.bkt[i0].hashed() {
 		for i1 := i0 + int(u.bkt[i0].hashOS); ; i1 = i1 + int(u.bkt[i1].linkOS) {
-			if u.bkt[i1].used && u.bkt[i1].key == key {
+			if u.used.Get(i1) && u.bkt[i1].key == key {
 				return u.bkt[i1].val, true
 			}
 			if !u.bkt[i1].linked() {
@@ -71,7 +73,7 @@ func (u *HopMap[K, V]) Get(key K) (V, bool) {
 
 func (u *HopMap[K, V]) fillEmpty(i_hash int, i_free int, k *K, v *V) {
 	u.bkt[i_free].key, u.bkt[i_free].val = *k, *v
-	u.bkt[i_free].used = true
+	u.used.Up(i_free)
 	if u.bkt[i_hash].hashed() { //something else already hashed to i_hash, chain it to linked list
 		i0 := i_hash + int(u.bkt[i_hash].hashOS)
 		for ; u.bkt[i0].linked(); i0 = i0 + int(u.bkt[i0].linkOS) {
@@ -103,9 +105,9 @@ func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
 			}
 		}
 	}
-	//now since i_hash is either free or belongs to some other hash, we need to find an open spot
+	//now since i_hash is either used or belongs to some other hash, we need to find an open spot
 	for step := i_hash; step < len(u.bkt); step++ {
-		if i_free := step; !u.bkt[i_free].used { //found an empty spot
+		if i_free := step; !u.used.Get(i_free) { //found an empty spot
 			if i_free-i_hash < int(u.H) { //within H. we insert it here
 				u.fillEmpty(i_hash, i_free, k, v)
 				return true
@@ -121,7 +123,7 @@ func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
 								*prev = int16(i_free - i0)
 
 								u.bkt[i_free].key, u.bkt[i_free].val = u.bkt[i1].key, u.bkt[i1].val //copies e1 to i_free
-								u.bkt[i_free].used = true
+								u.used.Up(i_free)
 								if u.bkt[i1].linked() {
 									u.bkt[i_free].linkOS = int16(int(u.bkt[i1].linkOS) + i1 - i_free) //i_free links to the original next of e1
 								}
@@ -132,7 +134,7 @@ func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
 									u.fillEmpty(i_hash, i1, k, v)
 									return true
 								} else {
-									u.bkt[i1].used = false //set it to free only when we need more swaps
+									u.used.Down(i1) //set it to used only when we need more swaps
 									i_free = i1
 									continue search
 								}
@@ -145,9 +147,9 @@ func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
 						}
 					}
 				}
-				return false //unable to move free buckets near i_hash
+				return false //unable to move used buckets near i_hash
 			}
 		}
 	}
-	return false //no free buckets are found
+	return false //no used buckets are found
 }

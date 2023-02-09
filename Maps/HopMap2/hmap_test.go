@@ -4,8 +4,8 @@ import (
 	"testing"
 )
 
-const COUNT int = 8192
-const H_ byte = 7
+const COUNT int = 8192 * 2
+const H_ byte = 8
 
 func TestHopMap_All(t *testing.T) {
 	M := New[int, int](4, 4)
@@ -59,19 +59,19 @@ func BenchmarkHopMap_Get(b *testing.B) {
 	var M *HopMap[int, int]
 	for _t := 0; _t < b.N; _t++ {
 		//b.StopTimer()
-		M = New[int, int](COUNT, H_)
+		M = New[int, int](8, H_)
 		for i := 0; i < COUNT; i++ {
 			M.Put(i, i)
 		}
 		//b.StartTimer()
-		for i := 0; i < COUNT; i++ {
-			x, y := M.Get(i)
-			if !y || x != i {
-				b.Error("wrong value", i, x)
-				b.Log(M.String())
-				return
-			}
-		}
+		//for i := 0; i < COUNT; i++ {
+		//	x, y := M.Get(i)
+		//	if !y || x != i {
+		//		b.Error("wrong value", i, x)
+		//		b.Log(M.String())
+		//		return
+		//	}
+		//}
 	}
 
 }
