@@ -85,7 +85,7 @@ func (u *HopMap[K, V]) tryPut(key *K, val *V, hash uint) bool {
 			} else { //outside of neighbor, we now perform swap
 				i_free := i
 				for i_act := Maps.Max(0, i_free-int(u.H)+1); i_act < i_free; i_act++ { //iterate in (i_free-H,i_free)
-					if u.mod(u.bkt[i_act].Hash()) > i_free-int(u.H) { //we know that everything here is used and that the actual index>=desired index.
+					if u.mod(u.bkt[i_act].Hash()) > i_free-int(u.H) { //we know that every element here is used and that the actual index>=desired index.
 						//found such an element where i_free is near its desired index
 						u.bkt[i_free] = u.bkt[i_act] //regardless i_act will be copied to i_free
 						if i_act < i_hash+int(u.H) { //the actual index is within neighbor of i_hash
