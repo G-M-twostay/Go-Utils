@@ -19,7 +19,7 @@ func (u BitArray) Len() int {
 }
 
 func (u BitArray) Get(i int) bool {
-	t := 1 << i & (bits.UintSize - 1)
+	t := uint(1 << (i & (bits.UintSize - 1)))
 	return u.bits[i>>LOG_UINT_SIZE]&t == t
 }
 
