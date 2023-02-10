@@ -1,10 +1,12 @@
 package HopMap
 
 import (
+	"github.com/cespare/xxhash"
 	"github.com/g-m-twostay/go-utils"
 	"github.com/g-m-twostay/go-utils/Maps"
 	"golang.org/x/exp/constraints"
 	"hash/maphash"
+	"reflect"
 	"unsafe"
 )
 
@@ -21,16 +23,15 @@ type HopMap[K constraints.Integer, V any] struct {
 }
 
 func (u *HopMap[K, V]) hash(key *K) uint {
-	//l := int(unsafe.Sizeof(*key))
-	//s := reflect.SliceHeader{
-	//	Data: uintptr(unsafe.Pointer(key)),
-	//	Len:  l,
-	//	Cap:  l,
-	//}
-	//return uint(maphash.Bytes(u.seed, *(*[]byte)(unsafe.Pointer(&s))))
+	l := int(unsafe.Sizeof(*key))
+	s := reflect.SliceHeader{
+		Data: uintptr(unsafe.Pointer(key)),
+		Len:  l,
+		Cap:  l,
+	}
 	//return int(key) & (len(u.bkt) - int(u.H) - 1)
-	//return uint(xxhash.Sum64(*(*[]byte)(unsafe.Pointer(&s))))
-	return uint(Maps.RTHash(unsafe.Pointer(key), 0, unsafe.Sizeof(*key)))
+	return uint(xxhash.Sum64(*(*[]byte)(unsafe.Pointer(&s))))
+	//return uint(Maps.RTHash(unsafe.Pointer(key), 0, unsafe.Sizeof(*key)))
 }
 
 func (u *HopMap[K, V]) mod(hash uint) int {
@@ -52,6 +53,25 @@ func (u *HopMap[K, V]) expand() {
 
 	u.bkt = M.bkt
 	u.used = M.used
+}
+
+func (u *HopMap[K, V]) LoadAndDelete(key K) (V, bool) {
+	if i0 := u.mod(u.hash(&key)); u.bkt[i0].hashed() {
+		prev := &u.bkt[i0].hashOS
+		for i1 := i0 + u.bkt[i0].hashOffSet(); ; i1 = i1 + u.bkt[i1].linkOffSet() {
+			if u.used.Get(i1) && u.bkt[i1].key == key {
+				u.used.Down(i1)
+				*prev = markLowestBit16(u.bkt[i1].linkOffSet()+i1-i0, int(u.bkt[i1].linkOS&1))
+				return u.bkt[i1].val, true
+			}
+			if !u.bkt[i1].linked() {
+				break
+			}
+			i0 = i1
+			prev = &u.bkt[i0].linkOS
+		}
+	}
+	return *new(V), false
 }
 
 func (u *HopMap[K, V]) Get(key K) (V, bool) {
@@ -103,8 +123,8 @@ func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
 		}
 	}
 	//now since i_hash is either used or belongs to some other hash, we need to find an open spot
-	for step := i_hash; step < len(u.bkt); step++ {
-		if i_free := step; !u.used.Get(i_free) { //found an empty spot
+	for i_free := i_hash; i_free < len(u.bkt); i_free++ {
+		if !u.used.Get(i_free) { //found an empty spot
 			if i_free-i_hash < int(u.H) { //within H. we insert it here
 				u.used.Up(i_free)
 				u.fillEmpty(i_hash, i_free, k, v)
@@ -124,9 +144,6 @@ func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
 								u.used.Up(i_free)
 
 								u.bkt[i_free].linkOS = markLowestBit16(u.bkt[i1].linkOffSet()+i1-i_free, int(u.bkt[i1].linkOS&1)) //i_free links to the original next of i1 if i1 has one
-								//if u.bkt[i1].linked() {
-								//	u.bkt[i_free].UseLinkOffSet(u.bkt[i1].linkOffSet() + i1 - i_free)
-								//}
 								//now e1 is copied to i_free, and all references to e1 is now to i_free, we can change i_empty to i1
 								u.bkt[i1].clrLink() //e1 is now empty, but it may still hashes to something.
 

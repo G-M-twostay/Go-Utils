@@ -28,10 +28,19 @@ func TestHopMap_All(t *testing.T) {
 }
 
 func BenchmarkHopMap_Put(b *testing.B) {
-	M := New[int, int](uint(COUNT), 64)
 	for _t := 0; _t < b.N; _t++ {
+		M := New[int, int](uint(COUNT)*2, 32)
 		for i := 0; i < COUNT; i++ {
 			M.Put(i, i)
+		}
+	}
+}
+
+func BenchmarkMap_Put(b *testing.B) {
+	for _t := 0; _t < b.N; _t++ {
+		M := make(map[int]int, COUNT)
+		for i := 0; i < COUNT; i++ {
+			M[i] = i
 		}
 	}
 }
@@ -39,7 +48,7 @@ func BenchmarkHopMap_Put(b *testing.B) {
 func BenchmarkMap_Get(b *testing.B) {
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M := make(map[int]int)
+		M := make(map[int]int, COUNT)
 		for i := 0; i < COUNT; i++ {
 			M[i] = i
 		}
@@ -57,7 +66,7 @@ func BenchmarkHopMap_Get(b *testing.B) {
 	var M *HopMap[int, int]
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M = New[int, int](uint(COUNT), 128)
+		M = New[int, int](uint(COUNT), 16)
 		for i := 0; i < COUNT; i++ {
 			M.Put(i, i)
 		}
@@ -69,5 +78,33 @@ func BenchmarkHopMap_Get(b *testing.B) {
 			}
 		}
 	}
+}
 
+func BenchmarkHopMap_Del(b *testing.B) {
+	var M *HopMap[int, int]
+	for _t := 0; _t < b.N; _t++ {
+		b.StopTimer()
+		M = New[int, int](uint(COUNT), 16)
+		for i := 0; i < COUNT; i++ {
+			M.Put(i, i)
+		}
+		b.StartTimer()
+		for i := 0; i < COUNT; i++ {
+			M.LoadAndDelete(i)
+		}
+	}
+}
+
+func BenchmarkMap_Del(b *testing.B) {
+	for _t := 0; _t < b.N; _t++ {
+		b.StopTimer()
+		M := make(map[int]int, COUNT)
+		for i := 0; i < COUNT; i++ {
+			M[i] = i
+		}
+		b.StartTimer()
+		for i := 0; i < COUNT; i++ {
+			delete(M, i)
+		}
+	}
 }
