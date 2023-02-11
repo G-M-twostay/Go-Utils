@@ -1,13 +1,15 @@
 package HopMap
 
+import "math"
+
 type Bucket[K comparable, V any] struct {
 	key          K
 	val          V
-	dHash, dLink int16 //lowest bit indicates if it's valid
+	dHash, dLink uint16 //lowest bit indicates if it's valid
 }
 
 func (e *Bucket[K, V]) hashed() bool {
-	return e.dHash&1 == 1
+	return e.dHash != 0
 }
 
 func (e *Bucket[K, V]) clrHash() {
@@ -15,7 +17,7 @@ func (e *Bucket[K, V]) clrHash() {
 }
 
 func (e *Bucket[K, V]) linked() bool {
-	return e.dLink&1 == 1
+	return e.dLink != 0
 }
 
 func (e *Bucket[K, V]) clrLink() {
@@ -23,23 +25,23 @@ func (e *Bucket[K, V]) clrLink() {
 }
 
 func (e *Bucket[K, V]) deltaLink() int {
-	return int(e.dLink) >> 1
+	return int(e.dLink) + math.MinInt16
 }
 
 func (e *Bucket[K, V]) deltaHash() int {
-	return int(e.dHash) >> 1
+	return int(e.dHash) + math.MinInt16
 }
 
 func (e *Bucket[K, V]) useDeltaHash(d int) {
-	e.dHash = markLowBit16(d, 1)
+	e.dHash = offset(d)
 }
 
 func (e *Bucket[K, V]) useDeltaLink(d int) {
-	e.dLink = markLowBit16(d, 1)
+	e.dLink = offset(d)
 }
 
-func markLowBit16(x, low int) int16 {
-	return int16((x << 1) | low)
+func offset(x int) uint16 {
+	return uint16(x - math.MinInt16)
 }
 
 //func (e *Bucket[K, V]) String() string {

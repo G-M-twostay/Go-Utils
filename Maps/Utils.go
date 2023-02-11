@@ -1,6 +1,7 @@
 package Maps
 
 import (
+	"math/bits"
 	_ "runtime"
 	"unsafe"
 )
@@ -41,11 +42,9 @@ type hold struct {
 	ptr   uintptr
 }
 
-func Max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
+func Max(x, y int) int {
+	d := x - y
+	return x - (d & (d >> (bits.UintSize - 1)))
 }
 
 //go:linkname RTHash runtime.memhash

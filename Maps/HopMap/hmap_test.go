@@ -29,7 +29,7 @@ func TestHopMap_All(t *testing.T) {
 
 func BenchmarkHopMap_Put(b *testing.B) {
 	for _t := 0; _t < b.N; _t++ {
-		M := New[int, int](uint(COUNT)*2, 32)
+		M := New[int, int](uint(COUNT)*2, 16)
 		for i := 0; i < COUNT; i++ {
 			M.Put(i, i)
 		}

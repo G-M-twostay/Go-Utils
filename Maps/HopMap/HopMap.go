@@ -5,21 +5,20 @@ import (
 	"github.com/g-m-twostay/go-utils"
 	"github.com/g-m-twostay/go-utils/Maps"
 	"golang.org/x/exp/constraints"
-	"hash/maphash"
 	"reflect"
 	"unsafe"
 )
 
 func New[K constraints.Integer, V any](dl uint, h byte) *HopMap[K, V] {
 	bktl := dl + uint(h)
-	return &HopMap[K, V]{make([]Bucket[K, V], bktl), Go_Utils.NewBitArray(bktl), h, maphash.MakeSeed()}
+	return &HopMap[K, V]{make([]Bucket[K, V], bktl), Go_Utils.NewBitArray(bktl), h, make([]uint, bktl)}
 }
 
 type HopMap[K constraints.Integer, V any] struct {
 	bkt     []Bucket[K, V]
 	usedBkt Go_Utils.BitArray
 	H       byte
-	seed    maphash.Seed
+	hashes  []uint
 }
 
 func (u *HopMap[K, V]) hash(key *K) uint {
@@ -40,19 +39,19 @@ func (u *HopMap[K, V]) mod(hash uint) int {
 
 func (u *HopMap[K, V]) expand() {
 	nl := uint((len(u.bkt)-int(u.H))<<1) + uint(u.H)
-	M := HopMap[K, V]{bkt: make([]Bucket[K, V], nl), H: u.H, seed: u.seed, usedBkt: Go_Utils.NewBitArray(nl)}
+	M := HopMap[K, V]{bkt: make([]Bucket[K, V], nl), H: u.H, usedBkt: Go_Utils.NewBitArray(nl), hashes: make([]uint, nl)}
 	for i, e := range u.bkt {
 		if u.usedBkt.Get(i) {
-			if !M.tryPut(&e.key, &e.val, 0) {
+			if !M.tryPut(&e.key, &e.val, u.hashes[i]) {
 				M.expand()
-				M.tryPut(&e.key, &e.val, 0)
+				M.tryPut(&e.key, &e.val, u.hashes[i])
 			}
-
 		}
 	}
 
 	u.bkt = M.bkt
 	u.usedBkt = M.usedBkt
+	u.hashes = M.hashes
 }
 
 func (u *HopMap[K, V]) LoadAndDelete(key K) (V, bool) {
@@ -60,8 +59,12 @@ func (u *HopMap[K, V]) LoadAndDelete(key K) (V, bool) {
 		prev := &u.bkt[i0].dHash
 		for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
 			if u.usedBkt.Get(i1) && u.bkt[i1].key == key {
-				u.usedBkt.Down(i1)
-				*prev = markLowBit16(u.bkt[i1].deltaLink()+i1-i0, int(u.bkt[i1].dLink&1))
+				u.usedBkt.Clr(i1)
+				if u.bkt[i1].linked() {
+					*prev = offset(u.bkt[i1].deltaLink() + i1 - i0)
+				} else {
+					*prev = 0
+				}
 				return u.bkt[i1].val, true
 			}
 			if !u.bkt[i1].linked() {
@@ -104,13 +107,13 @@ func (u *HopMap[K, V]) fillEmpty(i_hash int, i_free int, k *K, v *V) {
 }
 
 func (u *HopMap[K, V]) Put(key K, val V) {
-	for !u.tryPut(&key, &val, 0) {
+	for hash := u.hash(&key); !u.tryPut(&key, &val, hash); {
 		u.expand()
 	}
 }
 
 func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
-	i_hash := u.mod(u.hash(k))
+	i_hash := u.mod(hash)
 	if u.bkt[i_hash].hashed() { //there exists some elements with hash i_hash; check if key already exists.
 		for i0 := i_hash + u.bkt[i_hash].deltaHash(); ; i0 = i0 + u.bkt[i0].deltaLink() { //find i_hash+dHash: start of the chain
 			if u.bkt[i0].key == *k {
@@ -126,8 +129,9 @@ func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
 	for i_free := i_hash; i_free < len(u.bkt); i_free++ {
 		if !u.usedBkt.Get(i_free) { //found an empty spot
 			if i_free-i_hash < int(u.H) { //within H. we insert it here
-				u.usedBkt.Up(i_free)
+				u.usedBkt.Set(i_free)
 				u.fillEmpty(i_hash, i_free, k, v)
+				u.hashes[i_free] = hash
 				return true
 			} else { //j+step>=H. so we find open spot and move it back
 			search:
@@ -138,20 +142,25 @@ func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
 						for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
 							if i_free-int(u.H) < i1 && i1 < i_free { //a value e1 with hash i is located in [i_empty-H,i_empty); so we swap e1 with i_free
 								//make everything that pointed to e1 from e0 point to i_free
-								*prev = markLowBit16(i_free-i0, 1)
+								*prev = offset(i_free - i0)
 
 								u.bkt[i_free].key, u.bkt[i_free].val = u.bkt[i1].key, u.bkt[i1].val //copies e1 to i_free
-								u.usedBkt.Up(i_free)
+								u.hashes[i_free] = u.hashes[i1]
+								u.usedBkt.Set(i_free)
 
-								u.bkt[i_free].dLink = markLowBit16(u.bkt[i1].deltaLink()+i1-i_free, int(u.bkt[i1].dLink&1)) //i_free links to the original next of i1 if i1 has one
+								if u.bkt[i1].linked() { //i_free links to the original next of i1 if i1 has one
+									u.bkt[i_free].useDeltaLink(u.bkt[i1].deltaLink() + i1 - i_free)
+								}
+
 								//now e1 is copied to i_free, and all references to e1 is now to i_free, we can change i_empty to i1
 								u.bkt[i1].clrLink() //e1 is now empty, but it may still hashes to something.
 
 								if i1 < i_hash+int(u.H) {
 									u.fillEmpty(i_hash, i1, k, v) //i1 is already usedBkt so we don't have to explicitly set it.
+									u.hashes[i1] = hash
 									return true
 								} else {
-									u.usedBkt.Down(i1) //set it to usedBkt only when we need more swaps
+									u.usedBkt.Clr(i1) //set it to usedBkt only when we need more swaps
 									i_free = i1
 									continue search
 								}

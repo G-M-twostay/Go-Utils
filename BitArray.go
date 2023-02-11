@@ -22,14 +22,21 @@ func (u BitArray) Len() int {
 }
 
 func (u BitArray) Get(i int) bool {
-	t := uint(1 << (i & (bits.UintSize - 1)))
-	return u.bits[i>>LogUintSize]&t == t
+	//t := uint(1 << (i & (bits.UintSize - 1)))
+	//or X&t==t
+	return u.bits[i>>LogUintSize]>>(i&(bits.UintSize-1))&1 == 1
 }
 
-func (u BitArray) Up(i int) {
+func (u BitArray) Set(i int) {
 	u.bits[i>>LogUintSize] |= 1 << (i & (bits.UintSize - 1))
 }
 
-func (u BitArray) Down(i int) {
+func (u BitArray) Clr(i int) {
 	u.bits[i>>LogUintSize] &^= 1 << (i & (bits.UintSize - 1))
+}
+
+func (u BitArray) Invert(i int) bool {
+	t := u.Get(i)
+	u.bits[i>>LogUintSize] ^= 1 << (i & (bits.UintSize - 1))
+	return t
 }
