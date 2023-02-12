@@ -1,9 +1,7 @@
 package Maps
 
 import (
-	"hash/maphash"
 	"math"
-	"reflect"
 	"unsafe"
 )
 
@@ -29,6 +27,12 @@ type ExtendedMap[K any, V any] interface {
 	Size() uint
 	//Take an arbitrary key value pair from the Map.
 	Take() (K, V)
+	//Set is equivalent to Store(K,V) on a existing key, it won't do anything on a key that's not in the Map. In the prior case, it should be designed to be faster than Store.
+	Set(K, V) *V
+}
+
+type PtrMap[K any, V any] interface {
+	Map[K, V]
 	//TakePtr is the pointer variant of Take.
 	TakePtr(K, *V)
 	//LoadPtr is the pointer variant of Map.Load.
@@ -39,12 +43,10 @@ type ExtendedMap[K any, V any] interface {
 	LoadPtrOrStore(K, V) (*V, bool)
 	//RangePtr is the pointer variant of Map.Range.
 	RangePtr(func(K, *V) bool)
-	//Set is equivalent to Store(K,V) on a existing key, it won't do anything on a key that's not in the Map. In the prior case, it should be designed to be faster than Store.
-	Set(K, V) *V
 }
 
 // Hasher is an ailas for maphash.Seed, create it using Hasher(maphash.MakeSeed()). The receivers are thread-safe, but the memory contents aren't read in a thread-safe way, so only use it on synchronized memory.
-type Hasher maphash.Seed
+type Hasher uint
 
 // HashAny hashes an interface value based on memory content of v. It uses internal struct's memory layout, which is unsafe practice. Avoid using it.
 func (u Hasher) HashAny(v any) uint {
@@ -53,28 +55,29 @@ func (u Hasher) HashAny(v any) uint {
 }
 
 // HashMem hashes the memory contents in the range [addr, addr+length) as bytes.
-func (u Hasher) HashMem(addr uintptr, length int) uint {
-	s := reflect.SliceHeader{addr, length, length}
-	return uint(maphash.Bytes(maphash.Seed(u), *(*[]byte)(unsafe.Pointer(&s))))
+func (u Hasher) HashMem(addr unsafe.Pointer, size uintptr) uint {
+	if size == 4 {
+		return RTHash32(addr, uint(u))
+	} else if size == 8 {
+		return RTHash64(addr, uint(u))
+	}
+	return RTHash(addr, uint(u), size)
 }
 
 // HashBytes hashes the given byte slice.
 func (u Hasher) HashBytes(b []byte) uint {
-	return uint(maphash.Bytes(maphash.Seed(u), b))
+	return u.HashMem(unsafe.Pointer(&b[0]), uintptr(uint(len(b))))
 }
 
 // HashInt hashes v.
 func (u Hasher) HashInt(v int) uint {
-	b := (*[unsafe.Sizeof(v)]byte)(unsafe.Pointer(&v))
-	return uint(maphash.Bytes(maphash.Seed(u), b[:]))
+	if unsafe.Sizeof(v) == 4 {
+		return RTHash32(unsafe.Pointer(&v), uint(u))
+	}
+	return RTHash64(unsafe.Pointer(&v), uint(u))
 }
 
 // HashString directly hashes a string, it's faster than HashAny(string).
 func (u Hasher) HashString(v string) uint {
-	return uint(maphash.String(maphash.Seed(u), v))
-}
-
-// HashAny is a static version of Hasher.HashAny. It uses generics instead of interfaces. It's intended for concrete values instead of interface values.
-func HashAny[T any](h Hasher, obj T) uint {
-	return h.HashMem(uintptr(unsafe.Pointer(&obj)), int(unsafe.Sizeof(obj)))
+	return RTStrHash(unsafe.Pointer(&v), uint(u))
 }

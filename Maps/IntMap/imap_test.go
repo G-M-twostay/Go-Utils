@@ -56,7 +56,7 @@ func TestIntMap_All(t *testing.T) {
 	}
 	wg.Wait()
 	//ct := 0
-	//for cur := (*node)(M.buckets.Load().Get(0).Next()); cur != nil; cur = (*node)(cur.Next()) {
+	//for cur := (*node)(M.buckets.Load().Load(0).Next()); cur != nil; cur = (*node)(cur.Next()) {
 	//	if cur.isRelay() {
 	//		t.Log(ct)
 	//		ct = 0

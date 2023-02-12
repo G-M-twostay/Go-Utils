@@ -1,50 +1,42 @@
 package HopMap
 
 import (
-	"github.com/cespare/xxhash"
 	"github.com/g-m-twostay/go-utils"
 	"github.com/g-m-twostay/go-utils/Maps"
 	"golang.org/x/exp/constraints"
-	"reflect"
 	"unsafe"
 )
 
-func New[K constraints.Integer, V any](dl uint, h byte) *HopMap[K, V] {
-	bktl := dl + uint(h)
-	return &HopMap[K, V]{make([]Bucket[K, V], bktl), Go_Utils.NewBitArray(bktl), h, make([]uint, bktl)}
+func New[K constraints.Integer, V any](h byte, size, seed uint) *HopMap[K, V] {
+	bktl := size + uint(h)
+
+	return &HopMap[K, V]{bkt: make([]Bucket[K, V], bktl), usedBkt: Go_Utils.NewBitArray(bktl), h: h, hashes: make([]uint, bktl), Seed: Maps.Hasher(seed)}
 }
 
 type HopMap[K constraints.Integer, V any] struct {
 	bkt     []Bucket[K, V]
 	usedBkt Go_Utils.BitArray
-	H       byte
 	hashes  []uint
+	Seed    Maps.Hasher
+	h       byte
 }
 
-func (u *HopMap[K, V]) hash(key *K) uint {
-	l := int(unsafe.Sizeof(*key))
-	s := reflect.SliceHeader{
-		Data: uintptr(unsafe.Pointer(key)),
-		Len:  l,
-		Cap:  l,
-	}
-	//return int(key) & (len(u.bkt) - int(u.H) - 1)
-	return uint(xxhash.Sum64(*(*[]byte)(unsafe.Pointer(&s))))
-	//return uint(Maps.RTHash(unsafe.Pointer(key), 0, unsafe.Sizeof(*key)))
+func (u *HopMap[K, V]) hash(k *K) uint {
+	return u.Seed.HashMem(unsafe.Pointer(k), unsafe.Sizeof(*k))
 }
 
 func (u *HopMap[K, V]) mod(hash uint) int {
-	return int(hash) & (len(u.bkt) - int(u.H) - 1)
+	return int(hash) & (len(u.bkt) - int(u.h) - 1)
 }
 
 func (u *HopMap[K, V]) expand() {
-	nl := uint((len(u.bkt)-int(u.H))<<1) + uint(u.H)
-	M := HopMap[K, V]{bkt: make([]Bucket[K, V], nl), H: u.H, usedBkt: Go_Utils.NewBitArray(nl), hashes: make([]uint, nl)}
+	newSize := uint((len(u.bkt)-int(u.h))<<1) + uint(u.h)
+	M := HopMap[K, V]{bkt: make([]Bucket[K, V], newSize), h: u.h, usedBkt: Go_Utils.NewBitArray(newSize), hashes: make([]uint, newSize), Seed: u.Seed}
 	for i, e := range u.bkt {
 		if u.usedBkt.Get(i) {
-			if !M.tryPut(&e.key, &e.val, u.hashes[i]) {
+			if !M.trySet(&e.key, &e.val, u.hashes[i]) {
 				M.expand()
-				M.tryPut(&e.key, &e.val, u.hashes[i])
+				M.trySet(&e.key, &e.val, u.hashes[i])
 			}
 		}
 	}
@@ -77,7 +69,11 @@ func (u *HopMap[K, V]) LoadAndDelete(key K) (V, bool) {
 	return *new(V), false
 }
 
-func (u *HopMap[K, V]) Get(key K) (V, bool) {
+func (u *HopMap[K, V]) Delete(key K) {
+	u.LoadAndDelete(key)
+}
+
+func (u *HopMap[K, V]) Load(key K) (V, bool) {
 	if i0 := u.mod(u.hash(&key)); u.bkt[i0].hashed() {
 		for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
 			if u.usedBkt.Get(i1) && u.bkt[i1].key == key {
@@ -103,16 +99,10 @@ func (u *HopMap[K, V]) fillEmpty(i_hash int, i_free int, k *K, v *V) {
 	} else { //nothing hashed to i_hash
 		u.bkt[i_hash].useDeltaHash(i_free - i_hash) //fillEmpty i_free to be hashed to e_hash
 	}
-	//if an empty spot within H is found, an insertion will always be made immediately.
+	//if an empty spot within h is found, an insertion will always be made immediately.
 }
 
-func (u *HopMap[K, V]) Put(key K, val V) {
-	for hash := u.hash(&key); !u.tryPut(&key, &val, hash); {
-		u.expand()
-	}
-}
-
-func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
+func (u *HopMap[K, V]) trySet(k *K, v *V, hash uint) bool {
 	i_hash := u.mod(hash)
 	if u.bkt[i_hash].hashed() { //there exists some elements with hash i_hash; check if key already exists.
 		for i0 := i_hash + u.bkt[i_hash].deltaHash(); ; i0 = i0 + u.bkt[i0].deltaLink() { //find i_hash+dHash: start of the chain
@@ -128,19 +118,19 @@ func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
 	//now since i_hash is either usedBkt or belongs to some other hash, we need to find an open spot
 	for i_free := i_hash; i_free < len(u.bkt); i_free++ {
 		if !u.usedBkt.Get(i_free) { //found an empty spot
-			if i_free-i_hash < int(u.H) { //within H. we insert it here
+			if i_free-i_hash < int(u.h) { //within h. we insert it here
 				u.usedBkt.Set(i_free)
 				u.fillEmpty(i_hash, i_free, k, v)
 				u.hashes[i_free] = hash
 				return true
-			} else { //j+step>=H. so we find open spot and move it back
+			} else { //j+step>=h. so we find open spot and move it back
 			search:
-				for i := Maps.Max(i_free-int(u.H)+1, 0); i < i_free; i++ { //iterate from i_hash to i_empty
+				for i := Maps.Max(i_free-int(u.h)+1, 0); i < i_free; i++ { //iterate from i_hash to i_empty
 					if i0 := i; u.bkt[i0].hashed() { //there is some value hashed to i0(i). i0 refers to the prev in the linked iteration.
 						//find the start of the chain and iterate in the chain.
 						prev := &u.bkt[i0].dHash //initially e0 pointed to e1 by hash
 						for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
-							if i_free-int(u.H) < i1 && i1 < i_free { //a value e1 with hash i is located in [i_empty-H,i_empty); so we swap e1 with i_free
+							if i_free-int(u.h) < i1 && i1 < i_free { //a value e1 with hash i is located in [i_empty-h,i_empty); so we swap e1 with i_free
 								//make everything that pointed to e1 from e0 point to i_free
 								*prev = offset(i_free - i0)
 
@@ -155,7 +145,7 @@ func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
 								//now e1 is copied to i_free, and all references to e1 is now to i_free, we can change i_empty to i1
 								u.bkt[i1].clrLink() //e1 is now empty, but it may still hashes to something.
 
-								if i1 < i_hash+int(u.H) {
+								if i1 < i_hash+int(u.h) {
 									u.fillEmpty(i_hash, i1, k, v) //i1 is already usedBkt so we don't have to explicitly set it.
 									u.hashes[i1] = hash
 									return true
@@ -178,4 +168,90 @@ func (u *HopMap[K, V]) tryPut(k *K, v *V, hash uint) bool {
 		}
 	}
 	return false //no usedBkt buckets are found
+}
+
+func (u *HopMap[K, V]) tryLoad(k *K, v *V, hash uint) (*V, bool) {
+	i_hash := u.mod(hash)
+	if u.bkt[i_hash].hashed() {
+		for i0 := i_hash + u.bkt[i_hash].deltaHash(); ; i0 = i0 + u.bkt[i0].deltaLink() {
+			if u.bkt[i0].key == *k {
+				return &u.bkt[i0].val, true
+			}
+			if !u.bkt[i0].linked() {
+				break
+			}
+		}
+	}
+	for i_free := i_hash; i_free < len(u.bkt); i_free++ {
+		if !u.usedBkt.Get(i_free) {
+			if i_free-i_hash < int(u.h) {
+				u.usedBkt.Set(i_free)
+				u.fillEmpty(i_hash, i_free, k, v)
+				u.hashes[i_free] = hash
+				return nil, true
+			} else {
+			search:
+				for i := Maps.Max(i_free-int(u.h)+1, 0); i < i_free; i++ {
+					if i0 := i; u.bkt[i0].hashed() {
+						prev := &u.bkt[i0].dHash
+						for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
+							if i_free-int(u.h) < i1 && i1 < i_free {
+
+								*prev = offset(i_free - i0)
+
+								u.bkt[i_free].key, u.bkt[i_free].val = u.bkt[i1].key, u.bkt[i1].val //copies e1 to i_free
+								u.hashes[i_free] = u.hashes[i1]
+								u.usedBkt.Set(i_free)
+
+								if u.bkt[i1].linked() {
+									u.bkt[i_free].useDeltaLink(u.bkt[i1].deltaLink() + i1 - i_free)
+								}
+
+								u.bkt[i1].clrLink()
+
+								if i1 < i_hash+int(u.h) {
+									u.fillEmpty(i_hash, i1, k, v)
+									u.hashes[i1] = hash
+									return nil, true
+								} else {
+									u.usedBkt.Clr(i1)
+									i_free = i1
+									continue search
+								}
+							}
+							if !u.bkt[i1].linked() {
+								break
+							}
+							i0 = i1
+							prev = &u.bkt[i0].dLink
+						}
+					}
+				}
+				return nil, false
+			}
+		}
+	}
+	return nil, false
+}
+
+func (u *HopMap[K, V]) LoadOrStore(key K, val V) (v V, loaded bool) {
+	var r *V
+	for hash, suc := u.hash(&key), false; !suc; r, suc = u.tryLoad(&key, &val, hash) {
+		u.expand()
+	}
+	if loaded = r != nil; loaded {
+		v = *r
+	}
+	return
+}
+
+func (u *HopMap[K, V]) Store(key K, val V) {
+	for hash := u.hash(&key); !u.trySet(&key, &val, hash); {
+		u.expand()
+	}
+}
+
+func (u *HopMap[K, V]) HasKey(key K) bool {
+	_, r := u.Load(key)
+	return r
 }
