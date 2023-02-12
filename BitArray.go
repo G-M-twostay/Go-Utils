@@ -40,3 +40,16 @@ func (u BitArray) Invert(i int) bool {
 	u.bits[i>>LogUintSize] ^= 1 << (i & (bits.UintSize - 1))
 	return t
 }
+
+func (u BitArray) Uints() []uint {
+	return u.bits
+}
+
+func (u BitArray) First() int {
+	for i, c := range u.bits {
+		if c > 0 {
+			return i<<LogUintSize + bits.LeadingZeros(c)
+		}
+	}
+	return -1
+}

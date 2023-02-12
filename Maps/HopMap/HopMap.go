@@ -8,9 +8,8 @@ import (
 )
 
 func New[K constraints.Integer, V any](h byte, size, seed uint) *HopMap[K, V] {
-	bktl := size + uint(h)
-
-	return &HopMap[K, V]{bkt: make([]Bucket[K, V], bktl), usedBkt: Go_Utils.NewBitArray(bktl), h: h, hashes: make([]uint, bktl), Seed: Maps.Hasher(seed)}
+	bktLen := size + uint(h)
+	return &HopMap[K, V]{bkt: make([]Bucket[K, V], bktLen), usedBkt: Go_Utils.NewBitArray(bktLen), h: h, hashes: make([]uint, bktLen), Seed: Maps.Hasher(seed)}
 }
 
 type HopMap[K constraints.Integer, V any] struct {
@@ -254,4 +253,21 @@ func (u *HopMap[K, V]) Store(key K, val V) {
 func (u *HopMap[K, V]) HasKey(key K) bool {
 	_, r := u.Load(key)
 	return r
+}
+
+func (u *HopMap[K, V]) Take() (key K, val V) {
+	if i := u.usedBkt.First(); i > -1 {
+		key, val = u.bkt[i].key, u.bkt[i].val
+	}
+	return
+}
+
+func (u *HopMap[K, V]) Range(f func(K, V) bool) {
+	for i, b := range u.bkt {
+		if u.usedBkt.Get(i) {
+			if !f(b.key, b.val) {
+				return
+			}
+		}
+	}
 }
