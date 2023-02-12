@@ -4,11 +4,12 @@ import (
 	"github.com/g-m-twostay/go-utils"
 	"github.com/g-m-twostay/go-utils/Maps"
 	"golang.org/x/exp/constraints"
+	"math/bits"
 	"unsafe"
 )
 
 func New[K constraints.Integer, V any](h byte, size, seed uint) *HopMap[K, V] {
-	bktLen := size + uint(h)
+	bktLen := 1<<bits.Len(size) + uint(h)
 	return &HopMap[K, V]{bkt: make([]Bucket[K, V], bktLen), usedBkt: Go_Utils.NewBitArray(bktLen), h: h, hashes: make([]uint, bktLen), Seed: Maps.Hasher(seed)}
 }
 

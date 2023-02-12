@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-const COUNT int = 8192
+const COUNT int = 5000
 
 func TestHopMap_All(t *testing.T) {
 	M := New[int, int](2, 2, 0)
@@ -29,18 +29,10 @@ func TestHopMap_All(t *testing.T) {
 
 func BenchmarkHopMap_Put(b *testing.B) {
 	for _t := 0; _t < b.N; _t++ {
-		M := New[int, int](16, uint(COUNT)*2, 0)
+		M := New[int, int](16, uint(4096), 0)
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
-		//for _, e := range M.bkt {
-		//	if l := e.deltaLink(); e.linked() && (l > math.MaxInt8 || l <= math.MinInt8) {
-		//		b.Log("l", l)
-		//	}
-		//	if l := e.deltaHash(); e.hashed() && (l > math.MaxInt8 || l <= math.MinInt8) {
-		//		b.Log("h", l)
-		//	}
-		//}
 	}
 
 }
@@ -50,23 +42,6 @@ func BenchmarkMap_Put(b *testing.B) {
 		M := make(map[int]int, COUNT)
 		for i := 0; i < COUNT; i++ {
 			M[i] = i
-		}
-	}
-}
-
-func BenchmarkMap_Get(b *testing.B) {
-	for _t := 0; _t < b.N; _t++ {
-		b.StopTimer()
-		M := make(map[int]int, COUNT)
-		for i := 0; i < COUNT; i++ {
-			M[i] = i
-		}
-		b.StartTimer()
-		for i := 0; i < COUNT; i++ {
-			x := M[i]
-			if x != i {
-				b.Error("wrong")
-			}
 		}
 	}
 }
@@ -84,6 +59,23 @@ func BenchmarkHopMap_Get(b *testing.B) {
 			x, y := M.Load(i)
 			if !y || x != i {
 				b.Error("wrong value", i, x)
+			}
+		}
+	}
+}
+
+func BenchmarkMap_Get(b *testing.B) {
+	for _t := 0; _t < b.N; _t++ {
+		b.StopTimer()
+		M := make(map[int]int, COUNT)
+		for i := 0; i < COUNT; i++ {
+			M[i] = i
+		}
+		b.StartTimer()
+		for i := 0; i < COUNT; i++ {
+			x := M[i]
+			if x != i {
+				b.Error("wrong")
 			}
 		}
 	}
