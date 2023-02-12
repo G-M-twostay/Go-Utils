@@ -25,22 +25,22 @@ type SBTree[T constraints.Ordered, S constraints.Unsigned] struct {
 	base[T, S]
 }
 
-// MakeSBTree returns a SBTree satisfying the above definitions for nilPtr, root, and types.
+// New returns a SBTree satisfying the above definitions for nilPtr, root, and types.
 // SBTree shouldn't be created directly using struct literal.
-func MakeSBTree[T constraints.Ordered, S constraints.Unsigned]() *SBTree[T, S] {
+func New[T constraints.Ordered, S constraints.Unsigned]() *SBTree[T, S] {
 	z := new(node[T, S])
 	z.l, z.r = z, z
 	return &SBTree[T, S]{base[T, S]{z, z}}
 }
 
-// BuildSBTree builds a SBTree using the given sorted slice recursively. This is faster than
+// Build builds a SBTree using the given sorted slice recursively. This is faster than
 // repeatedly calling Insert. The word "set" is used to show that there shouldn't be any repeated
 // element.
 // The given slice must be sorted
 // in ascending order and mustn't contain duplicate elements(satisfying SBTree conditions), otherwise
 // there will be corrupt structures.
 // Time: O(n).
-func BuildSBTree[T constraints.Ordered, S constraints.Unsigned](sli []T) *SBTree[T, S] {
+func Build[T constraints.Ordered, S constraints.Unsigned](sli []T) *SBTree[T, S] {
 	z := new(node[T, S])
 	z.l, z.r = z, z
 	var build func([]T) nodePtr[T, S]

@@ -1,10 +1,5 @@
 package Trees
 
-import (
-	"fmt"
-	"golang.org/x/exp/constraints"
-)
-
 // Tree represents A tree like structure implemented using nodes.
 // Receivers that has A bool as A second return value indicates whether
 // the first return value is defined. For example, if calling Minimum on
@@ -42,7 +37,6 @@ type Tree[T any] interface {
 	//if some value exists, as Has should be optimized for this purpose
 	//in implementations.
 	Has(v T) bool
-	AverageDepth() uint
 	//Size of the tree.
 	Size() uint
 	//InOrder returns A closure function f acting like an iterator. f
@@ -58,36 +52,4 @@ type Tree[T any] interface {
 	//at some node violates the properties of that specific implementation.
 	//This is to be distinguished from whether the tree is balanced or not.
 	Corrupt() bool
-	Print()
-}
-
-// Ordered is an interface that implements the necessary functions needed
-// for a struct to be used as an element in a tree.
-type Ordered interface {
-	//LessThan return this<other
-	LessThan(other Ordered) bool
-	//Equals return this==other
-	Equals(other Ordered) bool
-}
-
-func Min[T constraints.Ordered](a, b T) T {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func Max[T constraints.Ordered](a, b T) T {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-type InvalidSliceError struct {
-	A, B, C, D interface{}
-}
-
-func (e *InvalidSliceError) Error() string {
-	return fmt.Sprintf("Slice isn't in strict ascending order. Possible violations: (%v, %v), (%v, %v).", e.A, e.B, e.C, e.D)
 }

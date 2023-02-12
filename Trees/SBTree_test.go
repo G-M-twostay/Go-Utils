@@ -9,21 +9,21 @@ const (
 )
 
 func BenchmarkSBTree_Insert(b *testing.B) {
-	var t Tree[int]
+	var t *SBTree[int, uint]
 	for i := 0; i < b.N; i++ {
-		t = MakeSBTree[int, uint]()
+		t = New[int, uint]()
 		for j, _ := range rand.Perm(size) {
 			t.Insert(j)
 		}
 	}
-	b.Log(t.AverageDepth())
+	b.Log(t.averageDepth())
 }
 
 func BenchmarkSBTree_Delete(b *testing.B) {
 	var t Tree[int]
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		t = MakeSBTree[int, uint]()
+		t = New[int, uint]()
 		for j, _ := range rand.Perm(size) {
 			t.Insert(j)
 		}
@@ -35,9 +35,9 @@ func BenchmarkSBTree_Delete(b *testing.B) {
 }
 
 func BenchmarkSBTree_All(b *testing.B) {
-	var t Tree[int]
+	var t *SBTree[int, uint]
 	for i := 0; i < b.N; i++ {
-		t = MakeSBTree[int, uint]()
+		t = New[int, uint]()
 		for j, _ := range rand.Perm(size / 2) {
 			t.Insert(j)
 		}
@@ -55,5 +55,5 @@ func BenchmarkSBTree_All(b *testing.B) {
 			}
 		}
 	}
-	b.Log(t.AverageDepth())
+	b.Log(t.averageDepth())
 }
