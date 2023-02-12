@@ -7,7 +7,7 @@ import (
 const COUNT int = 8192
 
 func TestHopMap_All(t *testing.T) {
-	M := New[int, int](2, 2)
+	M := New[int, int](2, 2, 0)
 	for i := 0; i < 8; i++ {
 		M.Store(1+8*i, 1+8*i)
 		t.Logf("putted %v\n", 1+8*i)
@@ -29,11 +29,20 @@ func TestHopMap_All(t *testing.T) {
 
 func BenchmarkHopMap_Put(b *testing.B) {
 	for _t := 0; _t < b.N; _t++ {
-		M := New[int, int](uint(COUNT)*2, 16)
+		M := New[int, int](16, uint(COUNT)*2, 0)
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
+		//for _, e := range M.bkt {
+		//	if l := e.deltaLink(); e.linked() && (l > math.MaxInt8 || l <= math.MinInt8) {
+		//		b.Log("l", l)
+		//	}
+		//	if l := e.deltaHash(); e.hashed() && (l > math.MaxInt8 || l <= math.MinInt8) {
+		//		b.Log("h", l)
+		//	}
+		//}
 	}
+
 }
 
 func BenchmarkMap_Put(b *testing.B) {
@@ -66,7 +75,7 @@ func BenchmarkHopMap_Get(b *testing.B) {
 	var M *HopMap[int, int]
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M = New[int, int](uint(COUNT), 16)
+		M = New[int, int](16, uint(COUNT), 0)
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
@@ -84,13 +93,18 @@ func BenchmarkHopMap_Del(b *testing.B) {
 	var M *HopMap[int, int]
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M = New[int, int](uint(COUNT), 16)
+		M = New[int, int](16, uint(COUNT), 0)
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
 		b.StartTimer()
 		for i := 0; i < COUNT; i++ {
 			M.LoadAndDelete(i)
+		}
+		for i := 0; i < COUNT; i++ {
+			if M.HasKey(i) {
+				b.Error("key exists", i)
+			}
 		}
 	}
 }
@@ -105,6 +119,11 @@ func BenchmarkMap_Del(b *testing.B) {
 		b.StartTimer()
 		for i := 0; i < COUNT; i++ {
 			delete(M, i)
+		}
+		for i := 0; i < COUNT; i++ {
+			if _, ok := M[i]; ok {
+				b.Error("key exists", i)
+			}
 		}
 	}
 }

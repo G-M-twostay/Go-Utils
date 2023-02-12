@@ -5,7 +5,7 @@ import "math"
 type Bucket[K comparable, V any] struct {
 	key          K
 	val          V
-	dHash, dLink uint16 //lowest bit indicates if it's valid
+	dHash, dLink byte //0 indicates not valid, otherwise value is offset by min value of signed version
 }
 
 func (e *Bucket[K, V]) hashed() bool {
@@ -25,11 +25,11 @@ func (e *Bucket[K, V]) clrLink() {
 }
 
 func (e *Bucket[K, V]) deltaLink() int {
-	return int(e.dLink) + math.MinInt16
+	return int(e.dLink) + math.MinInt8
 }
 
 func (e *Bucket[K, V]) deltaHash() int {
-	return int(e.dHash) + math.MinInt16
+	return int(e.dHash) + math.MinInt8
 }
 
 func (e *Bucket[K, V]) useDeltaHash(d int) {
@@ -40,8 +40,8 @@ func (e *Bucket[K, V]) useDeltaLink(d int) {
 	e.dLink = offset(d)
 }
 
-func offset(x int) uint16 {
-	return uint16(x - math.MinInt16)
+func offset(x int) byte {
+	return byte(x - math.MinInt8)
 }
 
 //func (e *Bucket[K, V]) String() string {

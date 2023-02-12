@@ -17,6 +17,7 @@ type HopMap[K constraints.Integer, V any] struct {
 	usedBkt Go_Utils.BitArray
 	hashes  []uint
 	Seed    Maps.Hasher
+	sz      uint
 	h       byte
 }
 
@@ -45,12 +46,17 @@ func (u *HopMap[K, V]) expand() {
 	u.hashes = M.hashes
 }
 
+func (u *HopMap[K, V]) Size() uint {
+	return u.sz
+}
+
 func (u *HopMap[K, V]) LoadAndDelete(key K) (V, bool) {
 	if i0 := u.mod(u.hash(&key)); u.bkt[i0].hashed() {
 		prev := &u.bkt[i0].dHash
 		for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
 			if u.usedBkt.Get(i1) && u.bkt[i1].key == key {
 				u.usedBkt.Clr(i1)
+				u.sz--
 				if u.bkt[i1].linked() {
 					*prev = offset(u.bkt[i1].deltaLink() + i1 - i0)
 				} else {
@@ -89,6 +95,7 @@ func (u *HopMap[K, V]) Load(key K) (V, bool) {
 // this doesn't mark i_free as usedBkt
 func (u *HopMap[K, V]) fillEmpty(i_hash int, i_free int, k *K, v *V) {
 	u.bkt[i_free].key, u.bkt[i_free].val = *k, *v
+	u.sz++
 	if u.bkt[i_hash].hashed() { //something else already hashed to i_hash, chain it to linked list
 		i0 := i_hash + u.bkt[i_hash].deltaHash()
 		//find the end of the linked list
