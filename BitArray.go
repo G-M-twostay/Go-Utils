@@ -4,8 +4,13 @@ import (
 	"math/bits"
 )
 
-func New(size int) BitArray {
-	return BitArray{bits: make([]uint, size/bits.UintSize)}
+const LogUintSize int = 5 + (bits.UintSize >> 6) //2^5==32 or 2^6==64
+
+func NewBitArray(size uint) BitArray {
+	if size&(bits.UintSize-1) == 0 {
+		return BitArray{bits: make([]uint, size>>LogUintSize)}
+	}
+	return BitArray{bits: make([]uint, 1+(size>>LogUintSize))}
 }
 
 type BitArray struct {
@@ -13,17 +18,38 @@ type BitArray struct {
 }
 
 func (u BitArray) Len() int {
-	return len(u.bits) * bits.UintSize
+	return len(u.bits) << LogUintSize
 }
 
 func (u BitArray) Get(i int) bool {
-	return (u.bits[i/bits.UintSize]>>(i%bits.UintSize))&1 == 1
+	//t := uint(1 << (i & (bits.UintSize - 1)))
+	//or X&t==t
+	return u.bits[i>>LogUintSize]>>(i&(bits.UintSize-1))&1 == 1
 }
 
-func (u BitArray) Up(i int) {
-	u.bits[i/bits.UintSize] |= 1 << (i % bits.UintSize)
+func (u BitArray) Set(i int) {
+	u.bits[i>>LogUintSize] |= 1 << (i & (bits.UintSize - 1))
 }
 
-func (u BitArray) Down(i int) {
-	u.bits[i/bits.UintSize] &^= 1 << (i % bits.UintSize)
+func (u BitArray) Clr(i int) {
+	u.bits[i>>LogUintSize] &^= 1 << (i & (bits.UintSize - 1))
+}
+
+func (u BitArray) Invert(i int) bool {
+	t := u.Get(i)
+	u.bits[i>>LogUintSize] ^= 1 << (i & (bits.UintSize - 1))
+	return t
+}
+
+func (u BitArray) Uints() []uint {
+	return u.bits
+}
+
+func (u BitArray) First() int {
+	for i, c := range u.bits {
+		if c > 0 {
+			return i<<LogUintSize + bits.LeadingZeros(c)
+		}
+	}
+	return -1
 }
