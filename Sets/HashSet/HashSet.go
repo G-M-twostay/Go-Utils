@@ -128,7 +128,7 @@ func (u *HashSet[E]) tryPut(e *E, hash uint) byte {
 				return added
 			} else {
 			search:
-				for i := Maps.Max(i_free-int(u.h)+1, 0); i < i_free; i++ {
+				for i := i_free - int(u.h) + 1; i < i_free; i++ {
 					if i0 := i; u.bkt[i0].hashed() {
 						prev := &u.bkt[i0].dHash
 						for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
