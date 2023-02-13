@@ -2,7 +2,6 @@ package HashSet
 
 import (
 	Go_Utils "github.com/g-m-twostay/go-utils"
-	"github.com/g-m-twostay/go-utils/Maps"
 	"math/bits"
 	"unsafe"
 )
@@ -15,14 +14,14 @@ const (
 
 func New[E comparable](h byte, size, seed uint) *HashSet[E] {
 	bktLen := 1<<bits.Len(size) + uint(h)
-	return &HashSet[E]{bkt: make([]Bucket[E], bktLen), usedBkt: Go_Utils.NewBitArray(bktLen), h: h, hashes: make([]uint, bktLen), Seed: Maps.Hasher(seed)}
+	return &HashSet[E]{bkt: make([]Bucket[E], bktLen), usedBkt: Go_Utils.NewBitArray(bktLen), h: h, hashes: make([]uint, bktLen), Seed: Go_Utils.Hasher(seed)}
 }
 
 type HashSet[E comparable] struct {
 	bkt     []Bucket[E]
 	usedBkt Go_Utils.BitArray
 	hashes  []uint
-	Seed    Maps.Hasher
+	Seed    Go_Utils.Hasher
 	sz      uint
 	h       byte
 }
