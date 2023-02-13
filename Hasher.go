@@ -1,25 +1,26 @@
 package Go_Utils
 
 import (
+	"math/bits"
 	_ "runtime"
 	"unsafe"
 )
 
-//go:linkname RTHash runtime.memhash
+//go:linkname rtHash runtime.memhash
 //go:noescape
-func RTHash(ptr unsafe.Pointer, seed uint, len uintptr) uint
+func rtHash(ptr unsafe.Pointer, seed uint, len uintptr) uint
 
-//go:linkname RTHash64 runtime.memhash64
+//go:linkname rtHash64 runtime.memhash64
 //go:noescape
-func RTHash64(ptr unsafe.Pointer, seed uint) uint
+func rtHash64(ptr unsafe.Pointer, seed uint) uint
 
-//go:linkname RTHash32 runtime.memhash32
+//go:linkname rtHash32 runtime.memhash32
 //go:noescape
-func RTHash32(ptr unsafe.Pointer, seed uint) uint
+func rtHash32(ptr unsafe.Pointer, seed uint) uint
 
-//go:linkname RTStrHash runtime.strhash
+//go:linkname rtStrHash runtime.strhash
 //go:noescape
-func RTStrHash(ptr unsafe.Pointer, seed uint) uint
+func rtStrHash(ptr unsafe.Pointer, seed uint) uint
 
 type hold struct {
 	rtype *uintptr
@@ -38,11 +39,11 @@ func (u Hasher) HashAny(v any) uint {
 // HashMem hashes the memory contents in the range [addr, addr+length) as bytes.
 func (u Hasher) HashMem(addr unsafe.Pointer, size uintptr) uint {
 	if size == 4 {
-		return RTHash32(addr, uint(u))
+		return rtHash32(addr, uint(u))
 	} else if size == 8 {
-		return RTHash64(addr, uint(u))
+		return rtHash64(addr, uint(u))
 	}
-	return RTHash(addr, uint(u), size)
+	return rtHash(addr, uint(u), size)
 }
 
 // HashBytes hashes the given byte slice.
@@ -52,13 +53,13 @@ func (u Hasher) HashBytes(b []byte) uint {
 
 // HashInt hashes v.
 func (u Hasher) HashInt(v int) uint {
-	if unsafe.Sizeof(v) == 4 {
-		return RTHash32(unsafe.Pointer(&v), uint(u))
+	if bits.UintSize/8 == 4 {
+		return rtHash32(unsafe.Pointer(&v), uint(u))
 	}
-	return RTHash64(unsafe.Pointer(&v), uint(u))
+	return rtHash64(unsafe.Pointer(&v), uint(u))
 }
 
 // HashString directly hashes a string, it's faster than HashAny(string).
 func (u Hasher) HashString(v string) uint {
-	return RTStrHash(unsafe.Pointer(&v), uint(u))
+	return rtStrHash(unsafe.Pointer(&v), uint(u))
 }
