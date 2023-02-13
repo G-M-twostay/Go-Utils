@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-const COUNT int = 5000
+const COUNT int = 8192
 
 func TestHopMap_All(t *testing.T) {
 	M := New[int, int](2, 2, 0)
@@ -29,7 +29,7 @@ func TestHopMap_All(t *testing.T) {
 
 func BenchmarkHopMap_Put(b *testing.B) {
 	for _t := 0; _t < b.N; _t++ {
-		M := New[int, int](16, uint(4096), 0)
+		M := New[int, int](16, uint(COUNT), 0)
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
