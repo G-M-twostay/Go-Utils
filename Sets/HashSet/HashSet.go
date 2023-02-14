@@ -12,6 +12,9 @@ const (
 	exist
 )
 
+// New HashSet of type E.
+// h is the neighborhood size parameter in Hopscotch hashing, 16 is a good value.
+// size is used to calculate the initial table size that should handle size elements without resizing.
 func New[E comparable](h byte, size, seed uint) *HashSet[E] {
 	bktLen := 1<<bits.Len(size) + uint(h)
 	return &HashSet[E]{bkt: make([]Bucket[E], bktLen), usedBkt: Go_Utils.NewBitArray(bktLen), h: h, hashes: make([]uint, bktLen), Seed: Go_Utils.Hasher(seed)}
@@ -51,10 +54,12 @@ func (u *HashSet[E]) expand() {
 	u.hashes = M.hashes
 }
 
+// Size of the set.
 func (u *HashSet[E]) Size() uint {
 	return u.sz
 }
 
+// Remove e from the set. Returns true if the removal is successful.
 func (u *HashSet[E]) Remove(e E) bool {
 	if i0 := u.mod(u.hash(&e)); u.bkt[i0].hashed() {
 		prev := &u.bkt[i0].dHash
@@ -79,6 +84,7 @@ func (u *HashSet[E]) Remove(e E) bool {
 	return false
 }
 
+// Has e in the set. Returns true if e is present in the set.
 func (u *HashSet[E]) Has(e E) bool {
 	if i0 := u.mod(u.hash(&e)); u.bkt[i0].hashed() {
 		for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
@@ -169,6 +175,7 @@ func (u *HashSet[E]) tryPut(e *E, hash uint) byte {
 	return fail
 }
 
+// Put e into the set. Returns true if successful.
 func (u *HashSet[E]) Put(e E) bool {
 	var t byte = 4
 	for hash := u.hash(&e); ; {
@@ -181,6 +188,9 @@ func (u *HashSet[E]) Put(e E) bool {
 	return t == added
 }
 
+// Take an arbitrary element from the set. Returns zero value if the set is empty.
+// Doesn't guarantee which element it will return.
+// Faster than iterating with Range.
 func (u *HashSet[E]) Take() (e E) {
 	if i := u.usedBkt.First(); i > -1 {
 		e = u.bkt[i].element
@@ -188,6 +198,9 @@ func (u *HashSet[E]) Take() (e E) {
 	return
 }
 
+// Range over elements in a snapshot of the set at the time of the call to Range and call f on the elements.
+// Stops when f returns false.
+// It uses range to iterate through the bucket array, so concurrent modification during iteration won't be visible to f.
 func (u *HashSet[E]) Range(f func(E) bool) {
 	for i, b := range u.bkt {
 		if u.usedBkt.Get(i) {
