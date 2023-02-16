@@ -2,17 +2,16 @@ package HopMap
 
 import (
 	"github.com/g-m-twostay/go-utils"
-	"golang.org/x/exp/constraints"
 	"math/bits"
 	"unsafe"
 )
 
-func New[K constraints.Integer, V any](h byte, size, seed uint) *HopMap[K, V] {
+func New[K comparable, V any](h byte, size, seed uint) *HopMap[K, V] {
 	bktLen := 1<<bits.Len(size) + uint(h)
 	return &HopMap[K, V]{bkt: make([]Bucket[K, V], bktLen), usedBkt: Go_Utils.NewBitArray(bktLen), h: h, hashes: make([]uint, bktLen), Seed: Go_Utils.Hasher(seed)}
 }
 
-type HopMap[K constraints.Integer, V any] struct {
+type HopMap[K comparable, V any] struct {
 	bkt     []Bucket[K, V]
 	usedBkt Go_Utils.BitArray
 	hashes  []uint

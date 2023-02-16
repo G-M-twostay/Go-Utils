@@ -68,7 +68,7 @@ func setupHaxMap(b *testing.B) *haxmap.Map[uintptr, uintptr] {
 	return m
 }
 
-func BenchmarkReadHashMapUint(b *testing.B) {
+func Benchmark1ReadHashMapUint(b *testing.B) {
 	m := setupHashMap(b)
 	b.ResetTimer()
 
@@ -84,7 +84,7 @@ func BenchmarkReadHashMapUint(b *testing.B) {
 	})
 }
 
-func BenchmarkReadBMapUint(b *testing.B) {
+func Benchmark1ReadBMapUint(b *testing.B) {
 	m := setupBMap(b, minLen1, maxLen1)
 	b.ResetTimer()
 
@@ -100,7 +100,7 @@ func BenchmarkReadBMapUint(b *testing.B) {
 	})
 }
 
-func BenchmarkReadIntMapUint(b *testing.B) {
+func Benchmark1ReadIntMapUint(b *testing.B) {
 	m := setupIntMap(b, minLen1, maxLen1)
 	b.ResetTimer()
 
@@ -116,7 +116,7 @@ func BenchmarkReadIntMapUint(b *testing.B) {
 	})
 }
 
-func BenchmarkReadHaxMapUint(b *testing.B) {
+func Benchmark1ReadHaxMapUint(b *testing.B) {
 	m := setupHaxMap(b)
 	b.ResetTimer()
 
@@ -132,7 +132,7 @@ func BenchmarkReadHaxMapUint(b *testing.B) {
 	})
 }
 
-func BenchmarkReadHashMapWithWritesUint(b *testing.B) {
+func Benchmark1ReadHashMapWithWritesUint(b *testing.B) {
 	m := setupHashMap(b)
 	var writer uintptr
 	b.ResetTimer()
@@ -158,7 +158,7 @@ func BenchmarkReadHashMapWithWritesUint(b *testing.B) {
 	})
 }
 
-func BenchmarkReadBMapWithWritesUint(b *testing.B) {
+func Benchmark1ReadBMapWithWritesUint(b *testing.B) {
 	m := setupBMap(b, minLen2, maxLen2)
 	var writer uintptr
 	b.ResetTimer()
@@ -184,7 +184,7 @@ func BenchmarkReadBMapWithWritesUint(b *testing.B) {
 	})
 }
 
-func BenchmarkReadIntMapWithWritesUint(b *testing.B) {
+func Benchmark1ReadIntMapWithWritesUint(b *testing.B) {
 	m := setupIntMap(b, minLen2, maxLen2)
 	var writer uintptr
 	b.ResetTimer()
@@ -210,7 +210,7 @@ func BenchmarkReadIntMapWithWritesUint(b *testing.B) {
 	})
 }
 
-func BenchmarkReadHaxMapWithWritesUint(b *testing.B) {
+func Benchmark1ReadHaxMapWithWritesUint(b *testing.B) {
 	m := setupHaxMap(b)
 	var writer uintptr
 	b.ResetTimer()
@@ -236,7 +236,7 @@ func BenchmarkReadHaxMapWithWritesUint(b *testing.B) {
 	})
 }
 
-func BenchmarkWriteHashMapUint(b *testing.B) {
+func Benchmark1WriteHashMapUint(b *testing.B) {
 	m := hashmap.New[uintptr, uintptr]()
 	b.ResetTimer()
 
@@ -247,7 +247,7 @@ func BenchmarkWriteHashMapUint(b *testing.B) {
 	}
 }
 
-func BenchmarkWriteBMapUint(b *testing.B) {
+func Benchmark1WriteBMapUint(b *testing.B) {
 	m := BucketMap.New[uintptr, uintptr](minLen3, maxLen3, benchmarkItemCount, hashUintptr, cmp)
 	b.ResetTimer()
 
@@ -258,7 +258,7 @@ func BenchmarkWriteBMapUint(b *testing.B) {
 	}
 }
 
-func BenchmarkWriteIntMapUint(b *testing.B) {
+func Benchmark1WriteIntMapUint(b *testing.B) {
 	m := IntMap.New[uintptr, uintptr](minLen3, maxLen3, benchmarkItemCount, func(x uintptr) uint { return uint(x) })
 	b.ResetTimer()
 
@@ -269,7 +269,7 @@ func BenchmarkWriteIntMapUint(b *testing.B) {
 	}
 }
 
-func BenchmarkWriteHaxMapUint(b *testing.B) {
+func Benchmark1WriteHaxMapUint(b *testing.B) {
 	m := haxmap.New[uintptr, uintptr]()
 	b.ResetTimer()
 
