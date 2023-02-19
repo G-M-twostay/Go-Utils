@@ -17,11 +17,11 @@ const (
 // size is used to calculate the initial table size that should handle size elements without resizing.
 func New[E comparable](h byte, size, seed uint) *HashSet[E] {
 	bktLen := 1<<bits.Len(size) + uint(h)
-	return &HashSet[E]{bkt: make([]Bucket[E], bktLen), usedBkt: Go_Utils.NewBitArray(bktLen), h: h, hashes: make([]uint, bktLen), Seed: Go_Utils.Hasher(seed)}
+	return &HashSet[E]{bkt: make([]bucket[E], bktLen), usedBkt: Go_Utils.NewBitArray(bktLen), h: h, hashes: make([]uint, bktLen), Seed: Go_Utils.Hasher(seed)}
 }
 
 type HashSet[E comparable] struct {
-	bkt     []Bucket[E]
+	bkt     []bucket[E]
 	usedBkt Go_Utils.BitArray
 	hashes  []uint
 	Seed    Go_Utils.Hasher
@@ -39,7 +39,7 @@ func (u *HashSet[E]) mod(hash uint) int {
 
 func (u *HashSet[E]) expand() {
 	newSize := uint((len(u.bkt)-int(u.h))<<1) + uint(u.h)
-	M := HashSet[E]{bkt: make([]Bucket[E], newSize), h: u.h, usedBkt: Go_Utils.NewBitArray(newSize), hashes: make([]uint, newSize), Seed: u.Seed}
+	M := HashSet[E]{bkt: make([]bucket[E], newSize), h: u.h, usedBkt: Go_Utils.NewBitArray(newSize), hashes: make([]uint, newSize), Seed: u.Seed}
 	for i, e := range u.bkt {
 		if u.usedBkt.Get(i) {
 			if M.tryPut(&e.element, u.hashes[i]) == fail {
@@ -103,13 +103,9 @@ func (u *HashSet[E]) fillEmpty(i_hash int, i_free int, e *E) {
 	u.bkt[i_free].element = *e
 	u.sz++
 	if u.bkt[i_hash].hashed() {
-		i0 := i_hash + u.bkt[i_hash].deltaHash()
-		for ; u.bkt[i0].linked(); i0 = i0 + u.bkt[i0].deltaLink() {
-		}
-		u.bkt[i0].useDeltaLink(i_free - i0)
-	} else {
-		u.bkt[i_hash].useDeltaHash(i_free - i_hash)
+		u.bkt[i_free].useDeltaLink(i_hash + u.bkt[i_hash].deltaHash() - i_free)
 	}
+	u.bkt[i_hash].useDeltaHash(i_free - i_hash)
 }
 
 func (u *HashSet[E]) tryPut(e *E, hash uint) byte {
