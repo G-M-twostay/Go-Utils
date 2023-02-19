@@ -1,7 +1,7 @@
 package IntMap
 
 import (
-	"github.com/g-m-twostay/go-utils/Maps"
+	"github.com/g-m-twostay/go-utils"
 	"github.com/g-m-twostay/go-utils/Maps/BucketMap"
 	"math"
 	"sync"
@@ -24,7 +24,7 @@ func cmp(x, y int) bool {
 }
 
 func TestIntMap_All(t *testing.T) {
-	h := Maps.Hasher(0)
+	h := Go_Utils.Hasher(0)
 	M := New[int, int](1, 6, math.MaxUint, h.HashInt)
 	wg := &sync.WaitGroup{}
 	wg.Add(blockNum)

@@ -186,7 +186,7 @@ func (u *base[T, S]) avgDepth(cur nodePtr[T, S], h uint) uint {
 	return a
 }
 
-func (u *base[T, S]) AverageDepth() uint {
+func (u *base[T, S]) averageDepth() uint {
 	return u.avgDepth(u.root, 0) / u.Size()
 }
 
@@ -200,7 +200,7 @@ func (u *base[T, S]) _Print(c nodePtr[T, S], d uint) {
 	}
 }
 
-func (u *base[T, S]) Print() {
+func (u *base[T, S]) print() {
 	u._Print(u.root, 0)
 }
 

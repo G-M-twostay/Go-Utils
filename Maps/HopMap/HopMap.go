@@ -2,22 +2,20 @@ package HopMap
 
 import (
 	"github.com/g-m-twostay/go-utils"
-	"github.com/g-m-twostay/go-utils/Maps"
-	"golang.org/x/exp/constraints"
 	"math/bits"
 	"unsafe"
 )
 
-func New[K constraints.Integer, V any](h byte, size, seed uint) *HopMap[K, V] {
+func New[K comparable, V any](h byte, size, seed uint) *HopMap[K, V] {
 	bktLen := 1<<bits.Len(size) + uint(h)
-	return &HopMap[K, V]{bkt: make([]Bucket[K, V], bktLen), usedBkt: Go_Utils.NewBitArray(bktLen), h: h, hashes: make([]uint, bktLen), Seed: Maps.Hasher(seed)}
+	return &HopMap[K, V]{bkt: make([]Bucket[K, V], bktLen), usedBkt: Go_Utils.NewBitArray(bktLen), h: h, hashes: make([]uint, bktLen), Seed: Go_Utils.Hasher(seed)}
 }
 
-type HopMap[K constraints.Integer, V any] struct {
+type HopMap[K comparable, V any] struct {
 	bkt     []Bucket[K, V]
 	usedBkt Go_Utils.BitArray
 	hashes  []uint
-	Seed    Maps.Hasher
+	Seed    Go_Utils.Hasher
 	sz      uint
 	h       byte
 }
@@ -97,15 +95,10 @@ func (u *HopMap[K, V]) Load(key K) (V, bool) {
 func (u *HopMap[K, V]) fillEmpty(i_hash int, i_free int, k *K, v *V) {
 	u.bkt[i_free].key, u.bkt[i_free].val = *k, *v
 	u.sz++
-	if u.bkt[i_hash].hashed() { //something else already hashed to i_hash, chain it to linked list
-		i0 := i_hash + u.bkt[i_hash].deltaHash()
-		//find the end of the linked list
-		for ; u.bkt[i0].linked(); i0 = i0 + u.bkt[i0].deltaLink() {
-		}
-		u.bkt[i0].useDeltaLink(i_free - i0) //link i_free after e0.
-	} else { //nothing hashed to i_hash
-		u.bkt[i_hash].useDeltaHash(i_free - i_hash) //fillEmpty i_free to be hashed to e_hash
+	if u.bkt[i_hash].hashed() { //something else already hashed to i_hash, chain it to after i_free
+		u.bkt[i_free].useDeltaLink(i_hash + u.bkt[i_hash].deltaHash() - i_free)
 	}
+	u.bkt[i_hash].useDeltaHash(i_free - i_hash) //i_hash now hashes to i_free
 	//if an empty spot within h is found, an insertion will always be made immediately.
 }
 
@@ -132,7 +125,7 @@ func (u *HopMap[K, V]) trySet(k *K, v *V, hash uint) bool {
 				return true
 			} else { //j+step>=h. so we find open spot and move it back
 			search:
-				for i := Maps.Max(i_free-int(u.h)+1, 0); i < i_free; i++ { //iterate from i_hash to i_empty
+				for i := i_free - int(u.h) + 1; i < i_free; i++ { //iterate in (i_free-H, i_free). if i_free-H<0, then i_free must be in [i_hash, i_hash+H). i_free-H>=0.
 					if i0 := i; u.bkt[i0].hashed() { //there is some value hashed to i0(i). i0 refers to the prev in the linked iteration.
 						//find the start of the chain and iterate in the chain.
 						prev := &u.bkt[i0].dHash //initially e0 pointed to e1 by hash
@@ -198,7 +191,7 @@ func (u *HopMap[K, V]) tryLoad(k *K, v *V, hash uint) (*V, bool) {
 				return nil, true
 			} else {
 			search:
-				for i := Maps.Max(i_free-int(u.h)+1, 0); i < i_free; i++ {
+				for i := i_free - int(u.h) + 1; i < i_free; i++ {
 					if i0 := i; u.bkt[i0].hashed() {
 						prev := &u.bkt[i0].dHash
 						for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {

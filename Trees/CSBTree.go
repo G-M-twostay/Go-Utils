@@ -8,19 +8,20 @@ import (
 // All methods are implemented exactly as SBTree except for using Ordered.LessThan and
 // Ordered.Equals for comparisons. Argument passed to Ordered.LessThan and Ordered.Equals
 // will always be type T so no type checks are needed.
-type CSBTree[T Ordered, S constraints.Unsigned] struct {
+type CSBTree[T any, S constraints.Unsigned] struct {
 	base[T, S]
+	lt, eq func(T, T) bool
 }
 
-// MakeCSBTree is the CSBTree equivalence of MakeSBTree
-func MakeCSBTree[T Ordered, S constraints.Unsigned]() *CSBTree[T, S] {
+// New1 is the CSBTree equivalence of New
+func New1[T any, S constraints.Unsigned](lessThan, equals func(T, T) bool) *CSBTree[T, S] {
 	z := new(node[T, S])
 	z.l, z.r = z, z
-	return &CSBTree[T, S]{base[T, S]{z, z}}
+	return &CSBTree[T, S]{base[T, S]{z, z}, lessThan, equals}
 }
 
-// BuildCSBTree is the CSBTree equivalence of BuildSBTree
-func BuildCSBTree[T Ordered, S constraints.Unsigned](sli []T) *CSBTree[T, S] {
+// Build1 is the CSBTree equivalence of Build
+func Build1[T any, S constraints.Unsigned](sli []T, lessThan, equals func(T, T) bool) *CSBTree[T, S] {
 	z := new(node[T, S])
 	z.l, z.r = z, z
 	var build func([]T) nodePtr[T, S]
@@ -32,7 +33,7 @@ func BuildCSBTree[T Ordered, S constraints.Unsigned](sli []T) *CSBTree[T, S] {
 			return z
 		}
 	}
-	return &CSBTree[T, S]{base[T, S]{build(sli), z}}
+	return &CSBTree[T, S]{base[T, S]{build(sli), z}, lessThan, equals}
 }
 
 func (u *CSBTree[T, S]) insert(curPtr *nodePtr[T, S], v T) bool {
@@ -41,16 +42,16 @@ func (u *CSBTree[T, S]) insert(curPtr *nodePtr[T, S], v T) bool {
 		return true
 	} else {
 		inserted := false
-		if v.LessThan(cur.v) {
+		if u.lt(v, cur.v) {
 			inserted = u.insert(&cur.l, v)
-		} else if v.Equals(cur.v) {
+		} else if u.eq(v, cur.v) {
 			return false
 		} else {
 			inserted = u.insert(&cur.r, v)
 		}
 		if inserted {
 			cur.sz++
-			u.maintain(curPtr, !v.LessThan(cur.v))
+			u.maintain(curPtr, !u.lt(v, cur.v))
 		}
 		return inserted
 	}
@@ -66,9 +67,9 @@ func (u *CSBTree[T, S]) remove(curPtr *nodePtr[T, S], v T) bool {
 		return false
 	} else {
 		deleted := false
-		if v.LessThan(cur.v) {
+		if u.lt(v, cur.v) {
 			deleted = u.remove(&cur.l, v)
-		} else if v.Equals(cur.v) {
+		} else if u.eq(v, cur.v) {
 			deleted = true
 			if cur.l == u.nilPtr {
 				*curPtr = cur.r
@@ -100,9 +101,9 @@ func (u *CSBTree[T, S]) Remove(v T) bool {
 
 func (u *CSBTree[T, S]) Has(v T) bool {
 	for cur := u.root; cur != u.nilPtr; {
-		if v.LessThan(cur.v) {
+		if u.lt(v, cur.v) {
 			cur = cur.l
-		} else if v.Equals(cur.v) {
+		} else if u.eq(v, cur.v) {
 			return true
 		} else {
 			cur = cur.r
@@ -114,7 +115,7 @@ func (u *CSBTree[T, S]) Has(v T) bool {
 func (u *CSBTree[T, S]) Predecessor(v T) (T, bool) {
 	cur, p := u.root, u.nilPtr
 	for cur != u.nilPtr {
-		if v.LessThan(cur.v) || v.Equals(cur.v) {
+		if u.lt(v, cur.v) || u.eq(v, cur.v) {
 			cur = cur.l
 		} else {
 			p = cur
@@ -127,7 +128,7 @@ func (u *CSBTree[T, S]) Predecessor(v T) (T, bool) {
 func (u *CSBTree[T, S]) Successor(v T) (T, bool) {
 	cur, p := u.root, u.nilPtr
 	for cur != u.nilPtr {
-		if v.LessThan(cur.v) {
+		if u.lt(v, cur.v) {
 			p = cur
 			cur = cur.l
 		} else {
@@ -141,9 +142,9 @@ func (u *CSBTree[T, S]) RankOf(v T) uint {
 	cur := u.root
 	var ra S = 0
 	for cur != u.nilPtr {
-		if v.LessThan(cur.v) {
+		if u.lt(v, cur.v) {
 			cur = cur.l
-		} else if v.Equals(cur.v) {
+		} else if u.eq(v, cur.v) {
 			return uint(ra + cur.l.sz + 1)
 		} else {
 			ra += cur.l.sz + 1
@@ -155,12 +156,12 @@ func (u *CSBTree[T, S]) RankOf(v T) uint {
 
 func (u *CSBTree[T, S]) corrupt(cur nodePtr[T, S]) bool {
 	if cur.l != u.nilPtr {
-		if !cur.l.v.LessThan(cur.v) || u.corrupt(cur.l) {
+		if !u.lt(cur.l.v, cur.v) || u.corrupt(cur.l) {
 			return true
 		}
 	}
 	if cur.r != u.nilPtr {
-		if !cur.v.LessThan(cur.r.v) || u.corrupt(cur.r) {
+		if !u.lt(cur.r.v, cur.v) || u.corrupt(cur.r) {
 			return true
 		}
 	}
