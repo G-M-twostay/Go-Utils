@@ -95,15 +95,10 @@ func (u *HopMap[K, V]) Load(key K) (V, bool) {
 func (u *HopMap[K, V]) fillEmpty(i_hash int, i_free int, k *K, v *V) {
 	u.bkt[i_free].key, u.bkt[i_free].val = *k, *v
 	u.sz++
-	if u.bkt[i_hash].hashed() { //something else already hashed to i_hash, chain it to linked list
-		i0 := i_hash + u.bkt[i_hash].deltaHash()
-		//find the end of the linked list
-		for ; u.bkt[i0].linked(); i0 = i0 + u.bkt[i0].deltaLink() {
-		}
-		u.bkt[i0].useDeltaLink(i_free - i0) //link i_free after e0.
-	} else { //nothing hashed to i_hash
-		u.bkt[i_hash].useDeltaHash(i_free - i_hash) //fillEmpty i_free to be hashed to e_hash
+	if u.bkt[i_hash].hashed() { //something else already hashed to i_hash, chain it to after i_free
+		u.bkt[i_free].useDeltaLink(i_hash + u.bkt[i_hash].deltaHash() - i_free)
 	}
+	u.bkt[i_hash].useDeltaHash(i_free - i_hash) //i_hash now hashes to i_free
 	//if an empty spot within h is found, an insertion will always be made immediately.
 }
 
