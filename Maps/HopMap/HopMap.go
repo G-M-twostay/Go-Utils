@@ -22,6 +22,7 @@ type HopMap[K comparable, V any] struct {
 
 func (u *HopMap[K, V]) hash(k *K) uint {
 	return u.Seed.HashMem(unsafe.Pointer(k), unsafe.Sizeof(*k))
+	//return *(*uint)(unsafe.Pointer(k))
 }
 
 func (u *HopMap[K, V]) mod(hash uint) int {
@@ -46,19 +47,16 @@ func (u *HopMap[K, V]) expand() {
 	newSize := uint((len(u.bkt)-int(u.h))<<1) + uint(u.h)
 	M := HopMap[K, V]{bkt: make([]bucket[K, V], newSize), h: u.h, hashes: make([]uint, newSize), Seed: u.Seed}
 	for i, e := range u.bkt {
-		if e.used() {
+		if e.get(used) {
 			if !M.trySet(&e.key, &e.val, u.hashes[i]) {
 				M.expand()
 				M.trySet(&e.key, &e.val, u.hashes[i])
 			}
 		}
 	}
-	for _, b := range u.bufs.bkts() {
+	for _, b := range u.bufs.bkts_() {
 		for _, c := range b {
-			if !M.trySet(&c.key, &c.val, c.hash) {
-				M.expand()
-				M.trySet(&c.key, &c.val, c.hash)
-			}
+			M.trySet(&c.key, &c.val, c.hash)
 		}
 	}
 
@@ -75,20 +73,19 @@ func (u *HopMap[K, V]) Size() uint {
 func (u *HopMap[K, V]) LoadAndDelete(key K) (V, bool) {
 	hash := u.hash(&key)
 	i_hash := u.mod(hash)
-	if i0 := i_hash; u.bkt[i0].hashed() {
+	if i0 := i_hash; u.bkt[i0].get(hashed) {
 		prev := &u.bkt[i0].dHash
-		for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
-			if u.bkt[i1].used() && u.bkt[i1].key == key {
-				u.bkt[i1].free()
+		for i1 := i0 + int(u.bkt[i0].dHash); ; i1 = i1 + int(u.bkt[i1].dLink) {
+			if u.bkt[i1].get(used) && u.bkt[i1].key == key {
+				u.bkt[i1].clr(used) //i1 is no longer used
 				u.sz--
-				if u.bkt[i1].linked() {
-					*prev = offset(u.bkt[i1].deltaLink() + i1 - i0)
-				} else {
-					*prev = 0
-				}
+
+				*prev = int8(int(u.bkt[i1].dLink) + i1 - i0) //set i0 to link to what i1 linked to
+				u.bkt[i0].set(u.bkt[i1].getRaw(linked))      //if i1 has something linked to
+
 				return u.bkt[i1].val, true
 			}
-			if !u.bkt[i1].linked() {
+			if !u.bkt[i1].get(linked) {
 				break
 			}
 			i0 = i1
@@ -112,12 +109,12 @@ func (u *HopMap[K, V]) Delete(key K) {
 func (u *HopMap[K, V]) Load(key K) (V, bool) {
 	hash := u.hash(&key)
 	i_hash := u.mod(hash)
-	if i0 := i_hash; u.bkt[i0].hashed() {
-		for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
-			if u.bkt[i1].used() && u.bkt[i1].key == key {
+	if i0 := i_hash; u.bkt[i0].get(hashed) {
+		for i1 := i0 + int(u.bkt[i0].dHash); ; i1 = i1 + int(u.bkt[i1].dLink) {
+			if u.bkt[i1].get(used) && u.bkt[i1].key == key {
 				return u.bkt[i1].val, true
 			}
-			if !u.bkt[i1].linked() {
+			if !u.bkt[i1].get(linked) {
 				break
 			}
 		}
@@ -132,22 +129,23 @@ func (u *HopMap[K, V]) Load(key K) (V, bool) {
 func (u *HopMap[K, V]) fillEmpty(i_hash int, i_free int, k *K, v *V) {
 	u.bkt[i_free].key, u.bkt[i_free].val = *k, *v
 	u.sz++
-	if u.bkt[i_hash].hashed() { //something else already hashed to i_hash, chain it to after i_free
-		u.bkt[i_free].useDeltaLink(i_hash + u.bkt[i_hash].deltaHash() - i_free)
-	}
-	u.bkt[i_hash].useDeltaHash(i_free - i_hash) //i_hash now hashes to i_free
+
+	u.bkt[i_free].dLink = int8(i_hash + int(u.bkt[i_hash].dHash) - i_free)    //link the next of i_hash after i_free
+	u.bkt[i_free].set((u.bkt[i_hash].info >> hashedIndex & 1) << linkedIndex) //if i_hash is hashed, then we set i_free to be linked.
+	u.bkt[i_hash].dHash = int8(i_free - i_hash)                               //i_hash now hashes to i_free
+	u.bkt[i_hash].set(hashed)
 	//if an empty spot within h is found, an insertion will always be made immediately.
 }
 
 func (u *HopMap[K, V]) trySet(k *K, v *V, hash uint) bool {
 	i_hash := u.mod(hash)
-	if u.bkt[i_hash].hashed() { //there exists some elements with hash i_hash; check if key already exists.
-		for i0 := i_hash + u.bkt[i_hash].deltaHash(); ; i0 = i0 + u.bkt[i0].deltaLink() { //find i_hash+dHash: start of the chain
+	if u.bkt[i_hash].get(hashed) { //there exists some elements with hash i_hash; check if key already exists.
+		for i0 := i_hash + int(u.bkt[i_hash].dHash); ; i0 = i0 + int(u.bkt[i0].dLink) { //find i_hash+dHash: start of the chain
 			if u.bkt[i0].key == *k {
 				u.bkt[i0].val = *v
 				return true
 			}
-			if !u.bkt[i0].linked() {
+			if !u.bkt[i0].get(linked) {
 				break
 			}
 		}
@@ -158,45 +156,44 @@ func (u *HopMap[K, V]) trySet(k *K, v *V, hash uint) bool {
 search:
 	//now since i_hash is either usedBkt or belongs to some other hash, we need to find an open spot
 	for i_free := i_hash; i_free < len(u.bkt); i_free++ {
-		if !u.bkt[i_free].used() { //found an empty spot
+		if !u.bkt[i_free].get(used) { //found an empty spot
 			if i_free-i_hash < int(u.h) { //within h. we insert it here
-				u.bkt[i_free].use()
+				u.bkt[i_free].set(used)
 				u.fillEmpty(i_hash, i_free, k, v)
 				u.hashes[i_free] = hash
 				return true
 			} else { //j+step>=h. so we find open spot and move it back
 			move:
 				for i := i_free - int(u.h) + 1; i < i_free; i++ { //iterate in (i_free-H, i_free). if i_free-H<0, then i_free must be in [i_hash, i_hash+H). i_free-H>=0.
-					if i0 := i; u.bkt[i0].hashed() { //there is some value hashed to i0(i). i0 refers to the prev in the linked iteration.
+					if i0 := i; u.bkt[i0].get(hashed) { //there is some value hashed to i0(i). i0 refers to the prev in the linked iteration.
 						//find the start of the chain and iterate in the chain.
 						prev := &u.bkt[i0].dHash //initially e0 pointed to e1 by hash
-						for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
+						for i1 := i0 + int(u.bkt[i0].dHash); ; i1 = i1 + int(u.bkt[i1].dLink) {
 							if i_free-int(u.h) < i1 && i1 < i_free { //a value e1 with hash i is located in [i_empty-h,i_empty); so we swap e1 with i_free
 								//make everything that pointed to e1 from e0 point to i_free
-								*prev = offset(i_free - i0)
+								*prev = int8(i_free - i0)
 
 								u.bkt[i_free].key, u.bkt[i_free].val = u.bkt[i1].key, u.bkt[i1].val //copies e1 to i_free
 								u.hashes[i_free] = u.hashes[i1]
-								u.bkt[i_free].use()
 
-								if u.bkt[i1].linked() { //i_free links to the original next of i1 if i1 has one
-									u.bkt[i_free].useDeltaLink(u.bkt[i1].deltaLink() + i1 - i_free)
-								}
+								u.bkt[i_free].set(used | u.bkt[i1].getRaw(linked)) //i_free is used; depending on whether i1 is linked, i_free might be linked
+
+								u.bkt[i_free].dLink = int8(int(u.bkt[i1].dLink) + i1 - i_free) //i_free links to the original next of i1
 
 								//now e1 is copied to i_free, and all references to e1 is now to i_free, we can change i_empty to i1
-								u.bkt[i1].clrLink() //e1 is now empty, but it may still hashes to something.
+								u.bkt[i1].clr(linked) //i1 is now empty, but it may still hashes to something.
 
 								if i1 < i_hash+int(u.h) {
-									u.fillEmpty(i_hash, i1, k, v) //i1 is already usedBkt so we don't have to explicitly set it.
+									u.fillEmpty(i_hash, i1, k, v) //i1 is already used so we don't have to explicitly set it.
 									u.hashes[i1] = hash
 									return true
 								} else {
-									u.bkt[i1].free() //set it to usedBkt only when we need more swaps
+									u.bkt[i1].clr(used) //set it to usedBkt only when we need more swaps
 									i_free = i1
 									continue move
 								}
 							}
-							if !u.bkt[i1].linked() { //reached the end without finding one.
+							if !u.bkt[i1].get(linked) { //reached the end without finding one.
 								break
 							}
 							i0 = i1                 //store the previous in the chain
@@ -213,12 +210,12 @@ search:
 
 //func (u *HopMap[K, V]) tryLoad(k *K, v *V, hash uint) (*V, bool) {
 //	i_hash := u.mod(hash)
-//	if u.bkt[i_hash].hashed() {
-//		for i0 := i_hash + u.bkt[i_hash].deltaHash(); ; i0 = i0 + u.bkt[i0].deltaLink() {
+//	if u.bkt[i_hash].get(hashed) {
+//		for i0 := i_hash + int(u.bkt[i_hash].dHash); ; i0 = i0 + int(u.bkt[i0].dLink) {
 //			if u.bkt[i0].key == *k {
 //				return &u.bkt[i0].val, true
 //			}
-//			if !u.bkt[i0].linked() {
+//			if !u.bkt[i0].get(linked) {
 //				break
 //			}
 //		}
@@ -233,9 +230,9 @@ search:
 //			} else {
 //			search:
 //				for i := i_free - int(u.h) + 1; i < i_free; i++ {
-//					if i0 := i; u.bkt[i0].hashed() {
+//					if i0 := i; u.bkt[i0].get(hashed) {
 //						prev := &u.bkt[i0].dHash
-//						for i1 := i0 + u.bkt[i0].deltaHash(); ; i1 = i1 + u.bkt[i1].deltaLink() {
+//						for i1 := i0 + int(u.bkt[i0].dHash); ; i1 = i1 + int(u.bkt[i1].dLink) {
 //							if i_free-int(u.h) < i1 && i1 < i_free {
 //
 //								*prev = offset(i_free - i0)
@@ -244,8 +241,8 @@ search:
 //								u.hashes[i_free] = u.hashes[i1]
 //								u.usedBkt.Set(i_free)
 //
-//								if u.bkt[i1].linked() {
-//									u.bkt[i_free].useDeltaLink(u.bkt[i1].deltaLink() + i1 - i_free)
+//								if u.bkt[i1].get(linked) {
+//									u.bkt[i_free].useDeltaLink(int(u.bkt[i1].dLink) + i1 - i_free)
 //								}
 //
 //								u.bkt[i1].clrLink()
@@ -260,7 +257,7 @@ search:
 //									continue search
 //								}
 //							}
-//							if !u.bkt[i1].linked() {
+//							if !u.bkt[i1].get(linked) {
 //								break
 //							}
 //							i0 = i1

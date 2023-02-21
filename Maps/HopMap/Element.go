@@ -1,72 +1,45 @@
 package HopMap
 
-import (
-	"math"
+const (
+	used, usedIndex byte = 1 << iota, iota
+	hashed, hashedIndex
+	linked, linkedIndex
+	_, topIndex
 )
 
 type bucket[K comparable, V any] struct {
-	key                K
-	val                V
-	dHash, dLink, info byte //0 indicates not valid, otherwise value is offset by min value of signed version
+	key          K
+	val          V
+	dHash, dLink int8 //0 indicates not valid, otherwise value is offset by min value of signed version
+	info         byte
 }
 
-func (e *bucket[K, V]) hashed() bool {
-	return e.dHash != 0
+func (e *bucket[K, V]) getRaw(pos byte) byte {
+	return e.info & pos
 }
 
-func (e *bucket[K, V]) clrHash() {
-	e.dHash = 0
+func (e *bucket[K, V]) get(pos byte) bool {
+	return e.info&pos == pos
 }
 
-func (e *bucket[K, V]) linked() bool {
-	return e.dLink != 0
+func (e *bucket[K, V]) set(pos byte) {
+	e.info |= pos
 }
 
-func (e *bucket[K, V]) clrLink() {
-	e.dLink = 0
-}
-
-func (e *bucket[K, V]) deltaLink() int {
-	return int(e.dLink) + math.MinInt8
-}
-
-func (e *bucket[K, V]) deltaHash() int {
-	return int(e.dHash) + math.MinInt8
-}
-
-func (e *bucket[K, V]) useDeltaHash(d int) {
-	e.dHash = offset(d)
-}
-
-func (e *bucket[K, V]) useDeltaLink(d int) {
-	e.dLink = offset(d)
-}
-
-func (e *bucket[K, V]) used() bool {
-	return e.info&1 == 1
-}
-func (e *bucket[K, V]) use() {
-	e.info |= 1
-}
-
-func (e *bucket[K, V]) free() {
-	e.info &^= 1
+func (e *bucket[K, V]) clr(pos byte) {
+	e.info &^= pos
 }
 
 func (e *bucket[K, V]) count() byte {
-	return e.info >> 1
+	return e.info >> topIndex
 }
 
 func (e *bucket[K, V]) incCount() {
-	e.info += 2
+	e.info += 1 << topIndex
 }
 
 func (e *bucket[K, V]) decCount() {
-	e.info -= 2
-}
-
-func offset(x int) byte {
-	return byte(x - math.MinInt8)
+	e.info -= 1 << topIndex
 }
 
 const step = 8

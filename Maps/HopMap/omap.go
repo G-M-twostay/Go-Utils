@@ -18,7 +18,7 @@ func (u *omap[K, V]) avgLen() float32 {
 }
 
 // nil friendly
-func (u *omap[K, V]) bkts() []buffer[K, V] {
+func (u *omap[K, V]) bkts_() []buffer[K, V] {
 	if u == nil {
 		return nil
 	}
@@ -54,7 +54,7 @@ func (u *omap[K, V]) pop(key *K, hash uint) (val *V) {
 }
 
 // nil friendly
-func (u *omap[K, V]) Size() uint {
+func (u *omap[K, V]) Size_() uint {
 	if u == nil {
 		return 0
 	}

@@ -16,13 +16,13 @@ func TestHopMap_All(t *testing.T) {
 	for i := 0; i < 8; i++ {
 		M.Store(1+8*i, 1+8*i)
 		t.Logf("putted %v\n", 1+8*i)
-		t.Log(M.bkt)
+		t.Log(M.bkt, M.bufs)
 	}
 	for i := 0; i < 8; i++ {
 		x, y := M.Load(1 + 8*i)
 		t.Log(x, y)
 	}
-	t.Log(M.Load(0))
+	t.Log(M.bkt[2].get(linked))
 	//for i := 0; i < 128; i++ {
 	//	M.Store(i, i)
 	//}
@@ -35,7 +35,7 @@ func TestHopMap_All(t *testing.T) {
 func BenchmarkHopMap_Put(b *testing.B) {
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M := New[int, int](16, uint(COUNT)/2, 0)
+		M := New[int, int](16, uint(COUNT), 0)
 		b.StartTimer()
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
@@ -59,7 +59,7 @@ func BenchmarkHopMap_Get(b *testing.B) {
 	var M *HopMap[int, int]
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M = New[int, int](16, uint(COUNT)/2, 0)
+		M = New[int, int](16, uint(COUNT), 0)
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
@@ -141,8 +141,8 @@ func BenchmarkHopMapPopulate(b *testing.B) {
 				}
 
 			}
-			b.Log(len(m.bkt), m.bufs.Size(), len(m.bufs.bkts()))
-			for _, f := range m.bufs.bkts() {
+			b.Log(len(m.bkt), m.bufs.Size_(), len(m.bufs.bkts_()))
+			for _, f := range m.bufs.bkts_() {
 				b.Log("length: ", len(f), cap(f))
 			}
 		})
