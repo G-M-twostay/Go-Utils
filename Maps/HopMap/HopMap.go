@@ -36,45 +36,41 @@ func (u *HopMap[K, V]) mod(hash uint) int {
 	return int(hash) & (len(u.bkt) - int(u.h) - 1)
 }
 
-func (u *HopMap[K, V]) putOverflow(k *K, v *V, hash uint, i_hash int) bool {
+func (u *HopMap[K, V]) putOverflow(k *K, v *V, hash uint, i_hash int) {
 	if u.bufs == nil {
 		u.bufs = newOmap[K, V](uint(bits.Len(uint(len(u.bkt)))))
-	}
-	if u.bufs.avgLen() > 10 {
-		return false
 	}
 	if u.bufs.put(k, v, hash) {
 		u.sz++
 		u.extras[i_hash].incCount()
 	}
-	return true
 }
 
-func (u *HopMap[K, V]) expand() {
-	newSize := uint((len(u.bkt)-int(u.h))<<1) + uint(u.h)
-	M := HopMap[K, V]{bkt: make([]struct {
-		key K
-		val V
-	}, newSize), h: u.h, hashes: make([]uint, newSize), Seed: u.Seed, extras: make([]extra, newSize)}
-	for i, e := range u.bkt {
-		if u.extras[i].get(used) {
-			if !M.trySet(&e.key, &e.val, u.hashes[i]) {
-				M.expand()
-				M.trySet(&e.key, &e.val, u.hashes[i])
+func (u *HopMap[K, V]) tryExpand() {
+	if u.bufs.avgLen_() > 10 {
+		newSize := uint((len(u.bkt)-int(u.h))<<1) + uint(u.h)
+		M := HopMap[K, V]{bkt: make([]struct {
+			key K
+			val V
+		}, newSize), h: u.h, hashes: make([]uint, newSize), Seed: u.Seed, extras: make([]extra, newSize)}
+		for i, e := range u.bkt {
+			if u.extras[i].get(used) {
+				M.put(&e.key, &e.val, u.hashes[i])
 			}
 		}
-	}
-	for _, b := range u.bufs.bkts_() {
-		for _, c := range b {
-			M.trySet(&c.key, &c.val, c.hash)
+		for _, b := range u.bufs.bkts_() {
+			for _, c := range b {
+				M.put(&c.key, &c.val, c.hash)
+			}
 		}
+
+		u.bkt = M.bkt
+		u.hashes = M.hashes
+		u.extras = M.extras
+
+		u.bufs = M.bufs
 	}
 
-	u.bkt = M.bkt
-	u.hashes = M.hashes
-
-	u.bufs = M.bufs
-	u.extras = M.extras
 }
 
 func (u *HopMap[K, V]) Size() uint {
@@ -148,13 +144,13 @@ func (u *HopMap[K, V]) fillEmpty(i_hash int, i_free int, k *K, v *V) {
 	//if an empty spot within h is found, an insertion will always be made immediately.
 }
 
-func (u *HopMap[K, V]) trySet(k *K, v *V, hash uint) bool {
+func (u *HopMap[K, V]) put(k *K, v *V, hash uint) {
 	i_hash := u.mod(hash)
 	if u.extras[i_hash].get(hashed) { //there exists some elements with hash i_hash; check if key already exists.
 		for i0 := i_hash + int(u.extras[i_hash].dHash); ; i0 = i0 + int(u.extras[i0].dLink) { //find i_hash+dHash: start of the chain
 			if u.bkt[i0].key == *k {
 				u.bkt[i0].val = *v
-				return true
+				return
 			}
 			if !u.extras[i0].get(linked) {
 				break
@@ -162,7 +158,7 @@ func (u *HopMap[K, V]) trySet(k *K, v *V, hash uint) bool {
 		}
 	}
 	if u.extras[i_hash].count() > 0 && u.bufs.set(k, v, hash) { //check the buffer
-		return true
+		return
 	}
 search:
 	//now since i_hash is either usedBkt or belongs to some other hash, we need to find an open spot
@@ -172,7 +168,7 @@ search:
 				u.extras[i_free].set(used)
 				u.fillEmpty(i_hash, i_free, k, v)
 				u.hashes[i_free] = hash
-				return true
+				return
 			} else { //j+step>=h. so we find open spot and move it back
 			move:
 				for i := i_free - int(u.h) + 1; i < i_free; i++ { //iterate in (i_free-H, i_free). if i_free-H<0, then i_free must be in [i_hash, i_hash+H). i_free-H>=0.
@@ -197,7 +193,7 @@ search:
 								if i1 < i_hash+int(u.h) {
 									u.fillEmpty(i_hash, i1, k, v) //i1 is already used so we don't have to explicitly set it.
 									u.hashes[i1] = hash
-									return true
+									return
 								} else {
 									u.extras[i1].clr(used) //set it to usedBkt only when we need more swaps
 									i_free = i1
@@ -216,88 +212,12 @@ search:
 			}
 		}
 	}
-	return u.putOverflow(k, v, hash, i_hash) //no usedBkt buckets are found
+	u.putOverflow(k, v, hash, i_hash) //no usedBkt buckets are found
 }
 
-//func (u *HopMap[K, V]) tryLoad(k *K, v *V, hash uint) (*V, bool) {
-//	i_hash := u.mod(hash)
-//	if u.bkt[i_hash].get(hashed) {
-//		for i0 := i_hash + int(u.bkt[i_hash].dHash); ; i0 = i0 + int(u.extras[i0].dLink) {
-//			if u.bkt[i0].key == *k {
-//				return &u.bkt[i0].val, true
-//			}
-//			if !u.infos[i0].get(linked) {
-//				break
-//			}
-//		}
-//	}
-//	for i_free := i_hash; i_free < len(u.bkt); i_free++ {
-//		if !u.usedBkt.Get(i_free) {
-//			if i_free-i_hash < int(u.h) {
-//				u.usedBkt.Set(i_free)
-//				u.fillEmpty(i_hash, i_free, k, v)
-//				u.hashes[i_free] = hash
-//				return nil, true
-//			} else {
-//			search:
-//				for i := i_free - int(u.h) + 1; i < i_free; i++ {
-//					if i0 := i; u.infos[i0].get(hashed) {
-//						prev := &u.extras[i0].dHash
-//						for i1 := i0 + int(u.extras[i0].dHash); ; i1 = i1 + int(u.extras[i1].dLink) {
-//							if i_free-int(u.h) < i1 && i1 < i_free {
-//
-//								*prev = offset(i_free - i0)
-//
-//								u.bkt[i_free].key, u.bkt[i_free].val = u.bkt[i1].key, u.bkt[i1].val //copies e1 to i_free
-//								u.hashes[i_free] = u.hashes[i1]
-//								u.usedBkt.Set(i_free)
-//
-//								if u.infos[i1].get(linked) {
-//									u.bkt[i_free].useDeltaLink(int(u.extras[i1].dLink) + i1 - i_free)
-//								}
-//
-//								u.infos[i1].clrLink()
-//
-//								if i1 < i_hash+int(u.h) {
-//									u.fillEmpty(i_hash, i1, k, v)
-//									u.hashes[i1] = hash
-//									return nil, true
-//								} else {
-//									u.usedBkt.Clr(i1)
-//									i_free = i1
-//									continue search
-//								}
-//							}
-//							if !u.infos[i1].get(linked) {
-//								break
-//							}
-//							i0 = i1
-//							prev = &u.extras[i0].dLink
-//						}
-//					}
-//				}
-//				return nil, false
-//			}
-//		}
-//	}
-//	return nil, false
-//}
-//
-//func (u *HopMap[K, V]) LoadOrStore(key K, val V) (v V, loaded bool) {
-//	var r *V
-//	for hash, suc := u.hash(&key), false; !suc; r, suc = u.tryLoad(&key, &val, hash) {
-//		u.expand()
-//	}
-//	if loaded = r != nil; loaded {
-//		v = *r
-//	}
-//	return
-//}
-
 func (u *HopMap[K, V]) Store(key K, val V) {
-	for hash := u.hash(&key); !u.trySet(&key, &val, hash); {
-		u.expand()
-	}
+	u.put(&key, &val, u.hash(&key))
+	u.tryExpand()
 }
 
 func (u *HopMap[K, V]) HasKey(key K) bool {

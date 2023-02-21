@@ -13,7 +13,11 @@ type omap[K comparable, V any] struct {
 	logLen byte
 }
 
-func (u *omap[K, V]) avgLen() float32 {
+// nil friendly
+func (u *omap[K, V]) avgLen_() float32 {
+	if u == nil {
+		return 0
+	}
 	return float32(u.size) / float32(len(u.bkt))
 }
 
