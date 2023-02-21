@@ -29,3 +29,8 @@ func Mark(hash uint) uint {
 func Mask(hash uint) uint {
 	return hash & MaxArrayLen
 }
+
+func Min(x, y int) int {
+	d := x - y
+	return y + d&(d>>63)
+}

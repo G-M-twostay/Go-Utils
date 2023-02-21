@@ -34,7 +34,9 @@ func TestHopMap_All(t *testing.T) {
 
 func BenchmarkHopMap_Put(b *testing.B) {
 	for _t := 0; _t < b.N; _t++ {
-		M := New[int, int](16, uint(COUNT), 0)
+		b.StopTimer()
+		M := New[int, int](16, uint(COUNT)/2, 0)
+		b.StartTimer()
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
@@ -44,7 +46,9 @@ func BenchmarkHopMap_Put(b *testing.B) {
 
 func BenchmarkMap_Put(b *testing.B) {
 	for _t := 0; _t < b.N; _t++ {
+		b.StopTimer()
 		M := make(map[int]int, COUNT)
+		b.StartTimer()
 		for i := 0; i < COUNT; i++ {
 			M[i] = i
 		}
@@ -55,7 +59,7 @@ func BenchmarkHopMap_Get(b *testing.B) {
 	var M *HopMap[int, int]
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M = New[int, int](16, uint(COUNT), 0)
+		M = New[int, int](16, uint(COUNT)/2, 0)
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
@@ -129,11 +133,17 @@ func BenchmarkHopMapPopulate(b *testing.B) {
 	for size := 1; size < 1000000; size *= 10 {
 		b.Run(strconv.Itoa(size), func(b *testing.B) {
 			b.ReportAllocs()
+			var m *HopMap[int, bool]
 			for i := 0; i < b.N; i++ {
-				m := New[int, bool](16, defaultSize, 0)
+				m = New[int, bool](16, defaultSize, 0)
 				for j := 0; j < size; j++ {
 					m.Store(j, true)
 				}
+
+			}
+			b.Log(len(m.bkt), m.bufs.Size(), len(m.bufs.bkts()))
+			for _, f := range m.bufs.bkts() {
+				b.Log("length: ", len(f), cap(f))
 			}
 		})
 	}
