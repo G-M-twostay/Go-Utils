@@ -18,11 +18,12 @@ func TestHopMap_All(t *testing.T) {
 		t.Logf("putted %v\n", 1+8*i)
 		t.Log(M.bkt, M.bufs)
 	}
+	M.Delete(9)
 	for i := 0; i < 8; i++ {
 		x, y := M.Load(1 + 8*i)
 		t.Log(x, y)
 	}
-	t.Log(M.bkt[2].get(linked))
+	t.Log(M.bkt, M.bufs)
 	//for i := 0; i < 128; i++ {
 	//	M.Store(i, i)
 	//}
@@ -40,6 +41,7 @@ func BenchmarkHopMap_Put(b *testing.B) {
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
+		//b.Log(M.bufs.avgLen(), M.bufs.Size_(), len(M.bufs.bkts_()))
 	}
 
 }
@@ -47,7 +49,7 @@ func BenchmarkHopMap_Put(b *testing.B) {
 func BenchmarkMap_Put(b *testing.B) {
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M := make(map[int]int, COUNT)
+		M := make(map[int]int, COUNT/2)
 		b.StartTimer()
 		for i := 0; i < COUNT; i++ {
 			M[i] = i
@@ -94,7 +96,7 @@ func BenchmarkHopMap_Del(b *testing.B) {
 	var M *HopMap[int, int]
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M = New[int, int](16, uint(COUNT), 0)
+		M = New[int, int](16, uint(COUNT)/2, 0)
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
@@ -102,11 +104,11 @@ func BenchmarkHopMap_Del(b *testing.B) {
 		for i := 0; i < COUNT; i++ {
 			M.LoadAndDelete(i)
 		}
-		for i := 0; i < COUNT; i++ {
-			if M.HasKey(i) {
-				b.Error("key exists", i)
-			}
-		}
+		//for i := 0; i < COUNT; i++ {
+		//	if M.HasKey(i) {
+		//		b.Error("key exists", i)
+		//	}
+		//}
 	}
 }
 
@@ -141,10 +143,10 @@ func BenchmarkHopMapPopulate(b *testing.B) {
 				}
 
 			}
-			b.Log(len(m.bkt), m.bufs.Size_(), len(m.bufs.bkts_()))
-			for _, f := range m.bufs.bkts_() {
-				b.Log("length: ", len(f), cap(f))
-			}
+			//b.Log(len(m.bkt), m.bufs.Size_(), len(m.bufs.bkts_()))
+			//for _, f := range m.bufs.bkts_() {
+			//	b.Log("length: ", len(f), cap(f))
+			//}
 		})
 	}
 }

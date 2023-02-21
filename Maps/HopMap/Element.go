@@ -1,44 +1,42 @@
 package HopMap
 
 const (
-	used, usedIndex byte = 1 << iota, iota
+	used, _ byte = 1 << iota, iota
 	hashed, hashedIndex
 	linked, linkedIndex
 	_, topIndex
 )
 
-type bucket[K comparable, V any] struct {
-	key          K
-	val          V
-	dHash, dLink int8 //0 indicates not valid, otherwise value is offset by min value of signed version
+type extra struct {
+	dHash, dLink int8
 	info         byte
 }
 
-func (e *bucket[K, V]) getRaw(pos byte) byte {
+func (e extra) getRaw(pos byte) byte {
 	return e.info & pos
 }
 
-func (e *bucket[K, V]) get(pos byte) bool {
+func (e extra) get(pos byte) bool {
 	return e.info&pos == pos
 }
 
-func (e *bucket[K, V]) set(pos byte) {
+func (e *extra) set(pos byte) {
 	e.info |= pos
 }
 
-func (e *bucket[K, V]) clr(pos byte) {
+func (e *extra) clr(pos byte) {
 	e.info &^= pos
 }
 
-func (e *bucket[K, V]) count() byte {
+func (e extra) count() byte {
 	return e.info >> topIndex
 }
 
-func (e *bucket[K, V]) incCount() {
+func (e *extra) incCount() {
 	e.info += 1 << topIndex
 }
 
-func (e *bucket[K, V]) decCount() {
+func (e *extra) decCount() {
 	e.info -= 1 << topIndex
 }
 
