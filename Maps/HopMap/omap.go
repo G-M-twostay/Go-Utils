@@ -13,14 +13,11 @@ type omap[K comparable, V any] struct {
 	logLen byte
 }
 
-func (u *omap[K, V]) double() *omap[K, V] {
-	return &omap[K, V]{logLen: u.logLen - 1, bkt: make([]buffer[K, V], 1<<(u.logLen+1))}
-}
-
 func (u *omap[K, V]) avgLen() float32 {
 	return float32(u.size) / float32(len(u.bkt))
 }
 
+// nil friendly
 func (u *omap[K, V]) bkts() []buffer[K, V] {
 	if u == nil {
 		return nil
@@ -33,15 +30,9 @@ func (u *omap[K, V]) mod(hash uint) int {
 	//return int(hash) & (len(u.bkt) - 1)
 }
 func (u *omap[K, V]) set(key *K, val *V, hash uint) bool {
-	if u == nil {
-		return false
-	}
 	return u.bkt[u.mod(hash)].set(key, val, hash)
 }
 func (u *omap[K, V]) get(key *K, hash uint) (V, bool) {
-	if u == nil {
-		return *new(V), false
-	}
 	return u.bkt[u.mod(hash)].get(key, hash)
 }
 func (u *omap[K, V]) put(key *K, val *V, hash uint) (added bool) {
@@ -52,18 +43,17 @@ func (u *omap[K, V]) put(key *K, val *V, hash uint) (added bool) {
 }
 
 func (u *omap[K, V]) pop(key *K, hash uint) (val *V) {
-	if u != nil {
-		i_hash := u.mod(hash)
-		if val = u.bkt[i_hash].pop(key, hash); val != nil {
-			u.size--
-			if u.bkt[i_hash].empty() { //a buffer is empty, free it
-				u.bkt[i_hash] = nil
-			}
+	i_hash := u.mod(hash)
+	if val = u.bkt[i_hash].pop(key, hash); val != nil {
+		u.size--
+		if u.bkt[i_hash].empty() { //a buffer is empty, free it
+			u.bkt[i_hash] = nil
 		}
 	}
 	return
 }
 
+// nil friendly
 func (u *omap[K, V]) Size() uint {
 	if u == nil {
 		return 0

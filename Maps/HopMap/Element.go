@@ -5,9 +5,9 @@ import (
 )
 
 type bucket[K comparable, V any] struct {
-	key          K
-	val          V
-	dHash, dLink byte //0 indicates not valid, otherwise value is offset by min value of signed version
+	key                K
+	val                V
+	dHash, dLink, info byte //0 indicates not valid, otherwise value is offset by min value of signed version
 }
 
 func (e *bucket[K, V]) hashed() bool {
@@ -40,6 +40,29 @@ func (e *bucket[K, V]) useDeltaHash(d int) {
 
 func (e *bucket[K, V]) useDeltaLink(d int) {
 	e.dLink = offset(d)
+}
+
+func (e *bucket[K, V]) used() bool {
+	return e.info&1 == 1
+}
+func (e *bucket[K, V]) use() {
+	e.info |= 1
+}
+
+func (e *bucket[K, V]) free() {
+	e.info &^= 1
+}
+
+func (e *bucket[K, V]) count() byte {
+	return e.info >> 1
+}
+
+func (e *bucket[K, V]) incCount() {
+	e.info += 2
+}
+
+func (e *bucket[K, V]) decCount() {
+	e.info -= 2
 }
 
 func offset(x int) byte {
