@@ -6,12 +6,14 @@ import (
 	"unsafe"
 )
 
-func New[K comparable, V any](h byte, size, seed uint) *HopMap[K, V] {
+const defaultMaxOverflowLen = 10
+
+func New[K comparable, V any](h byte, size uint) *HopMap[K, V] {
 	bktLen := 1 << bits.Len(size)
 	return &HopMap[K, V]{bkt: make([]struct {
 		key K
 		val V
-	}, bktLen), h: h, hashes: make([]uint, bktLen), Seed: Go_Utils.Hasher(seed), extras: make([]extra, bktLen)}
+	}, bktLen), H: h, hashes: make([]uint, bktLen), extras: make([]extra, bktLen), MaxOverflowLen: defaultMaxOverflowLen}
 }
 
 type HopMap[K comparable, V any] struct {
@@ -20,11 +22,11 @@ type HopMap[K comparable, V any] struct {
 		key K
 		val V
 	}
-	extras []extra
-	hashes []uint
-	Seed   Go_Utils.Hasher
-	sz     uint
-	h      byte
+	extras            []extra
+	hashes            []uint
+	Seed              Go_Utils.Hasher
+	sz                uint
+	H, MaxOverflowLen byte
 }
 
 func (u *HopMap[K, V]) hash(k *K) uint {
@@ -47,12 +49,12 @@ func (u *HopMap[K, V]) putOverflow(k *K, v *V, hash uint, i_hash int) {
 }
 
 func (u *HopMap[K, V]) tryExpand() {
-	if u.bufs.floorAvgLen() >= 10 {
+	if u.bufs.floorAvgLen() >= u.MaxOverflowLen {
 		newSize := uint(len(u.bkt)) << 1
 		M := HopMap[K, V]{bkt: make([]struct {
 			key K
 			val V
-		}, newSize), h: u.h, hashes: make([]uint, newSize), Seed: u.Seed, extras: make([]extra, newSize)}
+		}, newSize), H: u.H, hashes: make([]uint, newSize), Seed: u.Seed, extras: make([]extra, newSize)}
 		for i, e := range u.bkt {
 			if u.extras[i].get(used) {
 				M.put(&e.key, &e.val, u.hashes[i])
@@ -141,7 +143,7 @@ func (u *HopMap[K, V]) fillEmpty(i_hash int, i_free int, k *K, v *V) {
 	u.extras[i_free].set((u.extras[i_hash].info >> hashedIndex & 1) << linkedIndex) //if i_hash is hashed, then we set i_free to be linked.
 	u.extras[i_hash].dHash = int8(i_free - i_hash)                                  //i_hash now hashes to i_free
 	u.extras[i_hash].set(hashed)
-	//if an empty spot within h is found, an insertion will always be made immediately.
+	//if an empty spot within H is found, an insertion will always be made immediately.
 }
 
 func (u *HopMap[K, V]) put(k *K, v *V, hash uint) {
@@ -164,19 +166,19 @@ search:
 	//now since i_hash is either usedBkt or belongs to some other hash, we need to find an open spot
 	for i_free := i_hash; i_free < len(u.bkt); i_free++ {
 		if !u.extras[i_free].get(used) { //found an empty spot
-			if i_free-i_hash < int(u.h) { //within h. we insert it here
+			if i_free-i_hash < int(u.H) { //within H. we insert it here
 				u.extras[i_free].set(used)
 				u.fillEmpty(i_hash, i_free, k, v)
 				u.hashes[i_free] = hash
 				return
-			} else { //j+step>=h. so we find open spot and move it back
+			} else { //j+step>=H. so we find open spot and move it back
 			move:
-				for i := i_free - int(u.h) + 1; i < i_free; i++ { //iterate in (i_free-H, i_free). if i_free-H<0, then i_free must be in [i_hash, i_hash+H). i_free-H>=0.
+				for i := i_free - int(u.H) + 1; i < i_free; i++ { //iterate in (i_free-H, i_free). if i_free-H<0, then i_free must be in [i_hash, i_hash+H). i_free-H>=0.
 					if i0 := i; u.extras[i0].get(hashed) { //there is some value hashed to i0(i). i0 refers to the prev in the linked iteration.
 						//find the start of the chain and iterate in the chain.
 						prev := &u.extras[i0].dHash //initially e0 pointed to e1 by hash
 						for i1 := i0 + int(u.extras[i0].dHash); ; i1 = i1 + int(u.extras[i1].dLink) {
-							if i_free-int(u.h) < i1 && i1 < i_free { //a value e1 with hash i is located in [i_empty-h,i_empty); so we swap e1 with i_free
+							if i_free-int(u.H) < i1 && i1 < i_free { //a value e1 with hash i is located in [i_empty-H,i_empty); so we swap e1 with i_free
 								//make everything that pointed to e1 from e0 point to i_free
 								*prev = int8(i_free - i0)
 
@@ -190,7 +192,7 @@ search:
 								//now e1 is copied to i_free, and all references to e1 is now to i_free, we can change i_empty to i1
 								u.extras[i1].clr(linked) //i1 is now empty, but it may still hashes to something.
 
-								if i1 < i_hash+int(u.h) {
+								if i1 < i_hash+int(u.H) {
 									u.fillEmpty(i_hash, i1, k, v) //i1 is already used so we don't have to explicitly set it.
 									u.hashes[i1] = hash
 									return

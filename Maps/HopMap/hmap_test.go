@@ -12,7 +12,7 @@ const defaultSize = 7 //native map can store 8 elements by default.
 const size = 10
 
 func TestHopMap_All(t *testing.T) {
-	M := New[int, int](2, 2, 0)
+	M := New[int, int](2, 2)
 	for i := 0; i < 8; i++ {
 		M.Store(1+8*i, 1+8*i)
 		t.Logf("putted %v\n", 1+8*i)
@@ -36,7 +36,7 @@ func TestHopMap_All(t *testing.T) {
 func BenchmarkHopMap_Put(b *testing.B) {
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M := New[int, int](16, uint(COUNT)/2, 0)
+		M := New[int, int](16, uint(COUNT)/2)
 		b.StartTimer()
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
@@ -61,7 +61,7 @@ func BenchmarkHopMap_Get(b *testing.B) {
 	var M *HopMap[int, int]
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M = New[int, int](16, uint(COUNT), 0)
+		M = New[int, int](16, uint(COUNT))
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
@@ -96,7 +96,7 @@ func BenchmarkHopMap_Del(b *testing.B) {
 	var M *HopMap[int, int]
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M = New[int, int](16, uint(COUNT)/2, 0)
+		M = New[int, int](16, uint(COUNT)/2)
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
@@ -137,7 +137,7 @@ func BenchmarkHopMapPopulate(b *testing.B) {
 			b.ReportAllocs()
 			var m *HopMap[int, bool]
 			for i := 0; i < b.N; i++ {
-				m = New[int, bool](16, defaultSize, 0)
+				m = New[int, bool](16, defaultSize)
 				for j := 0; j < size; j++ {
 					m.Store(j, true)
 				}
@@ -170,7 +170,7 @@ func BenchmarkHopHashStringSpeed(b *testing.B) {
 		strings[i] = fmt.Sprintf("string#%d", i)
 	}
 	sum := 0
-	m := New[string, int](16, size, 0)
+	m := New[string, int](16, size)
 	for i := 0; i < size; i++ {
 		m.Store(strings[i], 0)
 	}
@@ -216,7 +216,7 @@ func BenchmarkHopHashBytesSpeed(b *testing.B) {
 		chunks[i][0] = byte(i)
 	}
 	// put into a map
-	m := New[chunk, int](16, size, 0)
+	m := New[chunk, int](16, size)
 	for i, c := range chunks {
 		m.Store(c, i)
 	}
@@ -265,7 +265,7 @@ func BenchmarkHopHashInt32Speed(b *testing.B) {
 		ints[i] = int32(i)
 	}
 	sum := 0
-	m := New[int32, int](16, size, 0)
+	m := New[int32, int](16, size)
 	for i := 0; i < size; i++ {
 		m.Store(ints[i], 0)
 	}
@@ -307,7 +307,7 @@ func BenchmarkHopHashInt64Speed(b *testing.B) {
 		ints[i] = int64(i)
 	}
 	sum := 0
-	m := New[int64, int](16, size, 0)
+	m := New[int64, int](16, size)
 	for i := 0; i < size; i++ {
 		m.Store(ints[i], 0)
 	}
@@ -351,7 +351,7 @@ func BenchmarkHopHashStringArraySpeed(b *testing.B) {
 		}
 	}
 	sum := 0
-	m := New[[2]string, int](16, size, 0)
+	m := New[[2]string, int](16, size)
 	for i := 0; i < size; i++ {
 		m.Store(stringpairs[i], 0)
 	}
@@ -392,7 +392,7 @@ func BenchmarkHashStringArraySpeed(b *testing.B) {
 
 // Accessing the same keys in a row.
 func benchmarkHopRepeatedLookup(b *testing.B, lookupKeySize int) {
-	m := New[string, bool](16, 64, 0)
+	m := New[string, bool](16, 64)
 	// At least bigger than a single bucket:
 	for i := 0; i < 64; i++ {
 		m.Store(fmt.Sprintf("some key %d", i), true)
