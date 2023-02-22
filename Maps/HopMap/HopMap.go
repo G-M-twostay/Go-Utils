@@ -100,12 +100,12 @@ func (u *HopMap[K, V]) LoadAndDelete(key K) (V, bool) {
 			i0 = i1
 			prev, prevT = &u.extras[i0].dLink, linkedIndex
 		}
-	}
-	if u.extras[i_hash].count() > 0 {
-		if v := u.bufs.pop(&key, hash); v != nil {
-			u.sz--
-			u.extras[i_hash].decCount()
-			return *v, true
+		if u.extras[i_hash].count() > 0 { //check the buffer
+			if v := u.bufs.pop(&key, hash); v != nil {
+				u.sz--
+				u.extras[i_hash].decCount()
+				return *v, true
+			}
 		}
 	}
 	return *new(V), false
@@ -127,9 +127,9 @@ func (u *HopMap[K, V]) Load(key K) (V, bool) {
 				break
 			}
 		}
-	}
-	if u.extras[i_hash].count() > 0 {
-		return u.bufs.get(&key, hash)
+		if u.extras[i_hash].count() > 0 {
+			return u.bufs.get(&key, hash)
+		}
 	}
 	return *new(V), false
 }
@@ -158,9 +158,9 @@ func (u *HopMap[K, V]) put(k *K, v *V, hash uint) {
 				break
 			}
 		}
-	}
-	if u.extras[i_hash].count() > 0 && u.bufs.set(k, v, hash) { //check the buffer
-		return
+		if u.extras[i_hash].count() > 0 && u.bufs.set(k, v, hash) { //check the buffer
+			return
+		}
 	}
 search:
 	//now since i_hash is either usedBkt or belongs to some other hash, we need to find an open spot

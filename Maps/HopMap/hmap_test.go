@@ -61,7 +61,7 @@ func BenchmarkHopMap_Get(b *testing.B) {
 	var M *HopMap[int, int]
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M = New[int, int](16, uint(COUNT))
+		M = New[int, int](16, uint(COUNT)/2)
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
@@ -104,11 +104,11 @@ func BenchmarkHopMap_Del(b *testing.B) {
 		for i := 0; i < COUNT; i++ {
 			M.LoadAndDelete(i)
 		}
-		//for i := 0; i < COUNT; i++ {
-		//	if M.HasKey(i) {
-		//		b.Error("key exists", i)
-		//	}
-		//}
+		for i := 0; i < COUNT; i++ {
+			if M.HasKey(i) {
+				b.Error("key exists", i)
+			}
+		}
 	}
 }
 
