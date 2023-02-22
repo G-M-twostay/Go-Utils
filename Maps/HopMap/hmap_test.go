@@ -36,12 +36,12 @@ func TestHopMap_All(t *testing.T) {
 func BenchmarkHopMap_Put(b *testing.B) {
 	for _t := 0; _t < b.N; _t++ {
 		b.StopTimer()
-		M := New[int, int](16, uint(COUNT), 0)
+		M := New[int, int](16, uint(COUNT)/2, 0)
 		b.StartTimer()
 		for i := 0; i < COUNT; i++ {
 			M.Store(i, i)
 		}
-		//b.Log(M.bufs.avgLen(), M.bufs.Size_(), len(M.bufs.bkts_()))
+		//b.Log(M.bufs.avgLen(), M.bufs.Size(), len(M.bufs.bkts_()))
 	}
 
 }
@@ -141,9 +141,8 @@ func BenchmarkHopMapPopulate(b *testing.B) {
 				for j := 0; j < size; j++ {
 					m.Store(j, true)
 				}
-
 			}
-			//b.Log(len(m.bkt), m.bufs.Size_(), len(m.bufs.bkts_()))
+			//b.Log(len(m.bkt), m.bufs.Size(), len(m.bufs.bkts_()))
 			//for _, f := range m.bufs.bkts_() {
 			//	b.Log("length: ", len(f), cap(f))
 			//}

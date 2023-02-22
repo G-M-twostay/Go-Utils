@@ -7,7 +7,7 @@ import (
 )
 
 func New[K comparable, V any](h byte, size, seed uint) *HopMap[K, V] {
-	bktLen := 1<<bits.Len(size) + uint(h)
+	bktLen := 1 << bits.Len(size)
 	return &HopMap[K, V]{bkt: make([]struct {
 		key K
 		val V
@@ -15,7 +15,8 @@ func New[K comparable, V any](h byte, size, seed uint) *HopMap[K, V] {
 }
 
 type HopMap[K comparable, V any] struct {
-	bkt []struct {
+	bufs omap[K, V]
+	bkt  []struct {
 		key K
 		val V
 	}
@@ -23,7 +24,6 @@ type HopMap[K comparable, V any] struct {
 	hashes []uint
 	Seed   Go_Utils.Hasher
 	sz     uint
-	bufs   *omap[K, V]
 	h      byte
 }
 
@@ -33,12 +33,12 @@ func (u *HopMap[K, V]) hash(k *K) uint {
 }
 
 func (u *HopMap[K, V]) mod(hash uint) int {
-	return int(hash) & (len(u.bkt) - int(u.h) - 1)
+	return int(hash) & (len(u.bkt) - 1)
 }
 
 func (u *HopMap[K, V]) putOverflow(k *K, v *V, hash uint, i_hash int) {
-	if u.bufs == nil {
-		u.bufs = newOmap[K, V](uint(bits.Len(uint(len(u.bkt)))))
+	if len(u.bufs.bkt) == 0 {
+		u.bufs.init(uint(bits.Len(uint(len(u.bkt)))))
 	}
 	if u.bufs.put(k, v, hash) {
 		u.sz++
@@ -47,8 +47,8 @@ func (u *HopMap[K, V]) putOverflow(k *K, v *V, hash uint, i_hash int) {
 }
 
 func (u *HopMap[K, V]) tryExpand() {
-	if u.bufs.avgLen_() > 10 {
-		newSize := uint((len(u.bkt)-int(u.h))<<1) + uint(u.h)
+	if u.bufs.floorAvgLen() >= 10 {
+		newSize := uint(len(u.bkt)) << 1
 		M := HopMap[K, V]{bkt: make([]struct {
 			key K
 			val V
@@ -58,7 +58,7 @@ func (u *HopMap[K, V]) tryExpand() {
 				M.put(&e.key, &e.val, u.hashes[i])
 			}
 		}
-		for _, b := range u.bufs.bkts_() {
+		for _, b := range u.bufs.bkt {
 			for _, c := range b {
 				M.put(&c.key, &c.val, c.hash)
 			}

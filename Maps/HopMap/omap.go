@@ -1,6 +1,8 @@
 package HopMap
 
-import "math/bits"
+import (
+	"math/bits"
+)
 
 func newOmap[K comparable, V any](size uint) *omap[K, V] {
 	x := bits.Len(size) + 1
@@ -13,20 +15,14 @@ type omap[K comparable, V any] struct {
 	logLen byte
 }
 
-// nil friendly
-func (u *omap[K, V]) avgLen_() float32 {
-	if u == nil {
-		return 0
-	}
-	return float32(u.size) / float32(len(u.bkt))
+func (u *omap[K, V]) init(size uint) {
+	x := bits.Len(size) + 1
+	u.logLen = byte(bits.UintSize - x)
+	u.bkt = make([]buffer[K, V], 1<<x)
 }
 
-// nil friendly
-func (u *omap[K, V]) bkts_() []buffer[K, V] {
-	if u == nil {
-		return nil
-	}
-	return u.bkt
+func (u *omap[K, V]) floorAvgLen() byte {
+	return byte(u.size >> (bits.UintSize - u.logLen))
 }
 
 func (u *omap[K, V]) mod(hash uint) int {
@@ -55,12 +51,4 @@ func (u *omap[K, V]) pop(key *K, hash uint) (val *V) {
 		}
 	}
 	return
-}
-
-// nil friendly
-func (u *omap[K, V]) Size_() uint {
-	if u == nil {
-		return 0
-	}
-	return u.size
 }
