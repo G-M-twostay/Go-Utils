@@ -34,3 +34,8 @@ func Min(x, y int) int {
 	d := x - y
 	return y + d&(d>>63)
 }
+
+func Max(x, y int) int {
+	d := x - y
+	return x - d&(d>>63)
+}

@@ -7,8 +7,9 @@ const (
 	_, topIndex
 )
 
+type OffsetSize int8
 type extra struct {
-	dHash, dLink int8
+	dHash, dLink OffsetSize
 	info         byte
 }
 

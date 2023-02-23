@@ -142,10 +142,10 @@ func BenchmarkHopMapPopulate(b *testing.B) {
 					m.Store(j, true)
 				}
 			}
-			//b.Log(len(m.bkt), m.bufs.Size(), len(m.bufs.bkts_()))
-			//for _, f := range m.bufs.bkts_() {
-			//	b.Log("length: ", len(f), cap(f))
-			//}
+			b.Log(len(m.bkt), m.bufs.size, len(m.bufs.bkt))
+			for _, f := range m.bufs.bkt {
+				b.Log("length: ", len(f), cap(f))
+			}
 		})
 	}
 }
