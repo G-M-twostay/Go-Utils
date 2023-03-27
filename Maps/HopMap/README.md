@@ -7,8 +7,21 @@ In general, hopscotch hashing doesn't need hash values to be stored in order to 
 
 It's memory-efficient because everything is kept in several arrays, there is no overflow buckets like the native
 implementation. It's cache-friendly because in Hopscotch hashing, all keys with the same hash value are guaranteed to be
-close to each other in the bucket array. The speed improvements are likely result of these 2. Resizing operations
-will copy all the values into a new array of buckets twice the size, same as native map.
+close to each other in the bucket array. The speed improvements are likely result of these 2. 
+
+Since this map uses open-addressing, so anything that can't be resolved will result in a map expansion(eager expansion) or the insertion 
+would fail. To handle this, I used a buffer to handle the overflow; however, this will make expansion very slow in 
+comparison to the version without it(expanding everytime something can't be resolved). Because of this, I removed the 
+capability of automatic expansion and instead provided a CopyTo method so that you can manually expand it. The benchmarks 
+below were conducted on an eager expansion implementation. I have kept the code for automatic expansion as comments so that 
+should you wish to modify it, you can do that easily by uncommenting the related codes. In general, this map is optimized 
+for when the number of elements are roughly known, and you should definitely preallocate the map.
+
+Given a good hash distribution, for inserting 8192 numbers into a map of size 8192, there are roughly 450 overflows in total. 
+The ratio of overflow/total will decrease as the total amount of elements is increased assuming the same hash function. Increasing 
+the neighborhood size H is also a good way of reducing overflow. Currently, I use int8(max is 128) for neighborhood, but you can 
+change it in the source file by changing `OffsetType`. However, be cautious that even though this implementation of HopScotch 
+Hashing is robust to H in read operation, a very large H may still impact write operations.
 
 The usage is similar to native map and exactly the same as sync.Map(except for the concurrent features). There is no
 need to provide an external hash function. I exported the native hash functions used by native map, see Map.go.

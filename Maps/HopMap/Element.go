@@ -7,9 +7,9 @@ const (
 	_, topIndex
 )
 
-type OffsetSize int8
+type OffsetType int8
 type extra struct {
-	dHash, dLink OffsetSize
+	dHash, dLink OffsetType
 	info         byte
 }
 
@@ -73,7 +73,7 @@ func (u *buffer[K, V]) put(k *K, v *V, hash uint) bool {
 
 	l := len(*u)
 	if u.full() {
-		n := make(buffer[K, V], l+step)
+		n := make(buffer[K, V], l+step) //manually manage the allocation of more memory
 		copy(n, *u)
 		*u = n
 	}

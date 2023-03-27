@@ -2,7 +2,6 @@ package HopMap
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -131,38 +130,35 @@ func BenchmarkMap_Del(b *testing.B) {
 	}
 }
 
-func BenchmarkHopMapPopulate(b *testing.B) {
-	for size := 1; size < 1000000; size *= 10 {
-		b.Run(strconv.Itoa(size), func(b *testing.B) {
-			b.ReportAllocs()
-			var m *HopMap[int, bool]
-			for i := 0; i < b.N; i++ {
-				m = New[int, bool](16, defaultSize)
-				for j := 0; j < size; j++ {
-					m.Store(j, true)
-				}
-			}
-			b.Log(len(m.bkt), m.bufs.size, len(m.bufs.bkt))
-			for _, f := range m.bufs.bkt {
-				b.Log("length: ", len(f), cap(f))
-			}
-		})
-	}
-}
-
-func BenchmarkMapPopulate(b *testing.B) {
-	for size := 1; size < 1000000; size *= 10 {
-		b.Run(strconv.Itoa(size), func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				m := make(map[int]bool)
-				for j := 0; j < size; j++ {
-					m[j] = true
-				}
-			}
-		})
-	}
-}
+//these 2 benchmarks should only
+//func BenchmarkHopMapPopulate(b *testing.B) {
+//	for size := 1; size < 1000000; size *= 10 {
+//		b.Run(strconv.Itoa(size), func(b *testing.B) {
+//			b.ReportAllocs()
+//			var m *HopMap[int, bool]
+//			for i := 0; i < b.N; i++ {
+//				m = New[int, bool](16, defaultSize)
+//				for j := 0; j < size; j++ {
+//					m.Store(j, true)
+//				}
+//			}
+//		})
+//	}
+//}
+//
+//func BenchmarkMapPopulate(b *testing.B) {
+//	for size := 1; size < 1000000; size *= 10 {
+//		b.Run(strconv.Itoa(size), func(b *testing.B) {
+//			b.ReportAllocs()
+//			for i := 0; i < b.N; i++ {
+//				m := make(map[int]bool)
+//				for j := 0; j < size; j++ {
+//					m[j] = true
+//				}
+//			}
+//		})
+//	}
+//}
 
 func BenchmarkHopHashStringSpeed(b *testing.B) {
 	strings := make([]string, size)

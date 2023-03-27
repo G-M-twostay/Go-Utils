@@ -8,12 +8,14 @@ import (
 
 const defaultMaxOverflowRatio float32 = 0.75
 
-func New[K comparable, V any](h OffsetSize, size uint) *HopMap[K, V] {
+func New[K comparable, V any](h OffsetType, size uint) *HopMap[K, V] {
 	bktLen := 1 << bits.Len(size)
 	return &HopMap[K, V]{bkt: make([]struct {
 		key K
 		val V
-	}, bktLen), H: h, hashes: make([]uint, bktLen), extras: make([]extra, bktLen), MaxOverflowRatio: defaultMaxOverflowRatio}
+	}, bktLen), H: h, hashes: make([]uint, bktLen), extras: make([]extra, bktLen),
+	//MaxOverflowRatio: defaultMaxOverflowRatio
+	}
 }
 
 type HopMap[K comparable, V any] struct {
@@ -22,12 +24,12 @@ type HopMap[K comparable, V any] struct {
 		key K
 		val V
 	}
-	extras           []extra
-	hashes           []uint
-	Seed             Go_Utils.Hasher
-	sz               uint
-	MaxOverflowRatio float32
-	H                OffsetSize
+	extras []extra
+	hashes []uint
+	Seed   Go_Utils.Hasher
+	sz     uint
+	//MaxOverflowRatio float32
+	H OffsetType
 }
 
 func (u *HopMap[K, V]) hash(k *K) uint {
@@ -49,31 +51,35 @@ func (u *HopMap[K, V]) putOverflow(k *K, v *V, hash uint, i_hash int) {
 	}
 }
 
-func (u *HopMap[K, V]) tryExpand() {
-	if float32(u.bufs.size)/float32(u.sz) > u.MaxOverflowRatio {
-		newSize := uint(len(u.bkt)) << 1
-		M := HopMap[K, V]{bkt: make([]struct {
-			key K
-			val V
-		}, newSize), H: u.H, hashes: make([]uint, newSize), Seed: u.Seed, extras: make([]extra, newSize)}
-		for i, e := range u.bkt {
-			if u.extras[i].get(used) {
-				M.put(&e.key, &e.val, u.hashes[i])
-			}
-		}
-		for _, b := range u.bufs.bkt {
-			for _, c := range b {
-				M.put(&c.key, &c.val, c.hash)
-			}
-		}
+//func (u *HopMap[K, V]) tryExpand() {
+//	if float32(u.bufs.size)/float32(u.sz) > u.MaxOverflowRatio {
+//		newSize := uint(len(u.bkt)) << 1
+//		M := HopMap[K, V]{bkt: make([]struct {
+//			key K
+//			val V
+//		}, newSize), H: u.H, hashes: make([]uint, newSize), Seed: u.Seed, extras: make([]extra, newSize)}
+//		u.CopyTo(&M)
+//
+//		u.bkt = M.bkt
+//		u.hashes = M.hashes
+//		u.extras = M.extras
+//
+//		u.bufs = M.bufs
+//	}
+//
+//}
 
-		u.bkt = M.bkt
-		u.hashes = M.hashes
-		u.extras = M.extras
-
-		u.bufs = M.bufs
+func (u *HopMap[K, V]) CopyTo(o *HopMap[K, V]) {
+	for i, e := range u.bkt {
+		if u.extras[i].get(used) {
+			o.put(&e.key, &e.val, u.hashes[i])
+		}
 	}
-
+	for _, b := range u.bufs.bkt {
+		for _, c := range b {
+			o.put(&c.key, &c.val, c.hash)
+		}
+	}
 }
 
 func (u *HopMap[K, V]) Size() uint {
@@ -87,7 +93,7 @@ func (u *HopMap[K, V]) LoadAndDelete(key K) (V, bool) {
 		prev, prevT := &u.extras[i0].dHash, hashedIndex
 		for i1 := i0 + int(u.extras[i0].dHash); ; i1 = i1 + int(u.extras[i1].dLink) {
 			if u.bkt[i1].key == key {
-				*prev = OffsetSize(int(u.extras[i1].dLink) + i1 - i0)                //set i0 to link to what i1 linked to
+				*prev = OffsetType(int(u.extras[i1].dLink) + i1 - i0)                //set i0 to link to what i1 linked to
 				u.extras[i0].clr(((^u.extras[i1].info) >> linkedIndex & 1) << prevT) //if i1 is linked to something, don't clear i0; clear i0 if i1 is the last
 
 				u.extras[i1].clr(used | linked) //i1 is no longer used
@@ -140,9 +146,9 @@ func (u *HopMap[K, V]) fillEmpty(i_hash int, i_free int, k *K, v *V) {
 	u.bkt[i_free].key, u.bkt[i_free].val = *k, *v
 	u.sz++
 
-	u.extras[i_free].dLink = OffsetSize(i_hash + int(u.extras[i_hash].dHash) - i_free) //link the next of i_hash after i_free
+	u.extras[i_free].dLink = OffsetType(i_hash + int(u.extras[i_hash].dHash) - i_free) //link the next of i_hash after i_free
 	u.extras[i_free].set((u.extras[i_hash].info >> hashedIndex & 1) << linkedIndex)    //if i_hash is hashed, then we set i_free to be linked.
-	u.extras[i_hash].dHash = OffsetSize(i_free - i_hash)                               //i_hash now hashes to i_free
+	u.extras[i_hash].dHash = OffsetType(i_free - i_hash)                               //i_hash now hashes to i_free
 	u.extras[i_hash].set(hashed)
 	//if an empty spot within H is found, an insertion will always be made immediately.
 }
@@ -181,14 +187,14 @@ search:
 						for i1 := i0 + int(u.extras[i0].dHash); ; i1 = i1 + int(u.extras[i1].dLink) {
 							if i_free-int(u.H) < i1 && i1 < i_free { //a value e1 with hash i is located in [i_empty-H,i_empty); so we swap e1 with i_free
 								//make everything that pointed to e1 from e0 point to i_free
-								*prev = OffsetSize(i_free - i0)
+								*prev = OffsetType(i_free - i0)
 
 								u.bkt[i_free].key, u.bkt[i_free].val = u.bkt[i1].key, u.bkt[i1].val //copies e1 to i_free
 								u.hashes[i_free] = u.hashes[i1]
 
 								u.extras[i_free].set(used | u.extras[i1].getRaw(linked)) //i_free is used; depending on whether i1 is linked, i_free might be linked
 
-								u.extras[i_free].dLink = OffsetSize(int(u.extras[i1].dLink) + i1 - i_free) //i_free links to the original next of i1
+								u.extras[i_free].dLink = OffsetType(int(u.extras[i1].dLink) + i1 - i_free) //i_free links to the original next of i1
 
 								//now e1 is copied to i_free, and all references to e1 is now to i_free, we can change i_empty to i1
 								u.extras[i1].clr(linked) //i1 is now empty, but it may still hashes to something.
@@ -220,27 +226,10 @@ search:
 
 func (u *HopMap[K, V]) Store(key K, val V) {
 	u.put(&key, &val, u.hash(&key))
-	u.tryExpand()
+	//u.tryExpand()
 }
 
 func (u *HopMap[K, V]) HasKey(key K) bool {
 	_, r := u.Load(key)
 	return r
 }
-
-//func (u *HopMap[K, V]) Take() (key K, val V) {
-//	if i := u.usedBkt.First(); i > -1 {
-//		key, val = u.bkt[i].key, u.bkt[i].val
-//	}
-//	return
-//}
-//
-//func (u *HopMap[K, V]) Range(f func(K, V) bool) {
-//	for i, b := range u.bkt {
-//		if u.usedBkt.Get(i) {
-//			if !f(b.key, b.val) {
-//				return
-//			}
-//		}
-//	}
-//}

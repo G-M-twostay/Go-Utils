@@ -10,8 +10,8 @@ func newOmap[K comparable, V any](size uint) *omap[K, V] {
 }
 
 type omap[K comparable, V any] struct {
-	bkt    []buffer[K, V]
-	size   uint
+	bkt []buffer[K, V]
+	//size   uint
 	logLen byte
 }
 
@@ -21,9 +21,9 @@ func (u *omap[K, V]) init(size uint) {
 	u.bkt = make([]buffer[K, V], 1<<x)
 }
 
-func (u *omap[K, V]) floorAvgLen() byte {
-	return byte(u.size >> (bits.UintSize - u.logLen))
-}
+//func (u *omap[K, V]) floorAvgLen() byte {
+//	return byte(u.size >> (bits.UintSize - u.logLen))
+//}
 
 func (u *omap[K, V]) mod(hash uint) int {
 	return int(hash >> u.logLen)
@@ -37,7 +37,7 @@ func (u *omap[K, V]) get(key *K, hash uint) (V, bool) {
 }
 func (u *omap[K, V]) put(key *K, val *V, hash uint) (added bool) {
 	if added = u.bkt[u.mod(hash)].put(key, val, hash); added {
-		u.size++
+		//u.size++
 	}
 	return
 }
@@ -45,7 +45,7 @@ func (u *omap[K, V]) put(key *K, val *V, hash uint) (added bool) {
 func (u *omap[K, V]) pop(key *K, hash uint) (val *V) {
 	i_hash := u.mod(hash)
 	if val = u.bkt[i_hash].pop(key, hash); val != nil {
-		u.size--
+		//u.size--
 		if u.bkt[i_hash].empty() { //a buffer is empty, free it
 			u.bkt[i_hash] = nil
 		}
