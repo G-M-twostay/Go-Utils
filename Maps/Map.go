@@ -1,13 +1,5 @@
 package Maps
 
-import (
-	"math"
-)
-
-const (
-	MaxArrayLen uint = math.MaxInt
-)
-
 // Map is designed for compatibility with sync.Map. All the below functions have the exact same usage/behavior as documented in sync.Map.
 type Map[K any, V any] interface {
 	Delete(K)

@@ -2,7 +2,7 @@ package BucketMap
 
 import (
 	"fmt"
-	"github.com/g-m-twostay/go-utils/Maps"
+	"github.com/g-m-twostay/go-utils/Maps/internal"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -15,11 +15,11 @@ type node[K any] struct {
 }
 
 func (cur *node[K]) isRelay() bool {
-	return cur.info > Maps.MaxArrayLen
+	return cur.info > internal.MaxArrayLen
 }
 
 func (cur *node[K]) Hash() uint {
-	return Maps.Mask(cur.info)
+	return internal.Mask(cur.info)
 }
 
 func (cur *node[K]) Next() unsafe.Pointer {

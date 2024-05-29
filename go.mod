@@ -1,6 +1,6 @@
 module github.com/g-m-twostay/go-utils
 
-go 1.19
+go 1.22
 
 require (
 	github.com/alphadose/haxmap v1.2.0

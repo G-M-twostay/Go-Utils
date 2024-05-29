@@ -1,7 +1,7 @@
 package IntMap
 
 import (
-	"github.com/g-m-twostay/go-utils/Maps"
+	"github.com/g-m-twostay/go-utils/Maps/internal"
 	"math/bits"
 	"sync/atomic"
 	"unsafe"
@@ -10,7 +10,7 @@ import (
 // IntMap is a specialized version of BucketMap for integers. It avoids all the interface operations.
 type IntMap[K comparable, V any] struct {
 	hash                           func(K) uint
-	buckets                        atomic.Pointer[Maps.HashList[*relay[K]]]
+	buckets                        atomic.Pointer[internal.HashList[*relay[K]]]
 	size                           atomic.Uintptr
 	state                          atomic.Uint32
 	minAvgLen, maxAvgLen, maxChunk byte
@@ -20,11 +20,11 @@ func New[K comparable, V any](minBucketLen, maxBucketLen byte, maxHash uint, has
 	M := new(IntMap[K, V])
 
 	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen
-	M.maxChunk = byte(bits.Len(Maps.Mask(maxHash)))
+	M.maxChunk = byte(bits.Len(internal.Mask(maxHash)))
 	M.hash = hasher
 
-	t := []*relay[K]{{node: node[K]{info: Maps.Mark(0)}}}
-	M.buckets.Store(&Maps.HashList[*relay[K]]{Array: t, Chunk: M.maxChunk})
+	t := []*relay[K]{{node: node[K]{info: internal.Mark(0)}}}
+	M.buckets.Store(&internal.HashList[*relay[K]]{First: unsafe.SliceData(t), Chunk: M.maxChunk})
 
 	return M
 }
@@ -36,16 +36,16 @@ func (u *IntMap[K, V]) Size() uint {
 func (u *IntMap[K, V]) trySplit() {
 	if u.state.CompareAndSwap(0, 1) {
 		s := *u.buckets.Load()
-		if u.Size()>>(u.maxChunk-s.Chunk) > uint(u.maxAvgLen) {
+		if lc := u.maxChunk - s.Chunk; u.Size()>>lc > uint(u.maxAvgLen) {
 
-			newBuckets := make([]*relay[K], len(s.Array)<<1)
+			newBuckets := make([]*relay[K], 1<<(lc+1))
 
-			for i, v := range s.Array {
-
+			for i := uint(0); i < 1<<lc; i++ {
+				v := s.Fetch(i)
 				newBuckets[i<<1] = v
 
-				hash := (1<<s.Chunk)*uint(i) + (1 << (s.Chunk - 1))
-				newRelay := &relay[K]{node: node[K]{info: Maps.Mark(hash)}}
+				hash := (1<<s.Chunk)*i + (1 << (s.Chunk - 1))
+				newRelay := &relay[K]{node: node[K]{info: internal.Mark(hash)}}
 				newBuckets[(i<<1)+1] = newRelay
 
 				v.RLock()
@@ -63,7 +63,7 @@ func (u *IntMap[K, V]) trySplit() {
 				v.RUnlock()
 			}
 
-			u.buckets.Store(&Maps.HashList[*relay[K]]{Array: newBuckets, Chunk: s.Chunk - 1})
+			u.buckets.Store(&internal.HashList[*relay[K]]{First: unsafe.SliceData(newBuckets), Chunk: s.Chunk - 1})
 
 		}
 		u.state.Store(0)
@@ -73,19 +73,19 @@ func (u *IntMap[K, V]) trySplit() {
 func (u *IntMap[K, V]) tryMerge() {
 	if u.state.CompareAndSwap(0, 1) {
 		s := *u.buckets.Load()
-		if u.Size()>>(u.maxChunk-s.Chunk) < uint(u.minAvgLen) && len(s.Array) > 1 {
+		if lc := u.maxChunk - s.Chunk; lc > 0 && u.Size()>>lc < uint(u.minAvgLen) {
 
-			newBuckets := make([]*relay[K], len(s.Array)>>1)
+			newBuckets := make([]*relay[K], 1<<(lc-1))
 
 			for i := range newBuckets {
-				newBuckets[i] = s.Array[i<<1]
+				newBuckets[i] = s.Fetch(uint(i) << 1)
 			}
 
-			u.buckets.Store(&Maps.HashList[*relay[K]]{Array: newBuckets, Chunk: s.Chunk + 1})
+			u.buckets.Store(&internal.HashList[*relay[K]]{First: unsafe.SliceData(newBuckets), Chunk: s.Chunk + 1})
 
-			for i := 0; i < len(s.Array); i += 2 {
-				s.Array[i].RLock()
-				for left := &s.Array[i].node; ; {
+			for _, v := range newBuckets {
+				v.RLock()
+				for left := &v.node; ; {
 					rightPtr := left.Next()
 					if rightB := (*node[K])(rightPtr); rightB.isRelay() {
 						if left.unlinkRelay((*relay[K])(rightPtr), rightPtr) {
@@ -95,7 +95,7 @@ func (u *IntMap[K, V]) tryMerge() {
 						left = rightB
 					}
 				}
-				s.Array[i].RUnlock()
+				v.RUnlock()
 			}
 		}
 		u.state.Store(0)
@@ -103,7 +103,7 @@ func (u *IntMap[K, V]) tryMerge() {
 }
 
 func (u *IntMap[K, V]) Store(key K, val V) {
-	hash, vPtr := Maps.Mask(u.hash(key)), unsafe.Pointer(&val)
+	hash, vPtr := internal.Mask(u.hash(key)), unsafe.Pointer(&val)
 
 	prevLock := u.buckets.Load().Get(hash)
 
@@ -141,7 +141,7 @@ func (u *IntMap[K, V]) Store(key K, val V) {
 }
 
 func (u *IntMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
-	hash, vPtr := Maps.Mask(u.hash(key)), unsafe.Pointer(&val)
+	hash, vPtr := internal.Mask(u.hash(key)), unsafe.Pointer(&val)
 
 	prevLock := u.buckets.Load().Get(hash)
 	if !prevLock.safeRLock() {
@@ -185,7 +185,7 @@ func (u *IntMap[K, V]) LoadOrStore(key K, val V) (v V, loaded bool) {
 }
 
 func (u *IntMap[K, V]) LoadPtr(key K) *V {
-	hash := Maps.Mask(u.hash(key))
+	hash := internal.Mask(u.hash(key))
 	if r := u.buckets.Load().Get(hash).search(key, hash); r == nil {
 		return nil
 	} else {
@@ -194,7 +194,7 @@ func (u *IntMap[K, V]) LoadPtr(key K) *V {
 }
 
 func (u *IntMap[K, V]) Load(key K) (V, bool) {
-	hash := Maps.Mask(u.hash(key))
+	hash := internal.Mask(u.hash(key))
 	if r := u.buckets.Load().Get(hash).search(key, hash); r == nil {
 		return *new(V), false
 	} else {
@@ -203,12 +203,12 @@ func (u *IntMap[K, V]) Load(key K) (V, bool) {
 }
 
 func (u *IntMap[K, V]) HasKey(key K) bool {
-	hash := Maps.Mask(u.hash(key))
+	hash := internal.Mask(u.hash(key))
 	return u.buckets.Load().Get(hash).search(key, hash) != nil
 }
 
 func (u *IntMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
-	hash := Maps.Mask(u.hash(key))
+	hash := internal.Mask(u.hash(key))
 	prevLock := u.buckets.Load().Get(hash)
 
 	if !prevLock.safeLock() {
@@ -285,7 +285,7 @@ func (u *IntMap[K, V]) TakePtr() (key K, val *V) {
 }
 
 func (u *IntMap[K, V]) Set(key K, val V) (v *V) {
-	hash := Maps.Mask(u.hash(key))
+	hash := internal.Mask(u.hash(key))
 	if r := u.buckets.Load().Get(hash).search(key, hash); r != nil {
 		v = (*V)(r.swap(unsafe.Pointer(&val)))
 	}
