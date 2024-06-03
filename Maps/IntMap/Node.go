@@ -62,6 +62,10 @@ func (cur *value[K]) swap(v unsafe.Pointer) unsafe.Pointer {
 	return atomic.SwapPointer(&cur.v, v)
 }
 
+func (cur *value[K]) cas(old, new unsafe.Pointer) bool {
+	return atomic.CompareAndSwapPointer(&cur.v, new, old)
+}
+
 // node doesn't have to be generic, but removing the type parameter here somehow makes the code run very slow.
 type relay struct {
 	node
