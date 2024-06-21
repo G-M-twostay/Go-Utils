@@ -1,29 +1,28 @@
 This implementation is extremely fast, I compared it wo some other implementations:
-
-
-BenchmarkReadHashMapUint-16                      1496050               729.5 ns/ op             0 B/op          0 allocs/op
-
-BenchmarkReadBMapUint-16                         1352514               886.7 ns/ op             0 B/op          0 allocs/op
-
-BenchmarkReadIntMapUint-16                       1939606               620.1 ns/ op             0 B/op          0 allocs/op
-
-BenchmarkReadHaxMapUint-16                       1693029               702.5 ns/ op             0 B/op          0 allocs/op
-
-BenchmarkReadHashMapWithWritesUint-16            1547737               784.0 ns/ op            50 B/op          6 allocs/op
-
-BenchmarkReadBMapWithWritesUint-16               1295151               899.2 ns/ op            50 B/op          6 allocs/op
-
-BenchmarkReadIntMapWithWritesUint-16             1804292               649.5 ns/ op            54 B/op          6 allocs/op
-
-BenchmarkReadHaxMapWithWritesUint-16             1530337               784.0 ns/ op            48 B/op          6 allocs/op
-
-BenchmarkWriteHashMapUint-16                       48426             24823 ns/op             8193 B/op       1024 allocs/op
-
-BenchmarkWriteBMapUint-16                          49976             24101 ns/op             8193 B/op       1024 allocs/op
-
-BenchmarkWriteIntMapUint-16                        52161             23081 ns/op             8193 B/op       1024 allocs/op
-
-BenchmarkWriteHaxMapUint-16                        43310             27194 ns/op             8193 B/op       1024 allocs/op
+Benchmark1ReadHashMapUint
+Benchmark1ReadHashMapUint-8             	  507007	      2090 ns/op	       0 B/op	       0 allocs/op
+Benchmark1ReadBMapUint
+Benchmark1ReadBMapUint-8                	  666699	      1960 ns/op	       0 B/op	       0 allocs/op
+Benchmark1ReadIntMapUint
+Benchmark1ReadIntMapUint-8              	  863122	      1345 ns/op	       0 B/op	       0 allocs/op
+Benchmark1ReadHaxMapUint
+Benchmark1ReadHaxMapUint-8              	  571471	      2156 ns/op	       0 B/op	       0 allocs/op
+Benchmark1ReadHashMapWithWritesUint
+Benchmark1ReadHashMapWithWritesUint-8   	  484990	      2581 ns/op	     255 B/op	      31 allocs/op
+Benchmark1ReadBMapWithWritesUint
+Benchmark1ReadBMapWithWritesUint-8      	  550442	      2243 ns/op	     249 B/op	      31 allocs/op
+Benchmark1ReadIntMapWithWritesUint
+Benchmark1ReadIntMapWithWritesUint-8    	  753247	      1661 ns/op	     206 B/op	      25 allocs/op
+Benchmark1ReadHaxMapWithWritesUint
+Benchmark1ReadHaxMapWithWritesUint-8    	  444886	      2454 ns/op	     227 B/op	      28 allocs/op
+Benchmark1WriteHashMapUint
+Benchmark1WriteHashMapUint-8            	   30560	     38657 ns/op	    8194 B/op	    1024 allocs/op
+Benchmark1WriteBMapUint
+Benchmark1WriteBMapUint-8               	   28940	     40726 ns/op	    8193 B/op	    1024 allocs/op
+Benchmark1WriteIntMapUint
+Benchmark1WriteIntMapUint-8             	   30994	     38416 ns/op	    8193 B/op	    1024 allocs/op
+Benchmark1WriteHaxMapUint
+Benchmark1WriteHaxMapUint-8             	   28213	     42924 ns/op	    8195 B/op	    1024 allocs/op
 
 See comparisons/cmp1_test.go for detailed information.
 
