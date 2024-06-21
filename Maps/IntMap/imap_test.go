@@ -2,6 +2,7 @@ package IntMap
 
 import (
 	"github.com/g-m-twostay/go-utils"
+	"github.com/g-m-twostay/go-utils/Maps"
 	"github.com/g-m-twostay/go-utils/Maps/BucketMap"
 	"math"
 	"sync"
@@ -23,7 +24,13 @@ func cmp(x, y int) bool {
 	return x == y
 }
 
-func TestIntMap_All(t *testing.T) {
+var (
+	_ Maps.Map[int, int]         = new(IntMap[int, int])
+	_ Maps.ExtendedMap[int, int] = new(IntMap[int, int])
+	_ Maps.PtrMap[int, int]      = new(IntMap[int, int])
+)
+
+func TestIntMap_Basic(t *testing.T) {
 	h := Go_Utils.Hasher(0)
 	M := New[int, int](1, 6, math.MaxUint, h.HashInt)
 	wg := &sync.WaitGroup{}
@@ -94,12 +101,42 @@ func TestIntMap_All(t *testing.T) {
 	//}
 	//M.Load(O(0))
 }
+func TestIntMap_Take(t *testing.T) {
+	m := New[int, int](0, 8, elementNum0*iter0-1, hasher)
+	{
+		_, b := m.TakePtr()
+		if b != nil {
+			t.Fail()
+		}
+	}
+	{
+		for i := range 100 {
+			m.Store(i, i)
+		}
+		a, b := m.TakePtr()
+		if b == nil {
+			t.Fail()
+		}
+		if a != 0 || *b != 0 {
+			t.Fail()
+		}
+	}
+	{
+		for i := range 100 {
+			m.Delete(i)
+		}
+		_, b := m.TakePtr()
+		if b != nil {
+			t.Fail()
+		}
+	}
 
+}
 func BenchmarkBucketMap_Case1(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := BucketMap.New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp)
+		M := BucketMap.New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp, cmp)
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
@@ -160,7 +197,7 @@ func BenchmarkBucketMap_Case2(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := BucketMap.New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp)
+		M := BucketMap.New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp, cmp)
 		for j := 0; j < elementNum0*iter0; j++ {
 			M.Store(j, j)
 		}
@@ -230,7 +267,7 @@ func BenchmarkBucketMap_Case3(b *testing.B) {
 	b.StopTimer()
 	wg := &sync.WaitGroup{}
 	for a := 0; a < b.N; a++ {
-		M := BucketMap.New[int, int](2, 8, iter0*elementNum0-1, hasher, cmp)
+		M := BucketMap.New[int, int](2, 8, iter0*elementNum0-1, hasher, cmp, cmp)
 		b.StartTimer()
 		for j := 0; j < iter0; j++ {
 			wg.Add(1)

@@ -49,7 +49,9 @@ type value[K any] struct {
 func (cur *value[K]) String() string {
 	return fmt.Sprintf("key: %#v; val: %#v; hash: %d; relay: %t", cur.k, cur.get(), cur.info, cur.isRelay())
 }
-
+func (cur *value[K]) cas(old unsafe.Pointer, new unsafe.Pointer) bool {
+	return atomic.CompareAndSwapPointer(&cur.v, old, new)
+}
 func (cur *value[K]) set(v unsafe.Pointer) {
 	atomic.StorePointer(&cur.v, v)
 }

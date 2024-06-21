@@ -9,7 +9,8 @@ import (
 
 // BucketMap is a specialized version of BucketMap for integers. It avoids all the interface operations.
 type BucketMap[K any, V any] struct {
-	cmp                            func(K, K) bool
+	cmpKey                         func(K, K) bool
+	cmpVal                         func(V, V) bool
 	hash                           func(K) uint
 	buckets                        atomic.Pointer[internal.HashList[*relay]]
 	size                           atomic.Uintptr
@@ -17,12 +18,12 @@ type BucketMap[K any, V any] struct {
 	minAvgLen, maxAvgLen, maxChunk byte
 }
 
-func New[K comparable, V any](minBucketLen, maxBucketLen byte, maxHash uint, hasher func(K) uint, comparator func(K, K) bool) *BucketMap[K, V] {
+func New[K comparable, V any](minBucketLen, maxBucketLen byte, maxHash uint, hasher func(K) uint, keyCmp func(K, K) bool, valCmp func(V, V) bool) *BucketMap[K, V] {
 	M := new(BucketMap[K, V])
 
 	M.minAvgLen, M.maxAvgLen = minBucketLen, maxBucketLen
 	M.maxChunk = byte(bits.Len(internal.Mask(maxHash)))
-	M.hash, M.cmp = hasher, comparator
+	M.hash, M.cmpKey, M.cmpVal = hasher, keyCmp, valCmp
 
 	t := []*relay{{node: node{info: internal.Mask(0)}}}
 	M.buckets.Store(&internal.HashList[*relay]{First: unsafe.SliceData(t), Chunk: M.maxChunk})
@@ -123,46 +124,10 @@ func (u *BucketMap[K, V]) Store(key K, val V) {
 				u.trySplit()
 				return
 			}
-		} else if right := (*value[K])(rightPtr); hash == rightB.info && u.cmp(key, right.k) {
+		} else if right := (*value[K])(rightPtr); hash == rightB.info && u.cmpKey(key, right.k) {
 			prevLock.RUnlock()
 			right.set(vPtr)
 			return
-		} else {
-			if left = rightB; rightB.isRelay() {
-				prevLock.RUnlock()
-				if prevLock = (*relay)(rightPtr); !prevLock.safeRLock() {
-					prevLock.RUnlock()
-					prevLock = u.buckets.Load().Get(hash)
-					prevLock.RLock()
-					left = &prevLock.node
-				}
-			}
-		}
-	}
-}
-
-func (u *BucketMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
-	hash, vPtr := internal.Mask(u.hash(key)), unsafe.Pointer(&val)
-
-	prevLock := u.buckets.Load().Get(hash)
-	if !prevLock.safeRLock() {
-		prevLock.RUnlock()
-		prevLock = u.buckets.Load().Get(hash)
-		prevLock.RLock()
-	}
-
-	for left := &prevLock.node; ; {
-		rightPtr := left.Next()
-		if rightB := (*node)(rightPtr); rightB == nil || hash < rightB.Hash() {
-			if left.dangerLink(rightPtr, unsafe.Pointer(&value[K]{node: node{info: hash, nx: rightPtr}, v: vPtr, k: key})) {
-				prevLock.RUnlock()
-				u.size.Add(1)
-				u.trySplit()
-				return
-			}
-		} else if right := (*value[K])(rightPtr); hash == rightB.info && u.cmp(key, right.k) {
-			prevLock.RUnlock()
-			return (*V)(right.get()), true
 		} else {
 			if left = rightB; rightB.isRelay() {
 				prevLock.RUnlock()
@@ -185,18 +150,9 @@ func (u *BucketMap[K, V]) LoadOrStore(key K, val V) (v V, loaded bool) {
 	return v, b
 }
 
-func (u *BucketMap[K, V]) LoadPtr(key K) *V {
-	hash := internal.Mask(u.hash(key))
-	if r := search(u.buckets.Load().Get(hash), key, hash, u.cmp); r == nil {
-		return nil
-	} else {
-		return (*V)(r.get())
-	}
-}
-
 func (u *BucketMap[K, V]) Load(key K) (V, bool) {
 	hash := internal.Mask(u.hash(key))
-	if r := search(u.buckets.Load().Get(hash), key, hash, u.cmp); r == nil {
+	if r := search(u.buckets.Load().Get(hash), key, hash, u.cmpKey); r == nil {
 		return *new(V), false
 	} else {
 		return *(*V)(r.get()), true
@@ -205,43 +161,7 @@ func (u *BucketMap[K, V]) Load(key K) (V, bool) {
 
 func (u *BucketMap[K, V]) HasKey(key K) bool {
 	hash := internal.Mask(u.hash(key))
-	return search(u.buckets.Load().Get(hash), key, hash, u.cmp) != nil
-}
-
-func (u *BucketMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
-	hash := internal.Mask(u.hash(key))
-	prevLock := u.buckets.Load().Get(hash)
-
-	if !prevLock.safeLock() {
-		prevLock.Unlock()
-		prevLock = u.buckets.Load().Get(hash)
-		prevLock.Lock()
-	}
-
-	for left := &prevLock.node; ; {
-		rightPtr := left.nx
-		if rightB := (*node)(rightPtr); rightB == nil || hash < rightB.Hash() {
-			prevLock.Unlock()
-			return
-		} else if right := (*value[K])(rightPtr); hash == rightB.info && u.cmp(key, right.k) {
-			left.dangerUnlink(rightB)
-			prevLock.Unlock()
-			u.size.Add(^uintptr(1 - 1))
-			u.tryMerge()
-			return
-		} else {
-			if left = rightB; rightB.isRelay() {
-				prevLock.Unlock()
-				if prevLock = (*relay)(rightPtr); !prevLock.safeLock() {
-					prevLock.Unlock()
-					prevLock = u.buckets.Load().Get(hash)
-					prevLock.Lock()
-					left = &prevLock.node
-				}
-			}
-		}
-	}
-
+	return search(u.buckets.Load().Get(hash), key, hash, u.cmpKey) != nil
 }
 
 func (u *BucketMap[K, V]) LoadAndDelete(key K) (v V, loaded bool) {
@@ -256,16 +176,6 @@ func (u *BucketMap[K, V]) Delete(key K) {
 	u.LoadPtrAndDelete(key)
 }
 
-func (u *BucketMap[K, V]) RangePtr(f func(K, *V) bool) {
-	for cur := (*node)(u.buckets.Load().Get(0).Next()); cur != nil; cur = (*node)(cur.Next()) {
-		if !cur.isRelay() {
-			if t := (*value[K])(unsafe.Pointer(cur)); !f(t.k, (*V)(t.get())) {
-				break
-			}
-		}
-	}
-}
-
 func (u *BucketMap[K, V]) Range(f func(K, V) bool) {
 	u.RangePtr(func(k K, v *V) bool {
 		return f(k, *v)
@@ -277,18 +187,23 @@ func (u *BucketMap[K, V]) Take() (key K, val V) {
 	return a, *b
 }
 
-func (u *BucketMap[K, V]) TakePtr() (key K, val *V) {
-	if firstPtr := u.buckets.Load().Get(0).Next(); firstPtr != nil {
-		first := (*value[K])(firstPtr)
-		key, val = first.k, (*V)(first.get())
+func (u *BucketMap[K, V]) Set(key K, val V) bool {
+	return u.SetPtr(key, &val)
+}
+
+func (u *BucketMap[K, V]) CompareAndSwap(key K, old, new V) (success bool) {
+	hash := internal.Mask(u.hash(key))
+	if r := search(u.buckets.Load().Get(hash), key, hash, u.cmpKey); r != nil {
+		oldPtr := r.get()
+		if u.cmpVal(*(*V)(oldPtr), old) {
+			success = r.cas(oldPtr, unsafe.Pointer(&new))
+		}
 	}
 	return
 }
-
-func (u *BucketMap[K, V]) Set(key K, val V) (v *V) {
-	hash := internal.Mask(u.hash(key))
-	if r := search(u.buckets.Load().Get(hash), key, hash, u.cmp); r != nil {
-		v = (*V)(r.swap(unsafe.Pointer(&val)))
+func (u *BucketMap[K, V]) Swap(key K, val V) (old V, success bool) {
+	if oldPtr := u.SwapPtr(key, &val); oldPtr != nil {
+		return *oldPtr, true
 	}
 	return
 }

@@ -1,11 +1,11 @@
-package IntMap
+package BucketMap
 
 import (
 	"github.com/g-m-twostay/go-utils/Maps/internal"
 	"unsafe"
 )
 
-func (u *IntMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
+func (u *BucketMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
 	hash, vPtr := internal.Mask(u.hash(key)), unsafe.Pointer(&val)
 
 	prevLock := u.buckets.Load().Get(hash)
@@ -24,7 +24,7 @@ func (u *IntMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
 				u.trySplit()
 				return
 			}
-		} else if right := (*value[K])(rightPtr); hash == rightB.info && key == right.k {
+		} else if right := (*value[K])(rightPtr); hash == rightB.info && u.cmpKey(key, right.k) {
 			prevLock.RUnlock()
 			return (*V)(right.get()), true
 		} else {
@@ -40,15 +40,16 @@ func (u *IntMap[K, V]) LoadPtrOrStore(key K, val V) (v *V, loaded bool) {
 		}
 	}
 }
-func (u *IntMap[K, V]) LoadPtr(key K) *V {
+func (u *BucketMap[K, V]) LoadPtr(key K) *V {
 	hash := internal.Mask(u.hash(key))
-	if r := search(u.buckets.Load().Get(hash), key, hash); r == nil {
+	if r := search(u.buckets.Load().Get(hash), key, hash, u.cmpKey); r == nil {
 		return nil
 	} else {
 		return (*V)(r.get())
 	}
 }
-func (u *IntMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
+
+func (u *BucketMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 	hash := internal.Mask(u.hash(key))
 	prevLock := u.buckets.Load().Get(hash)
 
@@ -63,7 +64,7 @@ func (u *IntMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 		if rightB := (*node)(rightPtr); rightB == nil || hash < rightB.Hash() {
 			prevLock.Unlock()
 			return
-		} else if right := (*value[K])(rightPtr); hash == rightB.info && key == right.k {
+		} else if right := (*value[K])(rightPtr); hash == rightB.info && u.cmpKey(key, right.k) {
 			left.dangerUnlink(rightB)
 			prevLock.Unlock()
 			u.size.Add(^uintptr(1 - 1))
@@ -83,8 +84,7 @@ func (u *IntMap[K, V]) LoadPtrAndDelete(key K) (v *V, loaded bool) {
 	}
 
 }
-
-func (u *IntMap[K, V]) RangePtr(f func(K, *V) bool) {
+func (u *BucketMap[K, V]) RangePtr(f func(K, *V) bool) {
 	for cur := (*node)(u.buckets.Load().Fetch(0).Next()); cur != nil; cur = (*node)(cur.Next()) {
 		if !cur.isRelay() {
 			if t := (*value[K])(unsafe.Pointer(cur)); !f(t.k, (*V)(t.get())) {
@@ -93,7 +93,7 @@ func (u *IntMap[K, V]) RangePtr(f func(K, *V) bool) {
 		}
 	}
 }
-func (u *IntMap[K, V]) TakePtr() (key K, val *V) {
+func (u *BucketMap[K, V]) TakePtr() (key K, val *V) {
 	if firstPtr := u.buckets.Load().Fetch(0).Next(); firstPtr != nil && !(*node)(firstPtr).isRelay() {
 		first := (*value[K])(firstPtr)
 		key, val = first.k, (*V)(first.get())
@@ -101,27 +101,27 @@ func (u *IntMap[K, V]) TakePtr() (key K, val *V) {
 	return
 }
 
-func (u *IntMap[K, V]) SetPtr(key K, val *V) (set bool) {
+func (u *BucketMap[K, V]) CompareAndSwapPtr(key K, old *V, new *V) (success bool) {
 	hash := internal.Mask(u.hash(key))
-	r := search(u.buckets.Load().Get(hash), key, hash)
-	set = r != nil
-	if set {
-		r.set(unsafe.Pointer(&val))
-	}
-	return
-}
-func (u *IntMap[K, V]) CompareAndSwapPtr(key K, old *V, new *V) (success bool) {
-	hash := internal.Mask(u.hash(key))
-	if r := search(u.buckets.Load().Get(hash), key, hash); r != nil {
+	if r := search(u.buckets.Load().Get(hash), key, hash, u.cmpKey); r != nil {
 		success = r.cas(unsafe.Pointer(old), unsafe.Pointer(new))
 	}
 	return
 }
 
-func (u *IntMap[K, V]) SwapPtr(key K, val *V) (old *V) {
+func (u *BucketMap[K, V]) SwapPtr(key K, val *V) (old *V) {
 	hash := internal.Mask(u.hash(key))
-	if r := search(u.buckets.Load().Get(hash), key, hash); r != nil {
+	if r := search(u.buckets.Load().Get(hash), key, hash, u.cmpKey); r != nil {
 		old = (*V)(r.swap(unsafe.Pointer(val)))
+	}
+	return
+}
+func (u *BucketMap[K, V]) SetPtr(key K, val *V) (set bool) {
+	hash := internal.Mask(u.hash(key))
+	r := search(u.buckets.Load().Get(hash), key, hash, u.cmpKey)
+	set = r != nil
+	if set {
+		r.set(unsafe.Pointer(&val))
 	}
 	return
 }
