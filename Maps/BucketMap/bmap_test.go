@@ -1,6 +1,7 @@
 package BucketMap
 
 import (
+	"github.com/g-m-twostay/go-utils/Maps"
 	"github.com/g-m-twostay/go-utils/Maps/ChainMap"
 	"sync"
 	"testing"
@@ -13,6 +14,12 @@ const (
 	elementNum0 = 1 << 10
 )
 
+var (
+	_ Maps.Map[int, int]         = new(BucketMap[int, int])
+	_ Maps.PtrMap[int, int]      = new(BucketMap[int, int])
+	_ Maps.ExtendedMap[int, int] = new(BucketMap[int, int])
+)
+
 func hasher(x int) uint {
 	return uint(x)
 }
@@ -21,8 +28,8 @@ func cmp(x, y int) bool {
 	return x == y
 }
 
-func TestBucketMap_All(t *testing.T) {
-	M := New[int, int](1, 1, blockNum*blockSize-1, hasher, cmp)
+func TestBucketMap_Basic(t *testing.T) {
+	M := New[int, int](1, 1, blockNum*blockSize-1, hasher, cmp, cmp)
 	wg := &sync.WaitGroup{}
 	wg.Add(blockNum)
 	for j := 0; j < blockNum; j++ {
@@ -83,7 +90,37 @@ func TestBucketMap_All(t *testing.T) {
 	//}
 	//M.Load(O(0))
 }
+func TestBucketMap_Take(t *testing.T) {
+	m := New[int, int](0, 8, elementNum0*iter0-1, hasher, cmp, cmp)
+	{
+		_, b := m.TakePtr()
+		if b != nil {
+			t.Fail()
+		}
+	}
+	{
+		for i := range 100 {
+			m.Store(i, i)
+		}
+		a, b := m.TakePtr()
+		if b == nil {
+			t.Fail()
+		}
+		if a != 0 || *b != 0 {
+			t.Fail()
+		}
+	}
+	{
+		for i := range 100 {
+			m.Delete(i)
+		}
+		_, b := m.TakePtr()
+		if b != nil {
+			t.Fail()
+		}
+	}
 
+}
 func BenchmarkChainMap_Case1(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
@@ -119,7 +156,7 @@ func BenchmarkBucketMap_Case1(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp)
+		M := New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp, cmp)
 		b.StartTimer()
 		for k := 0; k < iter0; k++ {
 			wg.Add(1)
@@ -185,7 +222,7 @@ func BenchmarkBucketMap_Case2(b *testing.B) {
 	b.StopTimer()
 	wg := sync.WaitGroup{}
 	for i := 0; i < b.N; i++ {
-		M := New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp)
+		M := New[int, int](0, 2, elementNum0*iter0-1, hasher, cmp, cmp)
 		for j := 0; j < elementNum0*iter0; j++ {
 			M.Store(j, j)
 		}
@@ -257,7 +294,7 @@ func BenchmarkBucketMap_Case3(b *testing.B) {
 	b.StopTimer()
 	wg := &sync.WaitGroup{}
 	for a := 0; a < b.N; a++ {
-		M := New[int, int](2, 8, iter0*elementNum0-1, hasher, cmp)
+		M := New[int, int](2, 8, iter0*elementNum0-1, hasher, cmp, cmp)
 		b.StartTimer()
 		for j := 0; j < iter0; j++ {
 			wg.Add(1)

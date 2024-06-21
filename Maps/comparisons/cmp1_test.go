@@ -42,7 +42,7 @@ func setupHashMap(b *testing.B) *hashmap.Map[uintptr, uintptr] {
 
 func setupBMap(b *testing.B, a byte, c byte) *BucketMap.BucketMap[uintptr, uintptr] {
 	b.Helper()
-	m := BucketMap.New[uintptr, uintptr](a, c, benchmarkItemCount, hashUintptr, cmp)
+	m := BucketMap.New[uintptr, uintptr](a, c, benchmarkItemCount, hashUintptr, cmp, cmp)
 	for i := uintptr(0); i < benchmarkItemCount; i++ {
 		m.Store(i, i)
 	}
@@ -248,7 +248,7 @@ func Benchmark1WriteHashMapUint(b *testing.B) {
 }
 
 func Benchmark1WriteBMapUint(b *testing.B) {
-	m := BucketMap.New[uintptr, uintptr](minLen3, maxLen3, benchmarkItemCount, hashUintptr, cmp)
+	m := BucketMap.New[uintptr, uintptr](minLen3, maxLen3, benchmarkItemCount, hashUintptr, cmp, cmp)
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
