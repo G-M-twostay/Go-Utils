@@ -26,9 +26,22 @@ func (u *base[T, S]) depth() float32 {
 	u._depth(u.root, 1)
 	return float32(cache[1]) / float32(cache[0])
 }
+func (u *base[T, S]) verify(curI S) {
+	for a := u.free; a != 0; a = u.ifs[a].l {
+		if curI == a {
+			panic("linked to empty")
+		}
+	}
+	if a := u.ifs[curI].l; a != 0 {
+		u.verify(a)
+	}
+	if a := u.ifs[curI].r; a != 0 {
+		u.verify(a)
+	}
+}
 
 const (
-	insertNum      uint16 = 1000
+	insertNum      uint16 = 40000
 	insertValRange        = 20000
 )
 
@@ -78,18 +91,10 @@ func TestDelete(t *testing.T) {
 			tree.Insert(b)
 			content[b] = struct{}{}
 		}
-		for i := range len(a) {
-			if tree.Remove(a[i]) == false {
-				for b := tree.free; b != 0; b = tree.ifs[b].l {
-					if tree.vs[b] == a[i] {
-						t.Errorf("delete key %v", b)
-					}
-				}
-				for _, v := range tree.vs {
-					if v == a[i] {
-						t.Errorf("in %v", a[i])
-					}
-				}
+		for i := range _R.Intn(len(a)) {
+			_, in := content[a[i]]
+			if tree.Remove(a[i]) != in {
+				t.Errorf("failed to delete key %v", a[i])
 			}
 			if tree.Remove(a[i]) == true {
 				t.Errorf("can delete a second time key %v", a[i])

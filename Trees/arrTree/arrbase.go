@@ -41,6 +41,7 @@ func (u *base[T, S]) rotateRight(ni *S) {
 // adds a free index
 func (u *base[T, S]) addFree(a S) {
 	u.ifs[a].l = u.free
+	u.ifs[a].sz = 0
 	u.free = a
 }
 
