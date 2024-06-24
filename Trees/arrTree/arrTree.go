@@ -32,44 +32,42 @@ func New[T cmp.Ordered, S constraints.Unsigned](hint S) *SBTree[T, S] {
 //}
 
 // target value stored in v[0]
-func (u *SBTree[T, S]) insert(curI *S) bool {
-	if *curI == 0 {
+func (u *SBTree[T, S]) insert(curI S) (S, bool) {
+	if curI == 0 {
 		if u.free == 0 {
-			*curI = S(len(u.ifs))
+			curI = S(len(u.ifs))
 			u.ifs = append(u.ifs, info[S]{0, 0, 1})
 			u.vs = append(u.vs, u.vs[0])
 		} else {
-			*curI = u.popFree()
-			u.ifs[*curI], u.vs[*curI] = info[S]{0, 0, 1}, u.vs[0]
+			curI = u.popFree()
+			u.ifs[curI], u.vs[curI] = info[S]{0, 0, 1}, u.vs[0]
 		}
-		return true
+		return curI, true
 	} else {
-		cur := &u.ifs[*curI]
 		inserted := false
-		if u.vs[0] < u.vs[*curI] {
-			inserted = u.insert(&cur.l)
-		} else if u.vs[0] == u.vs[*curI] {
-			return false
+		if u.vs[0] < u.vs[curI] {
+			u.ifs[curI].l, inserted = u.insert(u.ifs[curI].l)
+		} else if u.vs[0] == u.vs[curI] {
+			return curI, false
 		} else {
-			inserted = u.insert(&cur.r)
+			u.ifs[curI].r, inserted = u.insert(u.ifs[curI].r)
 		}
 		if inserted {
-			cur.sz++
-			//u.maintain(curPtr, v >= cur.v)
-			if u.vs[0] >= u.vs[*curI] {
-				u.maintainRight(curI)
+			u.ifs[curI].sz++
+			if u.vs[0] >= u.vs[curI] {
+				u.maintainRight(&curI)
 			} else {
-				u.maintainLeft(curI)
+				u.maintainLeft(&curI)
 			}
 		}
-		return inserted
+		return curI, inserted
 	}
-
 }
 
-func (u *SBTree[T, S]) Insert(v T) bool {
+func (u *SBTree[T, S]) Insert(v T) (r bool) {
 	u.vs[0] = v
-	return u.insert(&u.root)
+	u.root, r = u.insert(u.root)
+	return
 }
 
 // vs[0] is target value
@@ -86,8 +84,9 @@ func (u *SBTree[T, S]) remove(curI *S) (deleted byte) {
 				u.addFree(*curI)
 				*curI = cur.r
 			} else if cur.r == 0 {
-				u.addFree(*curI)
+				a := *curI
 				*curI = cur.l
+				u.addFree(a) //free is linked using .l
 			} else {
 				ni := &cur.r
 				for ; u.ifs[*ni].l != 0; ni = &u.ifs[*ni].l {
@@ -95,7 +94,7 @@ func (u *SBTree[T, S]) remove(curI *S) (deleted byte) {
 				}
 				u.vs[*curI] = u.vs[*ni]
 				u.addFree(*ni)
-				*ni = 0
+				*ni = u.ifs[*ni].r
 			}
 		} else {
 			deleted = u.remove(&cur.r)

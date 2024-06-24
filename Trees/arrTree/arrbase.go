@@ -10,16 +10,20 @@ type info[T constraints.Unsigned] struct {
 	l, r, sz T
 }
 
+type base[T any, S constraints.Unsigned] struct {
+	root, free S         //free is the beginning of the linked list that contains all the free indexes, in which case we use l as next.
+	ifs        []info[S] //0 is loopback nil
+	vs         []T       //vs[0] is temporary store for recursion
+}
+
 func (u *base[T, S]) rotateLeft(ni *S) {
 	n := &u.ifs[*ni]
 	rci := n.r
 
 	n.r = u.ifs[rci].l
-
-	u.ifs[rci].l, u.ifs[rci].sz = *ni, n.sz
-
+	u.ifs[rci].l = *ni
+	u.ifs[rci].sz = n.sz
 	n.sz = u.ifs[n.l].sz + u.ifs[n.r].sz + 1
-
 	*ni = rci
 }
 
@@ -28,22 +32,10 @@ func (u *base[T, S]) rotateRight(ni *S) {
 	lci := n.l
 
 	n.l = u.ifs[lci].r
-
-	u.ifs[lci].r, u.ifs[lci].sz = *ni, n.sz
-
+	u.ifs[lci].r = *ni
+	u.ifs[lci].sz = n.sz
 	n.sz = u.ifs[n.l].sz + u.ifs[n.r].sz + 1
-
 	*ni = lci
-}
-
-type base[T any, S constraints.Unsigned] struct {
-	root, free S         //free is the beginning of the linked list that contains all the free indexes, in which case we use l as next.
-	ifs        []info[S] //0 is loopback nil
-	vs         []T       //vs[0] is temporary store for recursion
-}
-
-func (u *base[T, S]) Size() uint {
-	return uint(u.ifs[u.root].sz)
 }
 
 // adds a free index
@@ -59,7 +51,7 @@ func (u *base[T, S]) popFree() S {
 	return b
 }
 func (u *base[T, S]) maintainLeft(curI *S) {
-	cur := u.ifs[*curI]
+	cur := &u.ifs[*curI]
 	if rc, lc := u.ifs[cur.r], u.ifs[cur.l]; u.ifs[lc.l].sz > rc.sz {
 		u.rotateRight(curI)
 	} else if u.ifs[lc.r].sz > rc.sz {
@@ -75,7 +67,7 @@ func (u *base[T, S]) maintainLeft(curI *S) {
 }
 
 func (u *base[T, S]) maintainRight(curI *S) {
-	cur := u.ifs[*curI]
+	cur := &u.ifs[*curI]
 	if rc, lc := u.ifs[cur.r], u.ifs[cur.l]; u.ifs[rc.r].sz > lc.sz {
 		u.rotateLeft(curI)
 	} else if u.ifs[rc.l].sz > lc.sz {
@@ -126,4 +118,7 @@ func (u *base[T, S]) KLargest(k S) *T {
 		}
 	}
 	return nil
+}
+func (u *base[T, S]) Size() uint {
+	return uint(u.ifs[u.root].sz)
 }
