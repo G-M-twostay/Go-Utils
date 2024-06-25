@@ -2,6 +2,7 @@ package Trees
 
 import (
 	"math/rand"
+	"slices"
 	"testing"
 )
 
@@ -195,5 +196,38 @@ func TestInsertDel(t *testing.T) {
 	}
 }
 func TestInOrder(t *testing.T) {
-
+	tree := *New[int](uint16(1))
+	content := make(map[int]struct{})
+	{
+		a := make([]int, insertNum)
+		for i := range a {
+			a[i] = _R.Intn(insertValRange)
+		}
+		for _, b := range a {
+			tree.Insert(b)
+			content[b] = struct{}{}
+		}
+	}
+	var s []int
+	tree.InOrder(func(i uint16) bool {
+		s = append(s, tree.vs[i-1])
+		return true
+	})
+	if int(tree.Size()) != len(s) {
+		t.Errorf("sorted size is %d, want %d", tree.Size(), len(content))
+	}
+	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
+	for k := range content {
+		if !slices.Contains(s, k) {
+			t.Errorf("sorted does not have key %v", k)
+		}
+	}
+	for _, v := range s {
+		if _, in := content[v]; !in {
+			t.Errorf("sorted has non existent key %v", v)
+		}
+	}
+	if !slices.IsSorted(s) {
+		t.Errorf("sorted is not sorted")
+	}
 }
