@@ -12,29 +12,28 @@ type SBTree[T cmp.Ordered, S constraints.Unsigned] struct {
 }
 
 func New[T cmp.Ordered, S constraints.Unsigned](hint S) *SBTree[T, S] {
-	if hint < 1 {
-		hint = 1
-	}
-	return &SBTree[T, S]{base[S]{ifs: make([]info[S], hint)}, make([]T, hint-1)}
+	return &SBTree[T, S]{base[S]{ifs: make([]info[S], 1, hint+1)}, make([]T, 0, hint)}
 }
 
-//func Build[T cmp.Ordered, S constraints.Unsigned](sli []T) *SBTree[T, S] {
-//	z := new(node[T, S])
-//	z.l, z.r = z, z
-//	var build func([]T) nodePtr[T, S]
-//	build = func(s []T) nodePtr[T, S] {
-//		if len(s) > 0 {
-//			mid := len(s) >> 1
-//			return &node[T, S]{s[mid], S(len(s)), build(s[0:mid]), build(s[mid+1:])}
-//		} else {
-//			return z
+//	func Build[T cmp.Ordered, S constraints.Unsigned](sli []T) *SBTree[T, S] {
+//		z := new(node[T, S])
+//		z.l, z.r = z, z
+//		var build func([]T) nodePtr[T, S]
+//		build = func(s []T) nodePtr[T, S] {
+//			if len(s) > 0 {
+//				mid := len(s) >> 1
+//				return &node[T, S]{s[mid], S(len(s)), build(s[0:mid]), build(s[mid+1:])}
+//			} else {
+//				return z
+//			}
 //		}
+//		return &SBTree[T, S]{base[T, S]{build(sli), z}}
 //	}
-//	return &SBTree[T, S]{base[T, S]{build(sli), z}}
-//}
-
-func (u *SBTree[T, S]) Insert(v T) (r bool) {
-	var st []uintptr //offset from ifs[0] to either ifs[i].l or ifs[i].r
+func (u *SBTree[T, S]) Insert(v T) bool {
+	a, _ := u.BufferedInsert(v, nil)
+	return a
+}
+func (u *SBTree[T, S]) BufferedInsert(v T, st []uintptr) (bool, []uintptr) { //offset from ifs[0] to either ifs[i].l or ifs[i].r
 	for curI := u.root; curI != 0; {
 		if v < u.vs[curI-1] {
 			st = append(st, uintptr(unsafe.Pointer(&u.ifs[curI].l))-uintptr(unsafe.Pointer(&u.ifs[0])))
@@ -43,7 +42,7 @@ func (u *SBTree[T, S]) Insert(v T) (r bool) {
 			st = append(st, uintptr(unsafe.Pointer(&u.ifs[curI].r))-uintptr(unsafe.Pointer(&u.ifs[0])))
 			curI = u.ifs[curI].r
 		} else {
-			return false
+			return false, st
 		}
 	}
 	prev := S(len(u.ifs))
@@ -60,11 +59,13 @@ func (u *SBTree[T, S]) Insert(v T) (r bool) {
 		prev = index
 	}
 	u.root = prev
-	return true
+	return true, st
 }
-
 func (u *SBTree[T, S]) Remove(v T) bool {
-	var st []S
+	a, _ := u.BufferedRemove(v, nil)
+	return a
+}
+func (u *SBTree[T, S]) BufferedRemove(v T, st []S) (bool, []S) {
 	for curI := &u.root; *curI != 0; {
 		if v < u.vs[*curI-1] {
 			st = append(st, *curI)
@@ -92,10 +93,10 @@ func (u *SBTree[T, S]) Remove(v T) bool {
 				u.addFree(*si)
 				*si = u.ifs[*si].r
 			}
-			return true
+			return true, st
 		}
 	}
-	return false
+	return false, st
 }
 
 func (u *SBTree[T, S]) Has(v T) bool {

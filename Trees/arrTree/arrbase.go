@@ -20,8 +20,7 @@ func (u *base[S]) rotateLeft(ni *S) {
 	rci := n.r
 
 	n.r = u.ifs[rci].l
-	u.ifs[rci].l = *ni
-	u.ifs[rci].sz = n.sz
+	u.ifs[rci].l, u.ifs[rci].sz = *ni, n.sz
 	n.sz = u.ifs[n.l].sz + u.ifs[n.r].sz + 1
 	*ni = rci
 }
@@ -31,8 +30,7 @@ func (u *base[S]) rotateRight(ni *S) {
 	lci := n.l
 
 	n.l = u.ifs[lci].r
-	u.ifs[lci].r = *ni
-	u.ifs[lci].sz = n.sz
+	u.ifs[lci].r, u.ifs[lci].sz = *ni, n.sz
 	n.sz = u.ifs[n.l].sz + u.ifs[n.r].sz + 1
 	*ni = lci
 }
@@ -40,7 +38,6 @@ func (u *base[S]) rotateRight(ni *S) {
 // adds a free index
 func (u *base[S]) addFree(a S) {
 	u.ifs[a].l = u.free
-	u.ifs[a].sz = 0
 	u.free = a
 }
 
@@ -65,7 +62,9 @@ func (u *base[S]) maintainLeft(curI *S) {
 	u.maintainLeft(curI)
 	u.maintainRight(curI)
 }
+func (u *base[S]) mtLe(curI *S) {
 
+}
 func (u *base[S]) maintainRight(curI *S) {
 	cur := &u.ifs[*curI]
 	if rc, lc := u.ifs[cur.r], u.ifs[cur.l]; u.ifs[rc.r].sz > lc.sz {
@@ -109,4 +108,8 @@ func (u *base[S]) InOrder(f func(S) bool) {
 
 func (u *base[S]) Size() S {
 	return u.ifs[u.root].sz
+}
+func (u *base[S]) clrIfs() {
+	u.ifs = u.ifs[:1]
+	u.root, u.free = 0, 0
 }
