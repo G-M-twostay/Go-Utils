@@ -93,6 +93,16 @@ func (u *SBTree[T, S]) BufferedRemove(v T, st []S) (bool, []S) {
 				u.addFree(*si)
 				*si = u.ifs[*si].r
 			}
+			//if len(st)&1 == 0 {
+			//	for i := len(st) - 1; i > -1; i-- {
+			//		//u.ifs[*st[i]].sz--
+			//		if v <= u.vs[*st[i]-1] {
+			//			u.maintainRight(st[i])
+			//		} else {
+			//			u.maintainLeft(st[i])
+			//		}
+			//	}
+			//}
 			return true, st
 		}
 	}
