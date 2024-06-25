@@ -42,17 +42,17 @@ func (u *SBTree[T, S]) verify(curI S) {
 }
 
 const (
-	insertNum      uint16 = 40000
-	insertValRange        = 20000
+	tAddN        uint16 = 40000
+	tAddValRange        = 20000
 )
 
 func Test_Insert(t *testing.T) {
 	tree := *New[int, uint16](1)
 	content := make(map[int]struct{})
 	{
-		a := make([]int, insertNum)
+		a := make([]int, tAddN)
 		for i := range a {
-			a[i] = _R.Intn(insertValRange)
+			a[i] = _R.Intn(tAddValRange)
 		}
 		for _, b := range a {
 			_, in := content[b]
@@ -84,9 +84,9 @@ func TestDelete(t *testing.T) {
 		t.Errorf("empty tree has non existent key %v", 0)
 	}
 	{
-		a := make([]int, insertNum)
+		a := make([]int, tAddN)
 		for i := range a {
-			a[i] = _R.Intn(insertValRange)
+			a[i] = _R.Intn(tAddValRange)
 		}
 		for _, b := range a {
 			tree.Insert(b)
@@ -133,9 +133,9 @@ func TestInsertDel(t *testing.T) {
 	tree := *New[int, uint16](1)
 	content := make(map[int]struct{})
 	{
-		a := make([]int, insertNum)
+		a := make([]int, tAddN)
 		for i := range a {
-			a[i] = _R.Intn(insertValRange)
+			a[i] = _R.Intn(tAddValRange)
 		}
 		for _, b := range a {
 			tree.Insert(b)
@@ -147,9 +147,9 @@ func TestInsertDel(t *testing.T) {
 		}
 	}
 	{
-		a := make([]int, _R.Intn(int(insertNum)))
+		a := make([]int, _R.Intn(int(tAddN)))
 		for i := range a {
-			a[i] = _R.Intn(insertValRange)
+			a[i] = _R.Intn(tAddValRange)
 		}
 		for _, b := range a {
 			_, in := content[b]
@@ -199,9 +199,9 @@ func TestInOrder(t *testing.T) {
 	tree := *New[int](uint16(1))
 	content := make(map[int]struct{})
 	{
-		a := make([]int, insertNum)
+		a := make([]int, tAddN)
 		for i := range a {
-			a[i] = _R.Intn(insertValRange)
+			a[i] = _R.Intn(tAddValRange)
 		}
 		for _, b := range a {
 			tree.Insert(b)
