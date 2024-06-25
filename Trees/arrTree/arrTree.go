@@ -3,17 +3,19 @@ package Trees
 import (
 	"cmp"
 	"golang.org/x/exp/constraints"
+	"unsafe"
 )
 
 type SBTree[T cmp.Ordered, S constraints.Unsigned] struct {
-	base[T, S]
+	base[S]
+	vs []T //v[i]corresponds to ifs[i+1]
 }
 
 func New[T cmp.Ordered, S constraints.Unsigned](hint S) *SBTree[T, S] {
 	if hint < 1 {
 		hint = 1
 	}
-	return &SBTree[T, S]{base[T, S]{ifs: make([]info[S], hint), vs: make([]T, hint)}}
+	return &SBTree[T, S]{base[S]{ifs: make([]info[S], hint)}, make([]T, hint-1)}
 }
 
 //func Build[T cmp.Ordered, S constraints.Unsigned](sli []T) *SBTree[T, S] {
@@ -31,68 +33,43 @@ func New[T cmp.Ordered, S constraints.Unsigned](hint S) *SBTree[T, S] {
 //	return &SBTree[T, S]{base[T, S]{build(sli), z}}
 //}
 
-// target value stored in v[0]
-func (u *SBTree[T, S]) insert(curI S) (S, bool) {
-	if curI == 0 {
-		if u.free == 0 {
-			curI = S(len(u.ifs))
-			u.ifs = append(u.ifs, info[S]{0, 0, 1})
-			u.vs = append(u.vs, u.vs[0])
-		} else {
-			curI = u.popFree()
-			u.ifs[curI], u.vs[curI] = info[S]{0, 0, 1}, u.vs[0]
-		}
-		return curI, true
-	} else {
-		inserted := false
-		if u.vs[0] < u.vs[curI] {
-			u.ifs[curI].l, inserted = u.insert(u.ifs[curI].l)
-		} else if u.vs[0] == u.vs[curI] {
-			return curI, false
-		} else {
-			u.ifs[curI].r, inserted = u.insert(u.ifs[curI].r)
-		}
-		if inserted {
-			u.ifs[curI].sz++
-			if u.vs[0] >= u.vs[curI] {
-				u.maintainRight(&curI)
-			} else {
-				u.maintainLeft(&curI)
-			}
-		}
-		return curI, inserted
-	}
-}
-
 func (u *SBTree[T, S]) Insert(v T) (r bool) {
-	var st []uint //go array fits in int, so we use uint and take first bit as l or r
+	var st []uintptr //offset from ifs[0] to either ifs[i].l or ifs[i].r
 	for curI := u.root; curI != 0; {
-		if v < u.vs[curI] {
-			st = append(st, uint(curI))
+		if v < u.vs[curI-1] {
+			st = append(st, uintptr(unsafe.Pointer(&u.ifs[curI].l))-uintptr(unsafe.Pointer(&u.ifs[0])))
 			curI = u.ifs[curI].l
-		} else if v > u.vs[curI] {
-			st = append(st, uint(curI)|1<<63)
+		} else if v > u.vs[curI-1] {
+			st = append(st, uintptr(unsafe.Pointer(&u.ifs[curI].r))-uintptr(unsafe.Pointer(&u.ifs[0])))
 			curI = u.ifs[curI].r
 		} else {
 			return false
 		}
 	}
-	last := (len(u.ifs))
-	u.ifs = append(u.ifs, info[S]{0, 0, 1})
-	u.vs = append(u.vs, u.vs[0])
-	for i := last; i > 0; i-- {
-		st[i-1] = uint(last)
-
+	prev := S(len(u.ifs))
+	u.ifs, u.vs = append(u.ifs, info[S]{0, 0, 1}), append(u.vs, v)
+	for i := len(st) - 1; i > -1; i-- {
+		*(*S)(unsafe.Add(unsafe.Pointer(&u.ifs[0]), st[i])) = prev //ptr to u.ifs[index].l or u.ifs[index].r
+		index := S(st[i] / unsafe.Sizeof(u.ifs[0]))
+		u.ifs[index].sz++ //index of st[i] in ifs
+		if v >= u.vs[index-1] {
+			u.maintainRight(&index)
+		} else {
+			u.maintainLeft(&index)
+		}
+		prev = index
 	}
+	u.root = prev
+	return true
 }
 
 func (u *SBTree[T, S]) Remove(v T) bool {
 	var st []S
 	for curI := &u.root; *curI != 0; {
-		if v < u.vs[*curI] {
+		if v < u.vs[*curI-1] {
 			st = append(st, *curI)
 			curI = &(u.ifs[*curI].l)
-		} else if v > u.vs[*curI] {
+		} else if v > u.vs[*curI-1] {
 			st = append(st, *curI)
 			curI = &(u.ifs[*curI].r)
 		} else {
@@ -111,7 +88,7 @@ func (u *SBTree[T, S]) Remove(v T) bool {
 				for u.ifs[*curI].sz--; u.ifs[*si].l != 0; si = &u.ifs[*si].l {
 					u.ifs[*si].sz--
 				}
-				u.vs[*curI] = u.vs[*si]
+				u.vs[*curI-1] = u.vs[*si-1]
 				u.addFree(*si)
 				*si = u.ifs[*si].r
 			}
@@ -123,9 +100,9 @@ func (u *SBTree[T, S]) Remove(v T) bool {
 
 func (u *SBTree[T, S]) Has(v T) bool {
 	for curI := u.root; curI != 0; {
-		if v < u.vs[curI] {
+		if v < u.vs[curI-1] {
 			curI = u.ifs[curI].l
-		} else if v == u.vs[curI] {
+		} else if v == u.vs[curI-1] {
 			return true
 		} else {
 			curI = u.ifs[curI].r
@@ -136,10 +113,10 @@ func (u *SBTree[T, S]) Has(v T) bool {
 
 func (u *SBTree[T, S]) Predecessor(v T) (p *T) {
 	for curI := u.root; curI != 0; {
-		if v <= u.vs[curI] {
+		if v <= u.vs[curI-1] {
 			curI = u.ifs[curI].l
 		} else {
-			p = &u.vs[curI]
+			p = &u.vs[curI-1]
 			curI = u.ifs[curI].r
 		}
 	}
@@ -148,8 +125,8 @@ func (u *SBTree[T, S]) Predecessor(v T) (p *T) {
 
 func (u *SBTree[T, S]) Successor(v T) (p *T) {
 	for curI := u.root; curI != 0; {
-		if v < u.vs[curI] {
-			p = &u.vs[curI]
+		if v < u.vs[curI-1] {
+			p = &u.vs[curI-1]
 			curI = u.ifs[curI].l
 		} else {
 			curI = u.ifs[curI].r
@@ -161,9 +138,9 @@ func (u *SBTree[T, S]) Successor(v T) (p *T) {
 func (u *SBTree[T, S]) RankOf(v T) S {
 	var ra S = 0
 	for curI := u.root; curI != 0; {
-		if lci := u.ifs[curI].l; v < u.vs[curI] {
+		if lci := u.ifs[curI].l; v < u.vs[curI-1] {
 			curI = lci
-		} else if v == u.vs[curI] {
+		} else if v == u.vs[curI-1] {
 			return ra + u.ifs[lci].sz + 1
 		} else {
 			ra += u.ifs[lci].sz + 1
@@ -171,4 +148,17 @@ func (u *SBTree[T, S]) RankOf(v T) S {
 		}
 	}
 	return 0
+}
+func (u *SBTree[T, S]) KLargest(k S) *T {
+	for curI := u.root; curI != 0; {
+		if lc := u.ifs[u.ifs[curI].l]; k <= lc.sz {
+			curI = lc.l
+		} else if k == lc.sz+1 {
+			return &u.vs[curI-1]
+		} else {
+			k -= lc.sz + 1
+			curI = u.ifs[curI].r
+		}
+	}
+	return nil
 }

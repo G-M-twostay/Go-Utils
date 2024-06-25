@@ -8,7 +8,7 @@ import (
 var _R rand.Rand = *rand.New(rand.NewSource(0))
 var cache [4]uint
 
-func (u *base[T, S]) _depth(curI S, d byte) {
+func (u *SBTree[T, S]) _depth(curI S, d byte) {
 	cur := u.ifs[curI]
 	if cur.l != 0 {
 		u._depth(cur.l, d+1)
@@ -21,12 +21,12 @@ func (u *base[T, S]) _depth(curI S, d byte) {
 		cache[1] += uint(d)
 	}
 }
-func (u *base[T, S]) depth() float32 {
+func (u *SBTree[T, S]) depth() float32 {
 	cache[0], cache[1] = 0, 0
 	u._depth(u.root, 1)
 	return float32(cache[1]) / float32(cache[0])
 }
-func (u *base[T, S]) verify(curI S) {
+func (u *SBTree[T, S]) verify(curI S) {
 	for a := u.free; a != 0; a = u.ifs[a].l {
 		if curI == a {
 			panic("linked to empty")
@@ -70,7 +70,7 @@ func Test_Insert(t *testing.T) {
 			t.Errorf("tree does not have key %v", k)
 		}
 	}
-	for _, v := range tree.vs[1:] {
+	for _, v := range tree.vs {
 		if _, in := content[v]; !in {
 			t.Errorf("tree has non existent key %v", v)
 		}
@@ -119,7 +119,7 @@ func TestDelete(t *testing.T) {
 		}
 		for i, v := range tree.vs[:] {
 			_, in1 := content[v]
-			_, in2 := empties[i]
+			_, in2 := empties[i+1]
 			if !in2 {
 				if !in1 {
 					t.Errorf("tree has non existent key %v at %d", v, i)
@@ -158,7 +158,8 @@ func TestInsertDel(t *testing.T) {
 			content[b] = struct{}{}
 		}
 		for i := range _R.Intn(len(a)) {
-			if tree.Remove(a[i]) == false {
+			_, in := content[a[i]]
+			if tree.Remove(a[i]) != in {
 				t.Errorf("failed to delete key %v", a[i])
 			}
 			if tree.Remove(a[i]) == true {
@@ -184,7 +185,7 @@ func TestInsertDel(t *testing.T) {
 		}
 		for i, v := range tree.vs[:] {
 			_, in1 := content[v]
-			_, in2 := empties[i]
+			_, in2 := empties[i+1]
 			if !in2 {
 				if !in1 {
 					t.Errorf("tree has non existent key %v at %d", v, i)
@@ -192,4 +193,7 @@ func TestInsertDel(t *testing.T) {
 			}
 		}
 	}
+}
+func TestInOrder(t *testing.T) {
+
 }
