@@ -4,13 +4,14 @@ import (
 	"math/rand"
 	"slices"
 	"testing"
+	"unsafe"
 )
 
 var _R rand.Rand = *rand.New(rand.NewSource(0))
 var cache [4]uint
 
 func (u *SBTree[T, S]) _depth(curI S, d byte) {
-	cur := u.ifs[curI]
+	cur := u.getIf(curI)
 	if cur.l != 0 {
 		u._depth(cur.l, d+1)
 	}
@@ -26,19 +27,6 @@ func (u *SBTree[T, S]) depth() float32 {
 	cache[0], cache[1] = 0, 0
 	u._depth(u.root, 1)
 	return float32(cache[1]) / float32(cache[0])
-}
-func (u *SBTree[T, S]) verify(curI S) {
-	for a := u.free; a != 0; a = u.ifs[a].l {
-		if curI == a {
-			panic("linked to empty")
-		}
-	}
-	if a := u.ifs[curI].l; a != 0 {
-		u.verify(a)
-	}
-	if a := u.ifs[curI].r; a != 0 {
-		u.verify(a)
-	}
 }
 
 const (
@@ -71,7 +59,7 @@ func Test_Insert(t *testing.T) {
 			t.Errorf("tree does not have key %v", k)
 		}
 	}
-	for _, v := range tree.vs {
+	for _, v := range unsafe.Slice(tree.vsHead, tree.ifsLen-1) {
 		if _, in := content[v]; !in {
 			t.Errorf("tree has non existent key %v", v)
 		}
@@ -118,7 +106,7 @@ func TestDelete(t *testing.T) {
 		for a := tree.popFree(); a != 0; a = tree.popFree() {
 			empties[int(a)] = struct{}{}
 		}
-		for i, v := range tree.vs[:] {
+		for i, v := range unsafe.Slice(tree.vsHead, tree.ifsLen-1) {
 			_, in1 := content[v]
 			_, in2 := empties[i+1]
 			if !in2 {
@@ -184,7 +172,7 @@ func TestInsertDel(t *testing.T) {
 		for a := tree.popFree(); a != 0; a = tree.popFree() {
 			empties[int(a)] = struct{}{}
 		}
-		for i, v := range tree.vs[:] {
+		for i, v := range unsafe.Slice(tree.vsHead, tree.ifsLen-1) {
 			_, in1 := content[v]
 			_, in2 := empties[i+1]
 			if !in2 {
@@ -210,7 +198,7 @@ func TestInOrder(t *testing.T) {
 	}
 	var s []int
 	tree.InOrder(func(i uint16) bool {
-		s = append(s, tree.vs[i-1])
+		s = append(s, *tree.getV(i - 1))
 		return true
 	})
 	if int(tree.Size()) != len(s) {

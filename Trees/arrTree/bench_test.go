@@ -1,16 +1,16 @@
 package Trees
 
 import (
-	"fmt"
 	"math/bits"
 	"slices"
 	"testing"
+	"unsafe"
 )
 
 var (
 	bAddN uint32 = 1000000
 	bRmvN uint32 = bAddN
-	bQryN uint32 = bRmvN
+	bQryN uint32 = bAddN / 2
 )
 
 func BenchmarkAdd0(b *testing.B) {
@@ -45,7 +45,7 @@ func BenchmarkDel0(b *testing.B) {
 	for range b.N {
 		b.StopTimer()
 		tree := *create(b)
-		copy(all, tree.vs)
+		copy(all, unsafe.Slice(tree.vsHead, tree.ifsLen-1))
 		b.StartTimer()
 		for _, v := range all {
 			tree.Remove(v)
@@ -58,7 +58,7 @@ func BenchmarkDel1(b *testing.B) {
 	for range b.N {
 		b.StopTimer()
 		tree := *create(b)
-		copy(all, tree.vs)
+		copy(all, unsafe.Slice(tree.vsHead, tree.ifsLen-1))
 		b.StartTimer()
 		var buf []uint32
 		for _, v := range all {
@@ -66,36 +66,20 @@ func BenchmarkDel1(b *testing.B) {
 		}
 	}
 }
-func BenchmarkDelQry(b *testing.B) {
+func BenchmarkQry(b *testing.B) {
 	all := make([]int, bAddN)
 	b.ResetTimer()
 	for range b.N {
 		b.StopTimer()
 		tree := *create(b)
-		copy(all, tree.vs)
-		m := slices.Max(all[bRmvN:])
+		copy(all, unsafe.Slice(tree.vsHead, tree.ifsLen-1))
+		m := slices.Max(all[bQryN:])
 		b.StartTimer()
-		var buf []uint32
-		for _, v := range all[bRmvN:] {
-			_, buf = tree.BufferedRemove(v, buf[:0])
-		}
-		tree.maintainLeft(&tree.root)
-		tree.maintainRight(&tree.root)
-		for _, v := range all[:bRmvN] {
+		for _, v := range all[:bQryN] {
 			tree.Has(v)
 		}
-		for range bQryN {
+		for range bAddN - bQryN {
 			tree.Has(_R.Intn(m))
 		}
-	}
-}
-
-var bNumSteps uint32 = 25
-
-func BenchmarkDelQry2(b *testing.B) {
-	for i := uint32(1); i < bNumSteps; i++ {
-		bRmvN = bAddN / bNumSteps * i
-		bQryN = bRmvN
-		b.Run(fmt.Sprintf("%d", i), BenchmarkDelQry)
 	}
 }

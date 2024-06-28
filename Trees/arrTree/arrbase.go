@@ -2,6 +2,7 @@ package Trees
 
 import (
 	"golang.org/x/exp/constraints"
+	"unsafe"
 )
 
 // A node in the SBTree
@@ -11,47 +12,50 @@ type info[S constraints.Unsigned] struct {
 }
 
 type base[S constraints.Unsigned] struct {
-	root, free S         //free is the beginning of the linked list that contains all the free indexes, in which case we use l as next.
-	ifs        []info[S] //0 is loopback nil. all index is based on ifs
+	root, free, ifsLen S              //free is the beginning of the linked list that contains all the free indexes, in which case we use l as next.
+	ifsHead            unsafe.Pointer //0 is loopback nil. all index is based on ifs. length is size+1
 }
 
+func (u *base[S]) getIf(i S) *info[S] {
+	return (*info[S])(unsafe.Add(u.ifsHead, unsafe.Sizeof(info[S]{})*uintptr(i)))
+}
 func (u *base[S]) rotateLeft(ni *S) {
-	n := &u.ifs[*ni]
+	n := u.getIf(*ni)
 	rci := n.r
 
-	n.r = u.ifs[rci].l
-	u.ifs[rci].l, u.ifs[rci].sz = *ni, n.sz
-	n.sz = u.ifs[n.l].sz + u.ifs[n.r].sz + 1
+	n.r = u.getIf(rci).l
+	u.getIf(rci).l, u.getIf(rci).sz = *ni, n.sz
+	n.sz = u.getIf(n.l).sz + u.getIf(n.r).sz + 1
 	*ni = rci
 }
 
 func (u *base[S]) rotateRight(ni *S) {
-	n := &u.ifs[*ni]
+	n := u.getIf(*ni)
 	lci := n.l
 
-	n.l = u.ifs[lci].r
-	u.ifs[lci].r, u.ifs[lci].sz = *ni, n.sz
-	n.sz = u.ifs[n.l].sz + u.ifs[n.r].sz + 1
+	n.l = u.getIf(lci).r
+	u.getIf(lci).r, u.getIf(lci).sz = *ni, n.sz
+	n.sz = u.getIf(n.l).sz + u.getIf(n.r).sz + 1
 	*ni = lci
 }
 
 // adds a free index
 func (u *base[S]) addFree(a S) {
-	u.ifs[a].l = u.free
+	u.getIf(a).l = u.free
 	u.free = a
 }
 
 // gets a free index
 func (u *base[S]) popFree() S {
 	b := u.free
-	u.free = u.ifs[u.free].l
+	u.free = u.getIf(u.free).l
 	return b
 }
 func (u *base[S]) maintainLeft(curI *S) {
-	cur := &u.ifs[*curI]
-	if rc, lc := u.ifs[cur.r], u.ifs[cur.l]; u.ifs[lc.l].sz > rc.sz {
+	cur := u.getIf(*curI)
+	if rc, lc := *u.getIf(cur.r), *u.getIf(cur.l); u.getIf(lc.l).sz > rc.sz {
 		u.rotateRight(curI)
-	} else if u.ifs[lc.r].sz > rc.sz {
+	} else if u.getIf(lc.r).sz > rc.sz {
 		u.rotateLeft(&cur.l)
 		u.rotateRight(curI)
 	} else {
@@ -62,14 +66,11 @@ func (u *base[S]) maintainLeft(curI *S) {
 	u.maintainLeft(curI)
 	u.maintainRight(curI)
 }
-func (u *base[S]) mtLe(curI *S) {
-
-}
 func (u *base[S]) maintainRight(curI *S) {
-	cur := &u.ifs[*curI]
-	if rc, lc := u.ifs[cur.r], u.ifs[cur.l]; u.ifs[rc.r].sz > lc.sz {
+	cur := u.getIf(*curI)
+	if rc, lc := *u.getIf(cur.r), *u.getIf(cur.l); u.getIf(rc.r).sz > lc.sz {
 		u.rotateLeft(curI)
-	} else if u.ifs[rc.l].sz > lc.sz {
+	} else if u.getIf(rc.l).sz > lc.sz {
 		u.rotateRight(&cur.r)
 		u.rotateLeft(curI)
 	} else {
@@ -81,15 +82,8 @@ func (u *base[S]) maintainRight(curI *S) {
 	u.maintainRight(curI)
 }
 
-//	func (u *base[T, S]) maintain(curI S, rightBigger bool) {
-//		if rightBigger {
-//			u.maintainRight(curI)
-//		} else {
-//			u.maintainLeft(curI)
-//		}
-//	}
 func (u *base[S]) inOrder(curI S, f func(S) bool) {
-	cur := u.ifs[curI]
+	cur := *u.getIf(curI)
 	if cur.l != 0 {
 		u.inOrder(cur.l, f)
 	}
@@ -102,14 +96,13 @@ func (u *base[S]) inOrder(curI S, f func(S) bool) {
 		u.inOrder(cur.r, f)
 	}
 }
-func (u *base[S]) InOrder(f func(S) bool) {
+func (u base[S]) InOrder(f func(S) bool) {
 	u.inOrder(u.root, f)
 }
 
-func (u *base[S]) Size() S {
-	return u.ifs[u.root].sz
+func (u base[S]) Size() S {
+	return u.getIf(u.root).sz
 }
-func (u *base[S]) clrIfs() {
-	u.ifs = u.ifs[:1]
-	u.root, u.free = 0, 0
+func (u *base[S]) Clear() {
+	u.ifsLen = 1
 }
