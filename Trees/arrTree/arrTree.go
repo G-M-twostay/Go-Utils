@@ -2,6 +2,7 @@ package Trees
 
 import (
 	"cmp"
+	Go_Utils "github.com/g-m-twostay/go-utils"
 	"golang.org/x/exp/constraints"
 	"reflect"
 	"unsafe"
@@ -41,6 +42,7 @@ func (u *SBTree[T, S]) Insert(v T) bool {
 	return a
 }
 func (u *SBTree[T, S]) BufferedInsert(v T, st []uintptr) (bool, []uintptr) { //offset from ifs[0] to either ifs[i].l or ifs[i].r
+	st = st[:0]
 	for curI := u.root; curI != 0; {
 		if v < *u.getV(curI - 1) {
 			st = append(st, uintptr(unsafe.Pointer(&u.getIf(curI).l))-uintptr(u.ifsHead))
@@ -77,18 +79,16 @@ func (u *SBTree[T, S]) Remove(v T) bool {
 	a, _ := u.BufferedRemove(v, nil)
 	return a
 }
-func (u *SBTree[T, S]) BufferedRemove(v T, st []S) (bool, []S) {
+func (u *SBTree[T, S]) BufferedRemove(v T, st []uintptr) (bool, []uintptr) {
+	st = st[:0]
 	for curI := &u.root; *curI != 0; {
 		if v < *u.getV(*curI - 1) {
-			st = append(st, *curI)
+			st = append(st, uintptr(unsafe.Pointer(curI)))
 			curI = &u.getIf(*curI).l
 		} else if v > *u.getV(*curI - 1) {
-			st = append(st, *curI)
+			st = append(st, uintptr(unsafe.Pointer(curI)))
 			curI = &u.getIf(*curI).r
 		} else {
-			for _, i := range st {
-				u.getIf(i).sz--
-			}
 			if u.getIf(*curI).l == 0 {
 				u.addFree(*curI)
 				*curI = u.getIf(*curI).r
@@ -105,16 +105,18 @@ func (u *SBTree[T, S]) BufferedRemove(v T, st []S) (bool, []S) {
 				u.addFree(*si)
 				*si = u.getIf(*si).r
 			}
-			//if Go_Utils.CheapRandN(uint32(bits.Len(uint(u.ifs[u.root].sz)))) == 2 { //when sz is 0-2 balancing is unnecessary
-			//	for i := ifsLen(st) - 1; i > -1; i-- {
-			//		u.ifs[*st[i]].sz--
-			//		if v >= u.vs[*st[i]-1] {
-			//			u.maintainRight(st[i])
-			//		} else {
-			//			u.maintainLeft(st[i])
-			//		}
-			//	}
-			//}
+			for _, a := range st {
+				u.getIf(*(*S)(unsafe.Pointer(a))).sz--
+			}
+			if Go_Utils.CheapRandN(uint32(u.getIf(u.root).sz+1)/2) == 2 { //when sz is 0-2 balancing is unnecessary
+				for i := len(st) - 1; i > -1; i-- {
+					if v <= *u.getV(*(*S)(unsafe.Pointer(st[i])) - 1) {
+						u.maintainRight((*S)(unsafe.Pointer(st[i])))
+					} else {
+						u.maintainLeft((*S)(unsafe.Pointer(st[i])))
+					}
+				}
+			}
 			return true, st
 		}
 	}

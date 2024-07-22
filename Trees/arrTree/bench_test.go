@@ -26,7 +26,7 @@ func BenchmarkAdd1(b *testing.B) {
 		tree := *New[int](bAddN)
 		var buf1 []uintptr
 		for range bAddN {
-			_, buf1 = tree.BufferedInsert(_R.Int(), buf1[:0])
+			_, buf1 = tree.BufferedInsert(_R.Int(), buf1)
 		}
 	}
 }
@@ -35,7 +35,7 @@ func create(b *testing.B) *SBTree[int, uint32] {
 	tree := New[int, uint32](bAddN)
 	buf := make([]uintptr, bits.Len32(bAddN))
 	for range bAddN {
-		_, buf = tree.BufferedInsert(_R.Int(), buf[:0])
+		_, buf = tree.BufferedInsert(_R.Int(), buf)
 	}
 	return tree
 }
@@ -52,6 +52,7 @@ func BenchmarkDel0(b *testing.B) {
 		}
 	}
 }
+
 func BenchmarkDel1(b *testing.B) {
 	all := make([]int, bAddN)
 	b.ResetTimer()
@@ -60,9 +61,9 @@ func BenchmarkDel1(b *testing.B) {
 		tree := *create(b)
 		copy(all, unsafe.Slice(tree.vsHead, tree.ifsLen-1))
 		b.StartTimer()
-		var buf []uint32
+		var buf []uintptr
 		for _, v := range all {
-			_, buf = tree.BufferedRemove(v, buf[:0])
+			_, buf = tree.BufferedRemove(v, buf)
 		}
 	}
 }

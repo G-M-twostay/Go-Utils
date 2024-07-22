@@ -23,7 +23,7 @@ func create(b *testing.B, all []int) *Trees.SBTree[int, uint32] {
 	buf := make([]uintptr, bits.Len32(bAddN))
 	for range bAddN {
 		a := _R.Int()
-		_, buf = tree.BufferedInsert(a, buf[:0])
+		_, buf = tree.BufferedInsert(a, buf)
 		all = append(all, a)
 	}
 	return tree
@@ -39,9 +39,9 @@ func BenchmarkDelQry(b *testing.B) {
 		tree := *create(b, all[:0])
 		m := slices.Max(all[bRmvN:])
 		b.StartTimer()
-		var buf []uint32
+		var buf []uintptr
 		for _, v := range all[bRmvN:] {
-			_, buf = tree.BufferedRemove(v, buf[:0])
+			_, buf = tree.BufferedRemove(v, buf)
 		}
 		for _, v := range all[:bRmvN] {
 			__r1 = tree.Has(v)
