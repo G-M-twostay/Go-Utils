@@ -10,33 +10,19 @@ import (
 
 type SBTree[T cmp.Ordered, S constraints.Unsigned] struct {
 	base[S]
-	vsHead *T     //v[i]corresponds to ifs[i+1]
-	caps   [2]int //caps[0]=cap(ifs), caps[1]=cap(vs)
+	vsHead unsafe.Pointer //v[i]corresponds to ifs[i+1]
+	caps   [2]int         //caps[0]=cap(ifs), caps[1]=cap(vs)
 }
 
 func (u *SBTree[T, S]) getV(i S) *T {
-	return (*T)(unsafe.Add(unsafe.Pointer(u.vsHead), unsafe.Sizeof(*new(T))*uintptr(i)))
+	return (*T)(unsafe.Add(u.vsHead, unsafe.Sizeof(*new(T))*uintptr(i)))
 }
 func New[T cmp.Ordered, S constraints.Unsigned](hint S) *SBTree[T, S] {
 	ifs := make([]info[S], 1, hint+1)
 	vs := make([]T, 0, hint)
-	return &SBTree[T, S]{base[S]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs))}, unsafe.SliceData(vs), [2]int{cap(ifs), cap(vs)}}
+	return &SBTree[T, S]{base[S]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs))}, unsafe.Pointer(unsafe.SliceData(vs)), [2]int{cap(ifs), cap(vs)}}
 }
 
-//	func Build[T cmp.Ordered, S constraints.Unsigned](sli []T) *SBTree[T, S] {
-//		z := new(node[T, S])
-//		z.l, z.r = z, z
-//		var build func([]T) nodePtr[T, S]
-//		build = func(s []T) nodePtr[T, S] {
-//			if ifsLen(s) > 0 {
-//				mid := ifsLen(s) >> 1
-//				return &node[T, S]{s[mid], S(ifsLen(s)), build(s[0:mid]), build(s[mid+1:])}
-//			} else {
-//				return z
-//			}
-//		}
-//		return &SBTree[T, S]{base[T, S]{build(sli), z}}
-//	}
 func (u *SBTree[T, S]) Insert(v T) bool {
 	a, _ := u.BufferedInsert(v, nil)
 	return a
@@ -59,7 +45,7 @@ func (u *SBTree[T, S]) BufferedInsert(v T, st []uintptr) (bool, []uintptr) { //o
 		a := append(*(*[]info[S])(unsafe.Pointer(&reflect.SliceHeader{uintptr(u.ifsHead), int(prev), u.caps[0]})), info[S]{0, 0, 1})
 		u.ifsHead, u.ifsLen, u.caps[0] = unsafe.Pointer(unsafe.SliceData(a)), S(len(a)), cap(a)
 		b := append(*(*[]T)(unsafe.Pointer(&reflect.SliceHeader{uintptr(unsafe.Pointer(u.vsHead)), int(prev - 1), u.caps[1]})), v)
-		u.vsHead, u.caps[1] = unsafe.SliceData(b), cap(b)
+		u.vsHead, u.caps[1] = unsafe.Pointer(unsafe.SliceData(b)), cap(b)
 	}
 	for i := len(st) - 1; i > -1; i-- {
 		*(*S)(unsafe.Add(u.ifsHead, st[i])) = prev //ptr to u.ifs[index].l or u.ifs[index].r
