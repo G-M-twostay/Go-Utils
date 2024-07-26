@@ -154,11 +154,11 @@ func (u *indexer[S, T]) Size() S {
 func (u *indexer[S, T]) Clear() {
 	u.ifsLen = 1
 }
-func (u *indexer[S, T]) KLargest(k S) *T {
+func (u *indexer[S, T]) RankK(k S) *T {
 	for curI := u.root; curI != 0; {
-		if lc := *u.getIf(u.getIf(curI).l); k <= lc.sz {
+		if lc := *u.getIf(u.getIf(curI).l); k < lc.sz {
 			curI = lc.l
-		} else if k == lc.sz+1 {
+		} else if k == lc.sz {
 			return u.getV(curI - 1)
 		} else {
 			k -= lc.sz + 1

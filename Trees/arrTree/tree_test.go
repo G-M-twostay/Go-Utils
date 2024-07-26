@@ -273,3 +273,31 @@ func TestInOrder1(t *testing.T) {
 		t.Errorf("sorted is not sorted")
 	}
 }
+func TestRankK(t *testing.T) {
+	tree := *New[int](uint16(1))
+	sorted := make([]int, 0, tAddN)
+	{
+		content := make(map[int]struct{})
+		a := make([]int, tAddN)
+		for i := range a {
+			a[i] = _R.Intn(tAddValRange)
+		}
+		for _, b := range a {
+			tree.Insert(b)
+			content[b] = struct{}{}
+		}
+		for k := range content {
+			sorted = append(sorted, k)
+		}
+	}
+	slices.Sort(sorted)
+	for i, v := range sorted {
+		a := tree.RankK(uint16(i))
+		if a == nil {
+			t.Fatalf("nil at rank k %d\n", i)
+		}
+		if *a != v {
+			t.Fatalf("wrong rank k %d, want %d has %d\n", i, v, a)
+		}
+	}
+}
