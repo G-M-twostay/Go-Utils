@@ -156,16 +156,3 @@ func (u *SBTree[T, S]) Successor(v T) (p *T) {
 //	}
 //	return 0
 //}
-//func (u *SBTree[T, S]) KLargest(k S) *T {
-//	for curI := u.root; curI != 0; {
-//		if lc := u.ifs[u.ifs[curI].l]; k <= lc.sz {
-//			curI = lc.l
-//		} else if k == lc.sz+1 {
-//			return &u.vs[curI-1]
-//		} else {
-//			k -= lc.sz + 1
-//			curI = u.ifs[curI].r
-//		}
-//	}
-//	return nil
-//}

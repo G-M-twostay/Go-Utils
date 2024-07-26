@@ -196,6 +196,22 @@ func TestInOrder0(t *testing.T) {
 			content[b] = struct{}{}
 		}
 	}
+	for range 10 {
+		var s []int
+		tree.InOrder(func(v *int) bool {
+			s = append(s, *v)
+			return _R.Intn(int(tree.Size()/2)) == 0
+		}, nil)
+		for _, v := range s {
+			if _, in := content[v]; !in {
+				t.Errorf("sorted has non existent key %v", v)
+			}
+		}
+		if !slices.IsSorted(s) {
+			t.Log(s)
+			t.Errorf("sorted is not sorted")
+		}
+	}
 	var s []int
 	tree.InOrder(func(v *int) bool {
 		s = append(s, *v)

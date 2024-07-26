@@ -86,15 +86,14 @@ func (u *indexer[S, T]) maintainRight(curI *S) {
 func (u *indexer[S, T]) getV(i S) *T {
 	return (*T)(unsafe.Add(u.vsHead, unsafe.Sizeof(*new(T))*uintptr(i)))
 }
-func (*indexer[S, T]) vNoOp(_ *T) bool {
-	return true
-}
+
 func (u *indexer[S, T]) InOrder(f func(*T) bool, buf []S) []S {
 	if curI := u.root; buf == nil { //use morris traversal
+	iter1:
 		for curI != 0 {
 			if u.getIf(curI).l == 0 {
 				if !f(u.getV(curI - 1)) {
-					f = u.vNoOp
+					break
 				}
 				curI = u.getIf(curI).r
 			} else {
@@ -106,13 +105,30 @@ func (u *indexer[S, T]) InOrder(f func(*T) bool, buf []S) []S {
 					} else if next.r == curI {
 						next.r = 0
 						if !f(u.getV(curI - 1)) {
-							f = u.vNoOp
+							break iter1
 						}
 						curI = u.getIf(curI).r
 						break
 					}
 				}
 
+			}
+		}
+		for curI != 0 { //deplete the remaining traversal.
+			if u.getIf(curI).l == 0 {
+				curI = u.getIf(curI).r
+			} else {
+				for next := u.getIf(u.getIf(curI).l); ; next = u.getIf(next.r) {
+					if next.r == 0 {
+						next.r = curI
+						curI = u.getIf(curI).l
+						break
+					} else if next.r == curI {
+						next.r = 0
+						curI = u.getIf(curI).r
+						break
+					}
+				}
 			}
 		}
 	} else { //use normal traversal
@@ -137,4 +153,17 @@ func (u *indexer[S, T]) Size() S {
 }
 func (u *indexer[S, T]) Clear() {
 	u.ifsLen = 1
+}
+func (u *indexer[S, T]) KLargest(k S) *T {
+	for curI := u.root; curI != 0; {
+		if lc := *u.getIf(u.getIf(curI).l); k <= lc.sz {
+			curI = lc.l
+		} else if k == lc.sz+1 {
+			return u.getV(curI - 1)
+		} else {
+			k -= lc.sz + 1
+			curI = u.getIf(curI).r
+		}
+	}
+	return nil
 }
