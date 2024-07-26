@@ -45,7 +45,7 @@ func BenchmarkDel0(b *testing.B) {
 	for range b.N {
 		b.StopTimer()
 		tree := *create(b)
-		copy(all, unsafe.Slice(tree.vsHead, tree.ifsLen-1))
+		copy(all, unsafe.Slice((*int)(tree.vsHead), tree.ifsLen-1))
 		b.StartTimer()
 		for _, v := range all {
 			tree.Remove(v)
@@ -59,7 +59,7 @@ func BenchmarkDel1(b *testing.B) {
 	for range b.N {
 		b.StopTimer()
 		tree := *create(b)
-		copy(all, unsafe.Slice(tree.vsHead, tree.ifsLen-1))
+		copy(all, unsafe.Slice((*int)(tree.vsHead), tree.ifsLen-1))
 		b.StartTimer()
 		var buf []uintptr
 		for _, v := range all {
@@ -73,7 +73,7 @@ func BenchmarkQry(b *testing.B) {
 	for range b.N {
 		b.StopTimer()
 		tree := *create(b)
-		copy(all, unsafe.Slice(tree.vsHead, tree.ifsLen-1))
+		copy(all, unsafe.Slice((*int)(tree.vsHead), tree.ifsLen-1))
 		m := slices.Max(all[bQryN:])
 		b.StartTimer()
 		for _, v := range all[:bQryN] {

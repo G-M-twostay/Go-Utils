@@ -59,7 +59,7 @@ func Test_Insert(t *testing.T) {
 			t.Errorf("tree does not have key %v", k)
 		}
 	}
-	for _, v := range unsafe.Slice(tree.vsHead, tree.ifsLen-1) {
+	for _, v := range unsafe.Slice((*int)(tree.vsHead), tree.ifsLen-1) {
 		if _, in := content[v]; !in {
 			t.Errorf("tree has non existent key %v", v)
 		}
@@ -106,7 +106,7 @@ func TestDelete(t *testing.T) {
 		for a := tree.popFree(); a != 0; a = tree.popFree() {
 			empties[int(a)] = struct{}{}
 		}
-		for i, v := range unsafe.Slice(tree.vsHead, tree.ifsLen-1) {
+		for i, v := range unsafe.Slice((*int)(tree.vsHead), tree.ifsLen-1) {
 			_, in1 := content[v]
 			_, in2 := empties[i+1]
 			if !in2 {
@@ -172,7 +172,7 @@ func TestInsertDel(t *testing.T) {
 		for a := tree.popFree(); a != 0; a = tree.popFree() {
 			empties[int(a)] = struct{}{}
 		}
-		for i, v := range unsafe.Slice(tree.vsHead, tree.ifsLen-1) {
+		for i, v := range unsafe.Slice((*int)(tree.vsHead), tree.ifsLen-1) {
 			_, in1 := content[v]
 			_, in2 := empties[i+1]
 			if !in2 {
@@ -183,7 +183,7 @@ func TestInsertDel(t *testing.T) {
 		}
 	}
 }
-func TestInOrder(t *testing.T) {
+func TestInOrder0(t *testing.T) {
 	tree := *New[int](uint16(1))
 	content := make(map[int]struct{})
 	{
@@ -197,10 +197,10 @@ func TestInOrder(t *testing.T) {
 		}
 	}
 	var s []int
-	tree.InOrder(func(i uint16) bool {
-		s = append(s, *tree.getV(i - 1))
+	tree.InOrder(func(v *int) bool {
+		s = append(s, *v)
 		return true
-	})
+	}, nil)
 	if int(tree.Size()) != len(s) {
 		t.Errorf("sorted size is %d, want %d", tree.Size(), len(content))
 	}
@@ -216,6 +216,44 @@ func TestInOrder(t *testing.T) {
 		}
 	}
 	if !slices.IsSorted(s) {
+		t.Log(s)
+		t.Errorf("sorted is not sorted")
+	}
+}
+func TestInOrder1(t *testing.T) {
+	tree := *New[int](uint16(1))
+	content := make(map[int]struct{})
+	{
+		a := make([]int, tAddN)
+		for i := range a {
+			a[i] = _R.Intn(tAddValRange)
+		}
+		for _, b := range a {
+			tree.Insert(b)
+			content[b] = struct{}{}
+		}
+	}
+	var s []int
+	tree.InOrder(func(v *int) bool {
+		s = append(s, *v)
+		return true
+	}, make([]uint16, 0))
+	if int(tree.Size()) != len(s) {
+		t.Errorf("sorted size is %d, want %d", tree.Size(), len(content))
+	}
+	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
+	for k := range content {
+		if !slices.Contains(s, k) {
+			t.Errorf("sorted does not have key %v", k)
+		}
+	}
+	for _, v := range s {
+		if _, in := content[v]; !in {
+			t.Errorf("sorted has non existent key %v", v)
+		}
+	}
+	if !slices.IsSorted(s) {
+		t.Log(s)
 		t.Errorf("sorted is not sorted")
 	}
 }

@@ -11,15 +11,16 @@ type info[S constraints.Unsigned] struct {
 	l, r, sz S
 }
 
-type base[S constraints.Unsigned] struct {
+type indexer[S constraints.Unsigned, T any] struct {
 	root, free, ifsLen S              //free is the beginning of the linked list that contains all the free indexes, in which case we use l as next.
 	ifsHead            unsafe.Pointer //0 is loopback nil. all index is based on ifs. length is size+1
+	vsHead             unsafe.Pointer //v[i]corresponds to ifs[i+1]
 }
 
-func (u *base[S]) getIf(i S) *info[S] {
+func (u *indexer[S, T]) getIf(i S) *info[S] {
 	return (*info[S])(unsafe.Add(u.ifsHead, unsafe.Sizeof(info[S]{})*uintptr(i)))
 }
-func (u *base[S]) rotateLeft(ni *S) {
+func (u *indexer[S, T]) rotateLeft(ni *S) {
 	n := u.getIf(*ni)
 	rci := n.r
 
@@ -29,7 +30,7 @@ func (u *base[S]) rotateLeft(ni *S) {
 	*ni = rci
 }
 
-func (u *base[S]) rotateRight(ni *S) {
+func (u *indexer[S, T]) rotateRight(ni *S) {
 	n := u.getIf(*ni)
 	lci := n.l
 
@@ -40,18 +41,18 @@ func (u *base[S]) rotateRight(ni *S) {
 }
 
 // adds a free index
-func (u *base[S]) addFree(a S) {
+func (u *indexer[S, T]) addFree(a S) {
 	u.getIf(a).l = u.free
 	u.free = a
 }
 
 // gets a free index
-func (u *base[S]) popFree() S {
+func (u *indexer[S, T]) popFree() S {
 	b := u.free
 	u.free = u.getIf(u.free).l
 	return b
 }
-func (u *base[S]) maintainLeft(curI *S) {
+func (u *indexer[S, T]) maintainLeft(curI *S) {
 	cur := u.getIf(*curI)
 	if rc, lc := *u.getIf(cur.r), *u.getIf(cur.l); u.getIf(lc.l).sz > rc.sz {
 		u.rotateRight(curI)
@@ -66,7 +67,7 @@ func (u *base[S]) maintainLeft(curI *S) {
 	u.maintainLeft(curI)
 	u.maintainRight(curI)
 }
-func (u *base[S]) maintainRight(curI *S) {
+func (u *indexer[S, T]) maintainRight(curI *S) {
 	cur := u.getIf(*curI)
 	if rc, lc := *u.getIf(cur.r), *u.getIf(cur.l); u.getIf(rc.r).sz > lc.sz {
 		u.rotateLeft(curI)
@@ -82,27 +83,58 @@ func (u *base[S]) maintainRight(curI *S) {
 	u.maintainRight(curI)
 }
 
-func (u *base[S]) inOrder(curI S, f func(S) bool) {
-	cur := *u.getIf(curI)
-	if cur.l != 0 {
-		u.inOrder(cur.l, f)
-	}
-	if curI != 0 {
-		if !f(curI) {
-			return
+func (u *indexer[S, T]) getV(i S) *T {
+	return (*T)(unsafe.Add(u.vsHead, unsafe.Sizeof(*new(T))*uintptr(i)))
+}
+func (*indexer[S, T]) vNoOp(_ *T) bool {
+	return true
+}
+func (u *indexer[S, T]) InOrder(f func(*T) bool, buf []S) []S {
+	if curI := u.root; buf == nil { //use morris traversal
+		for curI != 0 {
+			if u.getIf(curI).l == 0 {
+				if !f(u.getV(curI - 1)) {
+					f = u.vNoOp
+				}
+				curI = u.getIf(curI).r
+			} else {
+				for next := u.getIf(u.getIf(curI).l); ; next = u.getIf(next.r) {
+					if next.r == 0 {
+						next.r = curI
+						curI = u.getIf(curI).l
+						break
+					} else if next.r == curI {
+						next.r = 0
+						if !f(u.getV(curI - 1)) {
+							f = u.vNoOp
+						}
+						curI = u.getIf(curI).r
+						break
+					}
+				}
+
+			}
+		}
+	} else { //use normal traversal
+		for buf = buf[:0]; curI != 0; curI = u.getIf(curI).l {
+			buf = append(buf, curI)
+		}
+		for len(buf) > 0 {
+			curI, buf = buf[len(buf)-1], buf[:len(buf)-1]
+			if !f(u.getV(curI - 1)) {
+				break
+			}
+			for curI = u.getIf(curI).r; curI != 0; curI = u.getIf(curI).l {
+				buf = append(buf, curI)
+			}
 		}
 	}
-	if cur.r != 0 {
-		u.inOrder(cur.r, f)
-	}
-}
-func (u base[S]) InOrder(f func(S) bool) {
-	u.inOrder(u.root, f)
+	return buf
 }
 
-func (u base[S]) Size() S {
+func (u *indexer[S, T]) Size() S {
 	return u.getIf(u.root).sz
 }
-func (u *base[S]) Clear() {
+func (u *indexer[S, T]) Clear() {
 	u.ifsLen = 1
 }
