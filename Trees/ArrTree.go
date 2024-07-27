@@ -9,14 +9,14 @@ import (
 )
 
 type SBTree[T cmp.Ordered, S constraints.Unsigned] struct {
-	indexer[S, T]
+	base[S, T]
 	caps [2]int //caps[0]=cap(ifs), caps[1]=cap(vs)
 }
 
 func New[T cmp.Ordered, S constraints.Unsigned](hint S) *SBTree[T, S] {
 	ifs := make([]info[S], 1, hint+1)
 	vs := make([]T, 0, hint)
-	return &SBTree[T, S]{indexer[S, T]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs))}, [2]int{cap(ifs), cap(vs)}}
+	return &SBTree[T, S]{base[S, T]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs))}, [2]int{cap(ifs), cap(vs)}}
 }
 
 func (u *SBTree[T, S]) Insert(v T) bool {
