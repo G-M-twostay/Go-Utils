@@ -1,6 +1,7 @@
 package Trees
 
 import (
+	"math/bits"
 	"math/rand"
 	"slices"
 	"testing"
@@ -42,9 +43,10 @@ func Test_Insert(t *testing.T) {
 		for i := range a {
 			a[i] = _R.Intn(tAddValRange)
 		}
+		buf := make([]uintptr, bits.Len16(tAddN))
 		for _, b := range a {
 			_, in := content[b]
-			if !in && tree.Insert(b) == false {
+			if c, _ := tree.Insert(b, buf); !in && c == false {
 				t.Errorf("failed to insert key %v", b)
 			}
 			content[b] = struct{}{}
@@ -68,7 +70,7 @@ func Test_Insert(t *testing.T) {
 func TestDelete(t *testing.T) {
 	tree := *New[int, uint16](1)
 	content := make(map[int]struct{})
-	if tree.Remove(0) != false {
+	if a, _ := tree.Remove(0, nil); a != false {
 		t.Errorf("empty tree has non existent key %v", 0)
 	}
 	{
@@ -76,16 +78,17 @@ func TestDelete(t *testing.T) {
 		for i := range a {
 			a[i] = _R.Intn(tAddValRange)
 		}
+		buf := make([]uintptr, bits.Len16(tAddValRange))
 		for _, b := range a {
-			tree.Insert(b)
+			_, buf = tree.Insert(b, buf)
 			content[b] = struct{}{}
 		}
 		for i := range _R.Intn(len(a)) {
 			_, in := content[a[i]]
-			if tree.Remove(a[i]) != in {
+			if b, _ := tree.Remove(a[i], buf); b != in {
 				t.Errorf("failed to delete key %v", a[i])
 			}
-			if tree.Remove(a[i]) == true {
+			if b, _ := tree.Remove(a[i], buf); b == true {
 				t.Errorf("can delete a second time key %v", a[i])
 			}
 			delete(content, a[i])
@@ -125,12 +128,13 @@ func TestInsertDel(t *testing.T) {
 		for i := range a {
 			a[i] = _R.Intn(tAddValRange)
 		}
+		buf := make([]uintptr, bits.Len16(tAddN))
 		for _, b := range a {
-			tree.Insert(b)
+			_, buf = tree.Insert(b, buf)
 			content[b] = struct{}{}
 		}
 		for i := range _R.Intn(len(a)) {
-			tree.Remove(a[i])
+			_, buf = tree.Remove(a[i], buf)
 			delete(content, a[i])
 		}
 	}
@@ -141,17 +145,17 @@ func TestInsertDel(t *testing.T) {
 		}
 		for _, b := range a {
 			_, in := content[b]
-			if !in && tree.Insert(b) == false {
+			if c, _ := tree.Insert(b, nil); !in && c == false {
 				t.Errorf("failed to insert key %v", b)
 			}
 			content[b] = struct{}{}
 		}
 		for i := range _R.Intn(len(a)) {
 			_, in := content[a[i]]
-			if tree.Remove(a[i]) != in {
+			if b, _ := tree.Remove(a[i], nil); b != in {
 				t.Errorf("failed to delete key %v", a[i])
 			}
-			if tree.Remove(a[i]) == true {
+			if b, _ := tree.Remove(a[i], nil); b == true {
 				t.Errorf("can delete a second time key %v", a[i])
 			}
 			delete(content, a[i])
@@ -191,8 +195,9 @@ func TestInOrder0(t *testing.T) {
 		for i := range a {
 			a[i] = _R.Intn(tAddValRange)
 		}
+		buf := make([]uintptr, tAddN)
 		for _, b := range a {
-			tree.Insert(b)
+			_, buf = tree.Insert(b, buf)
 			content[b] = struct{}{}
 		}
 	}
@@ -244,8 +249,9 @@ func TestInOrder1(t *testing.T) {
 		for i := range a {
 			a[i] = _R.Intn(tAddValRange)
 		}
+		buf := make([]uintptr, tAddN)
 		for _, b := range a {
-			tree.Insert(b)
+			_, buf = tree.Insert(b, buf)
 			content[b] = struct{}{}
 		}
 	}
@@ -282,8 +288,9 @@ func TestRankK(t *testing.T) {
 		for i := range a {
 			a[i] = _R.Intn(tAddValRange)
 		}
+		buf := make([]uintptr, bits.Len(tAddValRange))
 		for _, b := range a {
-			tree.Insert(b)
+			_, buf = tree.Insert(b, buf)
 			content[b] = struct{}{}
 		}
 		for k := range content {

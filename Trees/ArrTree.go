@@ -9,21 +9,17 @@ import (
 )
 
 type SBTree[T cmp.Ordered, S constraints.Unsigned] struct {
-	base[S, T]
+	base[T, S]
 	caps [2]int //caps[0]=cap(ifs), caps[1]=cap(vs)
 }
 
 func New[T cmp.Ordered, S constraints.Unsigned](hint S) *SBTree[T, S] {
 	ifs := make([]info[S], 1, hint+1)
 	vs := make([]T, 0, hint)
-	return &SBTree[T, S]{base[S, T]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs))}, [2]int{cap(ifs), cap(vs)}}
+	return &SBTree[T, S]{base[T, S]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs))}, [2]int{cap(ifs), cap(vs)}}
 }
 
-func (u *SBTree[T, S]) Insert(v T) bool {
-	a, _ := u.BufferedInsert(v, nil)
-	return a
-}
-func (u *SBTree[T, S]) BufferedInsert(v T, st []uintptr) (bool, []uintptr) {
+func (u *SBTree[T, S]) Insert(v T, st []uintptr) (bool, []uintptr) {
 	st = st[:0] //offset from ifs[0] to either ifs[i].l or ifs[i].r
 	for curI := u.root; curI != 0; {
 		if v < *u.getV(curI - 1) {
@@ -57,11 +53,7 @@ func (u *SBTree[T, S]) BufferedInsert(v T, st []uintptr) (bool, []uintptr) {
 	u.root = prev
 	return true, st
 }
-func (u *SBTree[T, S]) Remove(v T) bool {
-	a, _ := u.BufferedRemove(v, nil)
-	return a
-}
-func (u *SBTree[T, S]) BufferedRemove(v T, st []uintptr) (bool, []uintptr) {
+func (u *SBTree[T, S]) Remove(v T, st []uintptr) (bool, []uintptr) {
 	st = st[:0] //stores &ifs[i]
 	for curI := &u.root; *curI != 0; {
 		if v < *u.getV(*curI - 1) {
@@ -90,7 +82,7 @@ func (u *SBTree[T, S]) BufferedRemove(v T, st []uintptr) (bool, []uintptr) {
 			for _, a := range st {
 				u.getIf(*(*S)(unsafe.Pointer(a))).sz--
 			}
-			if Go_Utils.CheapRandN(uint32(u.getIf(u.root).sz+1)/2) == 2 { //when sz is 0-2 balancing is unnecessary
+			if Go_Utils.CheapRandN(uint32((u.getIf(u.root).sz+1)/2)) == 2 { //when sz is 0-2 balancing is unnecessary
 				for i := len(st) - 1; i > -1; i-- {
 					if v <= *u.getV(*(*S)(unsafe.Pointer(st[i])) - 1) {
 						u.maintainRight((*S)(unsafe.Pointer(st[i])))
