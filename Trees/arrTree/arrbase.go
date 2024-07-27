@@ -156,13 +156,13 @@ func (u *indexer[S, T]) Clear() {
 }
 func (u *indexer[S, T]) RankK(k S) *T {
 	for curI := u.root; curI != 0; {
-		if lc := *u.getIf(u.getIf(curI).l); k < lc.sz {
-			curI = lc.l
-		} else if k == lc.sz {
-			return u.getV(curI - 1)
-		} else {
-			k -= lc.sz + 1
+		if li := u.getIf(curI).l; k < u.getIf(li).sz {
+			curI = li
+		} else if k > u.getIf(li).sz {
+			k -= u.getIf(li).sz + 1
 			curI = u.getIf(curI).r
+		} else {
+			return u.getV(curI - 1)
 		}
 	}
 	return nil
