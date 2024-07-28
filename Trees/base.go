@@ -2,6 +2,7 @@ package Trees
 
 import (
 	"golang.org/x/exp/constraints"
+	"math/bits"
 	"unsafe"
 )
 
@@ -166,4 +167,30 @@ func (u *base[T, S]) RankK(k S) *T {
 		}
 	}
 	return nil
+}
+
+func buildIfs[S constraints.Unsigned](vsLen S, root *S) []info[S] {
+	ifs := make([]info[S], vsLen+1)
+	st := make([][3]S, 0, bits.Len64(uint64(vsLen))) //[left,right,mid]
+	{
+		m := (1 + vsLen) >> 1
+		*root = m
+		st = append(st, [3]S{1, vsLen, m})
+	}
+	for len(st) > 0 {
+		top := st[len(st)-1]
+		st = st[:len(st)-1]
+		ifs[top[2]].sz = top[1] - top[0] + 1
+		if top[0] < top[2] {
+			nr := top[2] - 1
+			ifs[top[2]].l = (top[0] + nr) >> 1
+			st = append(st, [3]S{top[0], nr, ifs[top[2]].l})
+		}
+		if top[2] < top[1] {
+			nl := top[2] + 1
+			ifs[top[2]].r = (nl + top[1]) >> 1
+			st = append(st, [3]S{nl, top[1], ifs[top[2]].r})
+		}
+	}
+	return ifs
 }

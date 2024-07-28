@@ -308,3 +308,37 @@ func TestRankK(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildIfs(t *testing.T) {
+	count := uint16(_R.Intn(tAddValRange))
+	var root uint16
+	ifs := buildIfs(count, &root)
+	if ifs[root].sz != count {
+		t.Fatalf("wrong size of ifs %d, want %d", ifs[root].sz, count)
+	}
+	if ifs[0].sz != 0 {
+		t.Fatalf("wrong size at 0 %d", ifs[0].sz)
+	}
+	for i, v := range ifs[1:] {
+		if v.sz != ifs[v.l].sz+ifs[v.r].sz+1 {
+			t.Fatalf("wrong size at %d", i+1)
+		}
+	}
+	st := make([]uint16, count/2)
+	st[0] = root
+	all := make(map[uint16]struct{}, count)
+	for st = st[:1]; len(st) > 0; {
+		top := st[len(st)-1]
+		st = st[:len(st)-1]
+		all[top] = struct{}{}
+		if ifs[top].l != 0 {
+			st = append(st, ifs[top].l)
+		}
+		if ifs[top].r != 0 {
+			st = append(st, ifs[top].r)
+		}
+	}
+	if uint16(len(all)) != count {
+		t.Fatalf("unvisited %d %d", len(all), count)
+	}
+}
