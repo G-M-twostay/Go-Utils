@@ -311,8 +311,7 @@ func TestRankK(t *testing.T) {
 
 func TestBuildIfs(t *testing.T) {
 	count := uint16(_R.Intn(tAddValRange))
-	var root uint16
-	ifs := buildIfs(count, &root)
+	root, ifs := buildIfs(count)
 	if ifs[root].sz != count {
 		t.Fatalf("wrong size of ifs %d, want %d", ifs[root].sz, count)
 	}

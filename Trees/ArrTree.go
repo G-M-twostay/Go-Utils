@@ -18,7 +18,10 @@ func New[T cmp.Ordered, S constraints.Unsigned](hint S) *SBTree[T, S] {
 	vs := make([]T, 0, hint)
 	return &SBTree[T, S]{base[T, S]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs))}, [2]int{cap(ifs), cap(vs)}}
 }
-
+func From[T cmp.Ordered, S constraints.Unsigned](vs []T) *SBTree[T, S] {
+	root, ifs := buildIfs(S(len(vs)))
+	return &SBTree[T, S]{base[T, S]{root: root, ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs))}, [2]int{cap(ifs), cap(vs)}}
+}
 func (u *SBTree[T, S]) Insert(v T, st []uintptr) (bool, []uintptr) {
 	st = st[:0] //offset from ifs[0] to either ifs[i].l or ifs[i].r
 	for curI := u.root; curI != 0; {

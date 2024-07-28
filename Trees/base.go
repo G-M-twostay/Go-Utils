@@ -169,13 +169,12 @@ func (u *base[T, S]) RankK(k S) *T {
 	return nil
 }
 
-func buildIfs[S constraints.Unsigned](vsLen S, root *S) []info[S] {
-	ifs := make([]info[S], vsLen+1)
+func buildIfs[S constraints.Unsigned](vsLen S) (root S, ifs []info[S]) {
+	ifs = make([]info[S], vsLen+1)
 	st := make([][3]S, 0, bits.Len64(uint64(vsLen))) //[left,right,mid]
 	{
-		m := (1 + vsLen) >> 1
-		*root = m
-		st = append(st, [3]S{1, vsLen, m})
+		root = (1 + vsLen) >> 1
+		st = append(st, [3]S{1, vsLen, root})
 	}
 	for len(st) > 0 {
 		top := st[len(st)-1]
@@ -192,5 +191,5 @@ func buildIfs[S constraints.Unsigned](vsLen S, root *S) []info[S] {
 			st = append(st, [3]S{nl, top[1], ifs[top[2]].r})
 		}
 	}
-	return ifs
+	return
 }
