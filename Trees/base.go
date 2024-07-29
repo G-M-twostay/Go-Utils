@@ -184,8 +184,8 @@ func (u *base[T, S]) RankK(k S) *T {
 func overflowMid[S constraints.Unsigned](a, b S) S {
 	d := a + b
 	overflowed := d < a
-	c := (^S(0)) >> S(*(*byte)(unsafe.Pointer(&overflowed)))
-	return d>>1 | ^c
+	c := S(*(*byte)(unsafe.Pointer(&overflowed))) << (unsafe.Sizeof(S(0))<<3 - 1)
+	return d>>1 | c
 }
 
 // buildIfs array of size vsLen to represent a complete binary tree.
