@@ -6,16 +6,16 @@ import (
 	"unsafe"
 )
 
-// A node in the SBTree
-// The zero value is meaningless.
+// A node in the Tree
+// The zero value is meaningful.
 type info[S constraints.Unsigned] struct {
 	l, r, sz S
 }
 
 type base[T any, S constraints.Unsigned] struct {
-	root, free, ifsLen S              //free is the beginning of the linked list that contains all the free indexes, in which case we use l as next.
-	ifsHead            unsafe.Pointer //0 is loopback nil. all index is based on ifs. length is size+1
-	vsHead             unsafe.Pointer //v[i]corresponds to ifs[i+1]
+	root, free, ifsLen S              // free is the beginning of the linked list that contains all the free indexes; info[S]::l represents next.
+	ifsHead            unsafe.Pointer // ifs[0] is zero value, which is a 0 size loopback. all index are based on ifs. len(ifs)=size+1
+	vsHead             unsafe.Pointer // v[i] corresponds to ifs[i+1]. len(vs)=size
 }
 
 func (u *base[T, S]) getIf(i S) *info[S] {
@@ -41,13 +41,13 @@ func (u *base[T, S]) rotateRight(ni *S) {
 	*ni = lci
 }
 
-// adds a free index
+// addFree index once.
 func (u *base[T, S]) addFree(a S) {
 	u.getIf(a).l = u.free
 	u.free = a
 }
 
-// gets a free index
+// popFree index once. Returns 0 when there's no free index(when u.free==0).
 func (u *base[T, S]) popFree() S {
 	b := u.free
 	u.free = u.getIf(u.free).l
@@ -88,6 +88,7 @@ func (u *base[T, S]) getV(i S) *T {
 	return (*T)(unsafe.Add(u.vsHead, unsafe.Sizeof(*new(T))*uintptr(i)))
 }
 
+// InOrder traversal of teh tree. When st==nil, uses morris traversal; otherwise, use normal stack based iterative traversal.
 func (u *base[T, S]) InOrder(f func(*T) bool, st []S) []S {
 	if curI := u.root; st == nil { //use morris traversal
 	iter1:
@@ -152,9 +153,19 @@ func (u *base[T, S]) InOrder(f func(*T) bool, st []S) []S {
 func (u *base[T, S]) Size() S {
 	return u.getIf(u.root).sz
 }
-func (u *base[T, S]) Clear() {
-	u.ifsLen = 1
+
+// Clear the tree, also resets memory of underlying value array to size if reset is true. O(1) if reset==false. O(size) if reset==true. Doesn't allocate new arrays.
+func (u *base[T, S]) Clear(reset bool) {
+	if reset {
+		vs := unsafe.Slice((*T)(u.vsHead), u.ifsLen-1)
+		for i := range vs {
+			vs[i] = *new(T)
+		}
+	}
+	u.ifsLen, u.free, u.root = 1, 0, 0
 }
+
+// RankK element in tree, starting from 0.
 func (u *base[T, S]) RankK(k S) *T {
 	for curI := u.root; curI != 0; {
 		if li := u.getIf(curI).l; k < u.getIf(li).sz {
@@ -176,6 +187,8 @@ func overflowMid[S constraints.Unsigned](a, b S) S {
 	c := (^S(0)) >> S(*(*byte)(unsafe.Pointer(&overflowed)))
 	return d>>1 | ^c
 }
+
+// buildIfs array of size vsLen to represent a complete binary tree.
 func buildIfs[S constraints.Unsigned](vsLen S) (root S, ifs []info[S]) {
 	ifs = make([]info[S], vsLen+1)
 	st := make([][3]S, 0, bits.Len64(uint64(vsLen))) //[left,right,mid]

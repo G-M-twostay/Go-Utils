@@ -11,7 +11,7 @@ import (
 var rg = *rand.New(rand.NewSource(0))
 var cache [4]uint
 
-func (u *SBTree[T, S]) _depth(curI S, d byte) {
+func (u *Tree[T, S]) _depth(curI S, d byte) {
 	cur := u.getIf(curI)
 	if cur.l != 0 {
 		u._depth(cur.l, d+1)
@@ -24,7 +24,7 @@ func (u *SBTree[T, S]) _depth(curI S, d byte) {
 		cache[1] += uint(d)
 	}
 }
-func (u *SBTree[T, S]) depth() float32 {
+func (u *Tree[T, S]) depth() float32 {
 	cache[0], cache[1] = 0, 0
 	u._depth(u.root, 1)
 	return float32(cache[1]) / float32(cache[0])
@@ -35,7 +35,7 @@ const (
 	tAddValRange        = 80000
 )
 
-func Test_Insert(t *testing.T) {
+func Test_Add(t *testing.T) {
 	tree := *New[int, uint16](1)
 	content := make(map[int]struct{})
 	{
@@ -46,7 +46,7 @@ func Test_Insert(t *testing.T) {
 		buf := make([]uintptr, bits.Len16(tAddN))
 		for _, b := range a {
 			_, in := content[b]
-			if c, _ := tree.Insert(b, buf); !in && c == false {
+			if c, _ := tree.Add(b, buf); !in && c == false {
 				t.Errorf("failed to insert key %v", b)
 			}
 			content[b] = struct{}{}
@@ -67,10 +67,10 @@ func Test_Insert(t *testing.T) {
 		}
 	}
 }
-func TestDelete(t *testing.T) {
+func Test_Del(t *testing.T) {
 	tree := *New[int, uint16](1)
 	content := make(map[int]struct{})
-	if a, _ := tree.Remove(0, nil); a != false {
+	if a, _ := tree.Del(0, nil); a != false {
 		t.Errorf("empty tree has non existent key %v", 0)
 	}
 	{
@@ -80,15 +80,15 @@ func TestDelete(t *testing.T) {
 		}
 		buf := make([]uintptr, bits.Len(tAddValRange))
 		for _, b := range a {
-			_, buf = tree.Insert(b, buf)
+			_, buf = tree.Add(b, buf)
 			content[b] = struct{}{}
 		}
 		for i := range rg.Intn(len(a)) {
 			_, in := content[a[i]]
-			if b, _ := tree.Remove(a[i], buf); b != in {
+			if b, _ := tree.Del(a[i], buf); b != in {
 				t.Errorf("failed to delete key %v", a[i])
 			}
-			if b, _ := tree.Remove(a[i], buf); b == true {
+			if b, _ := tree.Del(a[i], buf); b == true {
 				t.Errorf("can delete a second time key %v", a[i])
 			}
 			delete(content, a[i])
@@ -120,7 +120,7 @@ func TestDelete(t *testing.T) {
 		}
 	}
 }
-func TestInsertDel(t *testing.T) {
+func Test_AddDel(t *testing.T) {
 	tree := *New[int, uint16](1)
 	content := make(map[int]struct{})
 	{
@@ -130,11 +130,11 @@ func TestInsertDel(t *testing.T) {
 		}
 		buf := make([]uintptr, bits.Len16(tAddN))
 		for _, b := range a {
-			_, buf = tree.Insert(b, buf)
+			_, buf = tree.Add(b, buf)
 			content[b] = struct{}{}
 		}
 		for i := range rg.Intn(len(a)) {
-			_, buf = tree.Remove(a[i], buf)
+			_, buf = tree.Del(a[i], buf)
 			delete(content, a[i])
 		}
 	}
@@ -145,17 +145,17 @@ func TestInsertDel(t *testing.T) {
 		}
 		for _, b := range a {
 			_, in := content[b]
-			if c, _ := tree.Insert(b, nil); !in && c == false {
+			if c, _ := tree.Add(b, nil); !in && c == false {
 				t.Errorf("failed to insert key %v", b)
 			}
 			content[b] = struct{}{}
 		}
 		for i := range rg.Intn(len(a)) {
 			_, in := content[a[i]]
-			if b, _ := tree.Remove(a[i], nil); b != in {
+			if b, _ := tree.Del(a[i], nil); b != in {
 				t.Errorf("failed to delete key %v", a[i])
 			}
-			if b, _ := tree.Remove(a[i], nil); b == true {
+			if b, _ := tree.Del(a[i], nil); b == true {
 				t.Errorf("can delete a second time key %v", a[i])
 			}
 			delete(content, a[i])
@@ -187,7 +187,7 @@ func TestInsertDel(t *testing.T) {
 		}
 	}
 }
-func TestInOrder0(t *testing.T) {
+func Test_InOrder0(t *testing.T) {
 	tree := *New[int](uint16(1))
 	content := make(map[int]struct{})
 	{
@@ -197,7 +197,7 @@ func TestInOrder0(t *testing.T) {
 		}
 		buf := make([]uintptr, tAddN)
 		for _, b := range a {
-			_, buf = tree.Insert(b, buf)
+			_, buf = tree.Add(b, buf)
 			content[b] = struct{}{}
 		}
 	}
@@ -241,7 +241,7 @@ func TestInOrder0(t *testing.T) {
 		t.Errorf("sorted is not sorted")
 	}
 }
-func TestInOrder1(t *testing.T) {
+func Test_InOrder1(t *testing.T) {
 	tree := *New[int](uint16(1))
 	content := make(map[int]struct{})
 	{
@@ -251,7 +251,7 @@ func TestInOrder1(t *testing.T) {
 		}
 		buf := make([]uintptr, tAddN)
 		for _, b := range a {
-			_, buf = tree.Insert(b, buf)
+			_, buf = tree.Add(b, buf)
 			content[b] = struct{}{}
 		}
 	}
@@ -279,7 +279,7 @@ func TestInOrder1(t *testing.T) {
 		t.Errorf("sorted is not sorted")
 	}
 }
-func TestRankK(t *testing.T) {
+func Test_RankK(t *testing.T) {
 	tree := *New[int](uint16(1))
 	sorted := make([]int, 0, tAddN)
 	{
@@ -290,7 +290,7 @@ func TestRankK(t *testing.T) {
 		}
 		buf := make([]uintptr, bits.Len(tAddValRange))
 		for _, b := range a {
-			_, buf = tree.Insert(b, buf)
+			_, buf = tree.Add(b, buf)
 			content[b] = struct{}{}
 		}
 		for k := range content {
@@ -309,7 +309,7 @@ func TestRankK(t *testing.T) {
 	}
 }
 
-func TestBuildIfs(t *testing.T) {
+func Test_buildIfs(t *testing.T) {
 	count := uint16(tAddN)
 	root, ifs := buildIfs(count)
 	if ifs[root].sz != count {
@@ -346,7 +346,7 @@ func TestBuildIfs(t *testing.T) {
 		}
 	}
 }
-func TestFrom(t *testing.T) {
+func Test_From(t *testing.T) {
 	content := make([]int, tAddN)
 	{
 		all := make(map[int]struct{}, len(content))
@@ -378,8 +378,8 @@ func TestFrom(t *testing.T) {
 	}
 	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
 }
-func TestRankOf(t *testing.T) {
-	var tree *SBTree[int, uint16]
+func Test_RankOf(t *testing.T) {
+	var tree *Tree[int, uint16]
 	content := make([]int, tAddN)
 	{
 		for i := range int(tAddN) {
@@ -421,8 +421,8 @@ func TestRankOf(t *testing.T) {
 	}
 }
 
-func TestPreSucc(t *testing.T) {
-	var tree *SBTree[int, uint16]
+func Test_PreSucc(t *testing.T) {
+	var tree *Tree[int, uint16]
 	content := make([]int, tAddN+2)
 	{
 		content[0] = -1
