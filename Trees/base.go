@@ -182,12 +182,12 @@ func buildIfs[S constraints.Unsigned](vsLen S) (root S, ifs []info[S]) {
 		ifs[top[2]].sz = top[1] - top[0] + 1
 		if top[0] < top[2] {
 			nr := top[2] - 1
-			ifs[top[2]].l = (top[0] + nr) >> 1
+			ifs[top[2]].l = top[0]>>1 + nr>>1 + (top[0]&1+nr&1)>>1
 			st = append(st, [3]S{top[0], nr, ifs[top[2]].l})
 		}
 		if top[2] < top[1] {
 			nl := top[2] + 1
-			ifs[top[2]].r = (nl + top[1]) >> 1
+			ifs[top[2]].r = nl>>1 + top[1]>>1 + (nl&1+top[1]&1)>>1
 			st = append(st, [3]S{nl, top[1], ifs[top[2]].r})
 		}
 	}

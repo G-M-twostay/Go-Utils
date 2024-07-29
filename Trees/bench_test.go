@@ -17,7 +17,7 @@ func BenchmarkAdd0(b *testing.B) {
 	for range b.N {
 		tree := *New[int](uint32(0))
 		for range bAddN {
-			tree.Insert(_R.Int(), nil)
+			tree.Insert(rg.Int(), nil)
 		}
 	}
 }
@@ -26,7 +26,7 @@ func BenchmarkAdd1(b *testing.B) {
 		tree := *New[int](bAddN)
 		var buf1 []uintptr
 		for range bAddN {
-			_, buf1 = tree.Insert(_R.Int(), buf1)
+			_, buf1 = tree.Insert(rg.Int(), buf1)
 		}
 	}
 }
@@ -35,7 +35,7 @@ func create(b *testing.B) *SBTree[int, uint32] {
 	tree := New[int, uint32](bAddN)
 	buf := make([]uintptr, bits.Len32(bAddN))
 	for range bAddN {
-		_, buf = tree.Insert(_R.Int(), buf)
+		_, buf = tree.Insert(rg.Int(), buf)
 	}
 	return tree
 }
@@ -80,7 +80,7 @@ func BenchmarkQry(b *testing.B) {
 			tree.Has(v)
 		}
 		for range bAddN - bQryN {
-			tree.Has(_R.Intn(m))
+			tree.Has(rg.Intn(m))
 		}
 	}
 }

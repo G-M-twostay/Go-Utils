@@ -8,7 +8,7 @@ import (
 	"unsafe"
 )
 
-var _R rand.Rand = *rand.New(rand.NewSource(0))
+var rg rand.Rand = *rand.New(rand.NewSource(0))
 var cache [4]uint
 
 func (u *SBTree[T, S]) _depth(curI S, d byte) {
@@ -41,7 +41,7 @@ func Test_Insert(t *testing.T) {
 	{
 		a := make([]int, tAddN)
 		for i := range a {
-			a[i] = _R.Intn(tAddValRange)
+			a[i] = rg.Intn(tAddValRange)
 		}
 		buf := make([]uintptr, bits.Len16(tAddN))
 		for _, b := range a {
@@ -76,14 +76,14 @@ func TestDelete(t *testing.T) {
 	{
 		a := make([]int, tAddN)
 		for i := range a {
-			a[i] = _R.Intn(tAddValRange)
+			a[i] = rg.Intn(tAddValRange)
 		}
 		buf := make([]uintptr, bits.Len16(tAddValRange))
 		for _, b := range a {
 			_, buf = tree.Insert(b, buf)
 			content[b] = struct{}{}
 		}
-		for i := range _R.Intn(len(a)) {
+		for i := range rg.Intn(len(a)) {
 			_, in := content[a[i]]
 			if b, _ := tree.Remove(a[i], buf); b != in {
 				t.Errorf("failed to delete key %v", a[i])
@@ -126,22 +126,22 @@ func TestInsertDel(t *testing.T) {
 	{
 		a := make([]int, tAddN)
 		for i := range a {
-			a[i] = _R.Intn(tAddValRange)
+			a[i] = rg.Intn(tAddValRange)
 		}
 		buf := make([]uintptr, bits.Len16(tAddN))
 		for _, b := range a {
 			_, buf = tree.Insert(b, buf)
 			content[b] = struct{}{}
 		}
-		for i := range _R.Intn(len(a)) {
+		for i := range rg.Intn(len(a)) {
 			_, buf = tree.Remove(a[i], buf)
 			delete(content, a[i])
 		}
 	}
 	{
-		a := make([]int, _R.Intn(int(tAddN)))
+		a := make([]int, rg.Intn(int(tAddN)))
 		for i := range a {
-			a[i] = _R.Intn(tAddValRange)
+			a[i] = rg.Intn(tAddValRange)
 		}
 		for _, b := range a {
 			_, in := content[b]
@@ -150,7 +150,7 @@ func TestInsertDel(t *testing.T) {
 			}
 			content[b] = struct{}{}
 		}
-		for i := range _R.Intn(len(a)) {
+		for i := range rg.Intn(len(a)) {
 			_, in := content[a[i]]
 			if b, _ := tree.Remove(a[i], nil); b != in {
 				t.Errorf("failed to delete key %v", a[i])
@@ -193,7 +193,7 @@ func TestInOrder0(t *testing.T) {
 	{
 		a := make([]int, tAddN)
 		for i := range a {
-			a[i] = _R.Intn(tAddValRange)
+			a[i] = rg.Intn(tAddValRange)
 		}
 		buf := make([]uintptr, tAddN)
 		for _, b := range a {
@@ -205,7 +205,7 @@ func TestInOrder0(t *testing.T) {
 		var s []int
 		tree.InOrder(func(v *int) bool {
 			s = append(s, *v)
-			return _R.Intn(int(tree.Size()/2)) == 0
+			return rg.Intn(int(tree.Size()/2)) == 0
 		}, nil)
 		for _, v := range s {
 			if _, in := content[v]; !in {
@@ -247,7 +247,7 @@ func TestInOrder1(t *testing.T) {
 	{
 		a := make([]int, tAddN)
 		for i := range a {
-			a[i] = _R.Intn(tAddValRange)
+			a[i] = rg.Intn(tAddValRange)
 		}
 		buf := make([]uintptr, tAddN)
 		for _, b := range a {
@@ -286,7 +286,7 @@ func TestRankK(t *testing.T) {
 		content := make(map[int]struct{})
 		a := make([]int, tAddN)
 		for i := range a {
-			a[i] = _R.Intn(tAddValRange)
+			a[i] = rg.Intn(tAddValRange)
 		}
 		buf := make([]uintptr, bits.Len(tAddValRange))
 		for _, b := range a {
@@ -310,7 +310,7 @@ func TestRankK(t *testing.T) {
 }
 
 func TestBuildIfs(t *testing.T) {
-	count := uint16(_R.Intn(tAddValRange))
+	count := uint16(tAddN)
 	root, ifs := buildIfs(count)
 	if ifs[root].sz != count {
 		t.Fatalf("wrong size of ifs %d, want %d", ifs[root].sz, count)
@@ -339,5 +339,41 @@ func TestBuildIfs(t *testing.T) {
 	}
 	if uint16(len(all)) != count {
 		t.Fatalf("unvisited %d %d", len(all), count)
+	}
+	for i := range count {
+		if _, in := all[i+1]; !in {
+			t.Fatalf("missing index %d", i)
+		}
+	}
+}
+func TestFrom(t *testing.T) {
+	content := make([]int, tAddN)
+	{
+		all := make(map[int]struct{}, len(content))
+		for i := 0; i < len(content); {
+			a := rg.Intn(int(tAddN) * 2)
+			if _, in := all[a]; !in {
+				all[a] = struct{}{}
+				content[i] = a
+				i++
+			}
+		}
+	}
+	slices.Sort(content)
+	tree := *From[int, uint16](content)
+	if tree.Size() != uint16(len(content)) {
+		t.Fatalf("tree size is %d, want %d", tree.Size(), len(content))
+	}
+	{
+		s := make([]int, 0, len(content))
+		tree.InOrder(func(v *int) bool {
+			s = append(s, *v)
+			return true
+		}, make([]uint16, 16))
+		for i := range content {
+			if s[i] != content[i] {
+				t.Fatalf("wrong value at index %d", i)
+			}
+		}
 	}
 }
