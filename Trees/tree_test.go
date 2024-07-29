@@ -8,7 +8,7 @@ import (
 	"unsafe"
 )
 
-var rg rand.Rand = *rand.New(rand.NewSource(0))
+var rg = *rand.New(rand.NewSource(0))
 var cache [4]uint
 
 func (u *SBTree[T, S]) _depth(curI S, d byte) {
@@ -418,5 +418,56 @@ func TestRankOf(t *testing.T) {
 	}
 	if a != tree.Size() {
 		t.Fatalf("wrong rank %d", a)
+	}
+}
+
+func TestPreSucc(t *testing.T) {
+	var tree *SBTree[int, uint16]
+	content := make([]int, tAddN+2)
+	{
+		content[0] = -1
+		content[tAddN+1] = int(tAddN) * 3
+		for i := uint16(1); i <= tAddN; i++ {
+			content[i] = int(i) * 2
+		}
+		a := make([]int, len(content))
+		copy(a, content)
+		tree = From[int, uint16](a)
+	}
+	for i := uint16(1); i <= tAddN; i++ {
+		a := *tree.Predecessor(content[i], true)
+		if a != content[i-1] {
+			t.Fatalf("wrong predecessor %d %d", a, content[i-1])
+		}
+		a = *tree.Successor(content[i], true)
+		if a != content[i+1] {
+			t.Fatalf("wrong successor %d %d", a, content[i+1])
+		}
+	}
+	for i := uint16(1); i <= tAddN; i++ {
+		a := *tree.Predecessor(content[i]-1, true)
+		if a != content[i-1] {
+			t.Fatalf("wrong predecessor %d %d", a, content[i-1])
+		}
+		a = *tree.Successor(content[i]+1, true)
+		if a != content[i+1] {
+			t.Fatalf("wrong successor %d %d", a, content[i+1])
+		}
+	}
+	for i := uint16(1); i <= tAddN; i++ {
+		a := *tree.Predecessor(content[i], false)
+		if a != content[i] {
+			t.Fatalf("wrong predecessor %d %d", a, content[i])
+		}
+		a = *tree.Successor(content[i], false)
+		if a != content[i] {
+			t.Fatalf("wrong successor %d %d", a, content[i])
+		}
+	}
+	if tree.Predecessor(content[0], true) != nil {
+		t.Fatal("shouldn't have predecessor")
+	}
+	if tree.Successor(content[len(content)-1], true) != nil {
+		t.Fatal("shouldn't have successor")
 	}
 }

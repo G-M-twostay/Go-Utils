@@ -117,25 +117,47 @@ func (u *SBTree[T, S]) Get(v T) *T {
 	return nil
 }
 
-func (u *SBTree[T, S]) Predecessor(v T) (p *T) {
-	for curI := u.root; curI != 0; {
-		if v <= *u.getV(curI - 1) {
-			curI = u.getIf(curI).l
-		} else {
-			p = u.getV(curI - 1)
-			curI = u.getIf(curI).r
+func (u *SBTree[T, S]) Predecessor(v T, strict bool) (p *T) {
+	if curI := u.root; strict {
+		for curI != 0 {
+			if v <= *u.getV(curI - 1) {
+				curI = u.getIf(curI).l
+			} else {
+				p = u.getV(curI - 1)
+				curI = u.getIf(curI).r
+			}
+		}
+	} else {
+		for curI != 0 {
+			if v < *u.getV(curI - 1) {
+				curI = u.getIf(curI).l
+			} else {
+				p = u.getV(curI - 1)
+				curI = u.getIf(curI).r
+			}
 		}
 	}
 	return
 }
 
-func (u *SBTree[T, S]) Successor(v T) (p *T) {
-	for curI := u.root; curI != 0; {
-		if v < *u.getV(curI - 1) {
-			p = u.getV(curI - 1)
-			curI = u.getIf(curI).l
-		} else {
-			curI = u.getIf(curI).r
+func (u *SBTree[T, S]) Successor(v T, strict bool) (p *T) {
+	if curI := u.root; strict {
+		for curI != 0 {
+			if v < *u.getV(curI - 1) {
+				p = u.getV(curI - 1)
+				curI = u.getIf(curI).l
+			} else {
+				curI = u.getIf(curI).r
+			}
+		}
+	} else {
+		for curI != 0 {
+			if v > *u.getV(curI - 1) {
+				curI = u.getIf(curI).r
+			} else {
+				p = u.getV(curI - 1)
+				curI = u.getIf(curI).l
+			}
 		}
 	}
 	return

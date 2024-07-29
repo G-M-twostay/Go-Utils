@@ -55,9 +55,9 @@ func (u *base[T, S]) popFree() S {
 }
 func (u *base[T, S]) maintainLeft(curI *S) {
 	cur := u.getIf(*curI)
-	if rc, lc := *u.getIf(cur.r), *u.getIf(cur.l); u.getIf(lc.l).sz > rc.sz {
+	if rcsz, lc := u.getIf(cur.r).sz, *u.getIf(cur.l); u.getIf(lc.l).sz > rcsz {
 		u.rotateRight(curI)
-	} else if u.getIf(lc.r).sz > rc.sz {
+	} else if u.getIf(lc.r).sz > rcsz {
 		u.rotateLeft(&cur.l)
 		u.rotateRight(curI)
 	} else {
@@ -70,9 +70,9 @@ func (u *base[T, S]) maintainLeft(curI *S) {
 }
 func (u *base[T, S]) maintainRight(curI *S) {
 	cur := u.getIf(*curI)
-	if rc, lc := *u.getIf(cur.r), *u.getIf(cur.l); u.getIf(rc.r).sz > lc.sz {
+	if rc, lcsz := *u.getIf(cur.r), u.getIf(cur.l).sz; u.getIf(rc.r).sz > lcsz {
 		u.rotateLeft(curI)
-	} else if u.getIf(rc.l).sz > lc.sz {
+	} else if u.getIf(rc.l).sz > lcsz {
 		u.rotateRight(&cur.r)
 		u.rotateLeft(curI)
 	} else {
