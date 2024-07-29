@@ -25,10 +25,10 @@ func From[T cmp.Ordered, S constraints.Unsigned](vs []T) *SBTree[T, S] {
 func (u *SBTree[T, S]) Insert(v T, st []uintptr) (bool, []uintptr) {
 	st = st[:0] //offset from ifs[0] to either ifs[i].l or ifs[i].r
 	for curI := u.root; curI != 0; {
-		if v < *u.getV(curI - 1) {
+		if cvp := u.getV(curI - 1); v < *cvp {
 			st = append(st, uintptr(unsafe.Pointer(&u.getIf(curI).l))-uintptr(u.ifsHead))
 			curI = u.getIf(curI).l
-		} else if v > *u.getV(curI - 1) {
+		} else if v > *cvp {
 			st = append(st, uintptr(unsafe.Pointer(&u.getIf(curI).r))-uintptr(u.ifsHead))
 			curI = u.getIf(curI).r
 		} else {
@@ -59,10 +59,10 @@ func (u *SBTree[T, S]) Insert(v T, st []uintptr) (bool, []uintptr) {
 func (u *SBTree[T, S]) Remove(v T, st []uintptr) (bool, []uintptr) {
 	st = st[:0] //stores &ifs[i]
 	for curI := &u.root; *curI != 0; {
-		if v < *u.getV(*curI - 1) {
+		if cvp := u.getV(*curI - 1); v < *cvp {
 			st = append(st, uintptr(unsafe.Pointer(curI)))
 			curI = &u.getIf(*curI).l
-		} else if v > *u.getV(*curI - 1) {
+		} else if v > *cvp {
 			st = append(st, uintptr(unsafe.Pointer(curI)))
 			curI = &u.getIf(*curI).r
 		} else {
@@ -78,7 +78,7 @@ func (u *SBTree[T, S]) Remove(v T, st []uintptr) (bool, []uintptr) {
 				for u.getIf(*curI).sz--; u.getIf(*si).l != 0; si = &u.getIf(*si).l {
 					u.getIf(*si).sz--
 				}
-				*u.getV(*curI - 1) = *u.getV(*si - 1)
+				*cvp = *u.getV(*si - 1)
 				u.addFree(*si)
 				*si = u.getIf(*si).r
 			}
