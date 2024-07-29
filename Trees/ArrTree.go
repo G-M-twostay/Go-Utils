@@ -102,12 +102,12 @@ func (u *SBTree[T, S]) Remove(v T, st []uintptr) (bool, []uintptr) {
 
 func (u *SBTree[T, S]) Get(v T) *T {
 	for curI := u.root; curI != 0; {
-		if vp := u.getV(curI - 1); v < *vp {
+		if cvp := u.getV(curI - 1); v < *cvp {
 			curI = u.getIf(curI).l
-		} else if v > *vp {
+		} else if v > *cvp {
 			curI = u.getIf(curI).r
 		} else {
-			return vp
+			return cvp
 		}
 	}
 	return nil
@@ -137,17 +137,17 @@ func (u *SBTree[T, S]) Successor(v T) (p *T) {
 	return
 }
 
-//func (u *SBTree[T, S]) RankOf(v T) S {
-//	var ra S = 0
-//	for curI := u.root; curI != 0; {
-//		if lci := u.ifs[curI].l; v < u.vs[curI-1] {
-//			curI = lci
-//		} else if v == u.vs[curI-1] {
-//			return ra + u.ifs[lci].sz + 1
-//		} else {
-//			ra += u.ifs[lci].sz + 1
-//			curI = u.ifs[curI].r
-//		}
-//	}
-//	return 0
-//}
+func (u *SBTree[T, S]) RankOf(v T) (S, bool) {
+	var ra S = 0
+	for curI := u.root; curI != 0; {
+		if cvp := u.getV(curI - 1); v < *cvp {
+			curI = u.getIf(curI).l
+		} else if c := *u.getIf(curI); v > *cvp {
+			ra += u.getIf(c.l).sz + 1
+			curI = c.r
+		} else {
+			return ra + u.getIf(c.l).sz, true
+		}
+	}
+	return ra, false
+}

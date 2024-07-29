@@ -32,7 +32,7 @@ func (u *SBTree[T, S]) depth() float32 {
 
 const (
 	tAddN        uint16 = 40000
-	tAddValRange        = 20000
+	tAddValRange        = 80000
 )
 
 func Test_Insert(t *testing.T) {
@@ -78,7 +78,7 @@ func TestDelete(t *testing.T) {
 		for i := range a {
 			a[i] = rg.Intn(tAddValRange)
 		}
-		buf := make([]uintptr, bits.Len16(tAddValRange))
+		buf := make([]uintptr, bits.Len(tAddValRange))
 		for _, b := range a {
 			_, buf = tree.Insert(b, buf)
 			content[b] = struct{}{}
@@ -351,7 +351,7 @@ func TestFrom(t *testing.T) {
 	{
 		all := make(map[int]struct{}, len(content))
 		for i := 0; i < len(content); {
-			a := rg.Intn(int(tAddN) * 2)
+			a := rg.Intn(tAddValRange)
 			if _, in := all[a]; !in {
 				all[a] = struct{}{}
 				content[i] = a
@@ -377,4 +377,46 @@ func TestFrom(t *testing.T) {
 		}
 	}
 	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
+}
+func TestRankOf(t *testing.T) {
+	var tree *SBTree[int, uint16]
+	content := make([]int, tAddN)
+	{
+		for i := range int(tAddN) {
+			content[i] = i * 2
+		}
+		a := make([]int, len(content))
+		copy(a, content)
+		tree = From[int, uint16](a)
+	}
+	for i, v := range content {
+		a, b := tree.RankOf(v)
+		if !b {
+			t.Fatalf("should have %d %d", i, v)
+		}
+		if a != uint16(i) {
+			t.Fatalf("1wrong rank %d %d", a, i)
+		}
+		a, b = tree.RankOf(v + 1)
+		if b {
+			t.Fatalf("shouldn't have %d %d", i, v)
+		}
+		if a != uint16(i)+1 {
+			t.Fatalf("2wrong rank %d %d", a, i)
+		}
+	}
+	a, b := tree.RankOf(-1)
+	if b {
+		t.Fatalf("shouldn't have %d", -1)
+	}
+	if a != 0 {
+		t.Fatalf("wrong rank %d", a)
+	}
+	a, b = tree.RankOf(tAddValRange + 1)
+	if b {
+		t.Fatalf("shouldn't have %d", tAddValRange+1)
+	}
+	if a != tree.Size() {
+		t.Fatalf("wrong rank %d", a)
+	}
 }
