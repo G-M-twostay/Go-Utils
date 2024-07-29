@@ -57,7 +57,7 @@ func Test_Insert(t *testing.T) {
 	}
 	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
 	for k := range content {
-		if !tree.Has(k) {
+		if tree.Get(k) == nil {
 			t.Errorf("tree does not have key %v", k)
 		}
 	}
@@ -99,7 +99,7 @@ func TestDelete(t *testing.T) {
 	}
 	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
 	for k := range content {
-		if !tree.Has(k) {
+		if tree.Get(k) == nil {
 			t.Errorf("tree does not have key %v", k)
 		}
 	}
@@ -166,7 +166,7 @@ func TestInsertDel(t *testing.T) {
 	}
 	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
 	for k := range content {
-		if !tree.Has(k) {
+		if tree.Get(k) == nil {
 			t.Errorf("tree does not have key %v", k)
 		}
 	}
@@ -376,4 +376,5 @@ func TestFrom(t *testing.T) {
 			}
 		}
 	}
+	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
 }

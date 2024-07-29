@@ -77,10 +77,10 @@ func BenchmarkQry(b *testing.B) {
 		m := slices.Max(all[bQryN:])
 		b.StartTimer()
 		for _, v := range all[:bQryN] {
-			tree.Has(v)
+			tree.Get(v)
 		}
 		for range bAddN - bQryN {
-			tree.Has(rg.Intn(m))
+			tree.Get(rg.Intn(m))
 		}
 	}
 }

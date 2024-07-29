@@ -100,17 +100,17 @@ func (u *SBTree[T, S]) Remove(v T, st []uintptr) (bool, []uintptr) {
 	return false, st
 }
 
-func (u *SBTree[T, S]) Has(v T) bool {
+func (u *SBTree[T, S]) Get(v T) *T {
 	for curI := u.root; curI != 0; {
-		if v < *u.getV(curI - 1) {
+		if vp := u.getV(curI - 1); v < *vp {
 			curI = u.getIf(curI).l
-		} else if v == *u.getV(curI - 1) {
-			return true
-		} else {
+		} else if v > *vp {
 			curI = u.getIf(curI).r
+		} else {
+			return vp
 		}
 	}
-	return false
+	return nil
 }
 
 func (u *SBTree[T, S]) Predecessor(v T) (p *T) {
