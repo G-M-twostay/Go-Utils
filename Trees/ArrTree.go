@@ -35,13 +35,19 @@ func (u *SBTree[T, S]) Insert(v T, st []uintptr) (bool, []uintptr) {
 			return false, st
 		}
 	}
-	prev := u.ifsLen
-	{ //use reflect.SliceHeader to directly set both cap and len.
+	prev := u.popFree()
+	if prev == 0 {
+		prev = u.ifsLen
+		//use reflect.SliceHeader to directly set both cap and len.
 		a := append(*(*[]info[S])(unsafe.Pointer(&reflect.SliceHeader{uintptr(u.ifsHead), int(prev), u.caps[0]})), info[S]{0, 0, 1})
 		u.ifsHead, u.ifsLen, u.caps[0] = unsafe.Pointer(unsafe.SliceData(a)), S(len(a)), cap(a)
 		b := append(*(*[]T)(unsafe.Pointer(&reflect.SliceHeader{uintptr(u.vsHead), int(prev - 1), u.caps[1]})), v)
 		u.vsHead, u.caps[1] = unsafe.Pointer(unsafe.SliceData(b)), cap(b)
+	} else {
+		*u.getIf(prev) = info[S]{0, 0, 1}
+		*u.getV(prev - 1) = v
 	}
+
 	for i := len(st) - 1; i > -1; i-- {
 		*(*S)(unsafe.Add(u.ifsHead, st[i])) = prev //ptr to u.ifs[index].l or u.ifs[index].r
 		index := S(st[i] / unsafe.Sizeof(info[S]{}))
