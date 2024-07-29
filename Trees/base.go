@@ -169,6 +169,13 @@ func (u *base[T, S]) RankK(k S) *T {
 	return nil
 }
 
+// overflowMid is equivalent to (a+b)/2 but deals with overflow.
+func overflowMid[S constraints.Unsigned](a, b S) S {
+	d := a + b
+	overflowed := d < a
+	c := (^S(0)) >> S(*(*byte)(unsafe.Pointer(&overflowed)))
+	return d>>1 | ^c
+}
 func buildIfs[S constraints.Unsigned](vsLen S) (root S, ifs []info[S]) {
 	ifs = make([]info[S], vsLen+1)
 	st := make([][3]S, 0, bits.Len64(uint64(vsLen))) //[left,right,mid]
@@ -182,12 +189,12 @@ func buildIfs[S constraints.Unsigned](vsLen S) (root S, ifs []info[S]) {
 		ifs[top[2]].sz = top[1] - top[0] + 1
 		if top[0] < top[2] {
 			nr := top[2] - 1
-			ifs[top[2]].l = top[0]>>1 + nr>>1 + (top[0]&1+nr&1)>>1
+			ifs[top[2]].l = overflowMid(top[0], nr)
 			st = append(st, [3]S{top[0], nr, ifs[top[2]].l})
 		}
 		if top[2] < top[1] {
 			nl := top[2] + 1
-			ifs[top[2]].r = nl>>1 + top[1]>>1 + (nl&1+top[1]&1)>>1
+			ifs[top[2]].r = overflowMid(nl, top[1])
 			st = append(st, [3]S{nl, top[1], ifs[top[2]].r})
 		}
 	}
