@@ -2,7 +2,6 @@ package Trees
 
 import (
 	"golang.org/x/exp/constraints"
-	"math/bits"
 	"unsafe"
 )
 
@@ -154,11 +153,11 @@ func (u *base[T, S]) Size() S {
 	return u.getIf(u.root).sz
 }
 
-// Clear the tree, also resets memory of underlying value array to size if reset is true. O(1) if reset==false. O(size) if reset==true. Doesn't allocate new arrays.
+// Clear the tree, also resets memory of underlying value array to size if reset is true. Doesn't allocate new arrays.
 func (u *base[T, S]) Clear(reset bool) {
 	if reset {
 		vs := unsafe.Slice((*T)(u.vsHead), u.ifsLen-1)
-		for i := range vs {
+		for i := range vs { //use the memclr optimization.
 			vs[i] = *new(T)
 		}
 	}
@@ -189,12 +188,11 @@ func overflowMid[S constraints.Unsigned](a, b S) S {
 }
 
 // buildIfs array of size vsLen to represent a complete binary tree.
-func buildIfs[S constraints.Unsigned](vsLen S) (root S, ifs []info[S]) {
+func buildIfs[S constraints.Unsigned](vsLen S, st [][3]S) (root S, ifs []info[S]) {
 	ifs = make([]info[S], vsLen+1)
-	st := make([][3]S, 0, bits.Len64(uint64(vsLen))) //[left,right,mid]
 	{
 		root = (1 + vsLen) >> 1
-		st = append(st, [3]S{1, vsLen, root})
+		st = append(st, [3]S{1, vsLen, root}) //[left,right,mid]
 	}
 	for len(st) > 0 {
 		top := st[len(st)-1]

@@ -311,7 +311,7 @@ func Test_RankK(t *testing.T) {
 
 func Test_buildIfs(t *testing.T) {
 	count := uint16(tAddN)
-	root, ifs := buildIfs(count)
+	root, ifs := buildIfs(count, make([][3]uint16, 0, bits.Len16(count)))
 	if ifs[root].sz != count {
 		t.Fatalf("wrong size of ifs %d, want %d", ifs[root].sz, count)
 	}
@@ -469,5 +469,54 @@ func Test_PreSucc(t *testing.T) {
 	}
 	if tree.Successor(content[len(content)-1], true) != nil {
 		t.Fatal("shouldn't have successor")
+	}
+}
+
+func Test_Compact(t *testing.T) {
+	content := make([]int, 0, tAddN)
+	tree := *New[int](uint32(tAddN))
+	{
+		all := make(map[int]struct{}, tAddN)
+		buf := make([]uintptr, bits.Len16(tAddN))
+		for range len(content) / 2 {
+			a := rg.Intn(tAddValRange)
+			_, buf = tree.Add(a, buf)
+			all[a] = struct{}{}
+		}
+	out:
+		for range len(content) {
+			if rg.Uint32()&1 == 0 {
+				for k := range all {
+					if rg.Intn(len(all)) == 0 {
+						delete(all, k)
+						_, buf = tree.Del(k, buf)
+						continue out
+					}
+				}
+				a := rg.Intn(tAddValRange)
+				delete(all, a)
+				_, buf = tree.Del(a, buf)
+			} else {
+				a := rg.Intn(tAddValRange)
+				_, buf = tree.Add(a, buf)
+				all[a] = struct{}{}
+			}
+		}
+	}
+	tree.InOrder(func(vp *int) bool {
+		content = append(content, *vp)
+		return true
+	}, nil)
+	tree.Compact()
+	tc := make([]int, 0, tree.Size())
+	tree.InOrder(func(vp *int) bool {
+		tc = append(tc, *vp)
+		return true
+	}, nil)
+	if !slices.Equal(tc, content) {
+		t.Fail()
+	}
+	if tree.caps[0] != int(tree.ifsLen) {
+		t.Fatal("not compact")
 	}
 }
