@@ -35,7 +35,7 @@ const (
 	tAddValRange        = 80000
 )
 
-func Test_Add(t *testing.T) {
+func TestTree_Add(t *testing.T) {
 	tree := *New[int, uint16](1)
 	content := make(map[int]struct{})
 	{
@@ -67,7 +67,7 @@ func Test_Add(t *testing.T) {
 		}
 	}
 }
-func Test_Del(t *testing.T) {
+func TestTree_Del(t *testing.T) {
 	tree := *New[int, uint16](1)
 	content := make(map[int]struct{})
 	if a, _ := tree.Del(0, nil); a != false {
@@ -120,7 +120,7 @@ func Test_Del(t *testing.T) {
 		}
 	}
 }
-func Test_AddDel(t *testing.T) {
+func TestTree_AddDel(t *testing.T) {
 	tree := *New[int, uint16](1)
 	content := make(map[int]struct{})
 	{
@@ -187,7 +187,7 @@ func Test_AddDel(t *testing.T) {
 		}
 	}
 }
-func Test_InOrder0(t *testing.T) {
+func TestTree_InOrder0(t *testing.T) {
 	tree := *New[int](uint16(1))
 	content := make(map[int]struct{})
 	{
@@ -241,7 +241,7 @@ func Test_InOrder0(t *testing.T) {
 		t.Errorf("sorted is not sorted")
 	}
 }
-func Test_InOrder1(t *testing.T) {
+func TestTree_InOrder1(t *testing.T) {
 	tree := *New[int](uint16(1))
 	content := make(map[int]struct{})
 	{
@@ -279,7 +279,7 @@ func Test_InOrder1(t *testing.T) {
 		t.Errorf("sorted is not sorted")
 	}
 }
-func Test_RankK(t *testing.T) {
+func TestTree_RankK(t *testing.T) {
 	tree := *New[int](uint16(1))
 	sorted := make([]int, 0, tAddN)
 	{
@@ -309,7 +309,7 @@ func Test_RankK(t *testing.T) {
 	}
 }
 
-func Test_buildIfs(t *testing.T) {
+func TestTree_buildIfs(t *testing.T) {
 	count := uint16(tAddN)
 	root, ifs := buildIfs(count, make([][3]uint16, 0, bits.Len16(count)))
 	if ifs[root].sz != count {
@@ -346,7 +346,7 @@ func Test_buildIfs(t *testing.T) {
 		}
 	}
 }
-func Test_From(t *testing.T) {
+func TestTree_From(t *testing.T) {
 	content := make([]int, tAddN)
 	{
 		all := make(map[int]struct{}, len(content))
@@ -378,7 +378,7 @@ func Test_From(t *testing.T) {
 	}
 	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
 }
-func Test_RankOf(t *testing.T) {
+func TestTree_RankOf(t *testing.T) {
 	var tree *Tree[int, uint16]
 	content := make([]int, tAddN)
 	{
@@ -421,7 +421,7 @@ func Test_RankOf(t *testing.T) {
 	}
 }
 
-func Test_PreSucc(t *testing.T) {
+func TestTree_PreSucc(t *testing.T) {
 	var tree *Tree[int, uint16]
 	content := make([]int, tAddN+2)
 	{
@@ -472,7 +472,7 @@ func Test_PreSucc(t *testing.T) {
 	}
 }
 
-func Test_Compact(t *testing.T) {
+func TestTree_Compact(t *testing.T) {
 	content := make([]int, 0, tAddN)
 	tree := *New[int](uint32(tAddN))
 	{
