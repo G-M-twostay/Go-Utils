@@ -79,16 +79,16 @@ func (u *Tree[T, S]) Del(v T, st []uintptr) (bool, []uintptr) {
 			st = append(st, uintptr(unsafe.Pointer(curI)))
 			curI = &u.getIf(*curI).r
 		} else {
-			if u.getIf(*curI).l == 0 {
+			if cur := u.getIf(*curI); cur.l == 0 {
 				u.addFree(*curI)
-				*curI = u.getIf(*curI).r
-			} else if u.getIf(*curI).r == 0 {
+				*curI = cur.r
+			} else if cur.r == 0 {
 				a := *curI
-				*curI = u.getIf(*curI).l
+				*curI = cur.l
 				u.addFree(a)
 			} else {
-				si := &u.getIf(*curI).r
-				for u.getIf(*curI).sz--; u.getIf(*si).l != 0; si = &u.getIf(*si).l {
+				si := &cur.r
+				for cur.sz--; u.getIf(*si).l != 0; si = &u.getIf(*si).l {
 					u.getIf(*si).sz--
 				}
 				*cvp = *u.getV(*si - 1)
