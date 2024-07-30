@@ -31,11 +31,13 @@ func (u *Tree[T, S]) Add(v T, st []uintptr) (bool, []uintptr) {
 	st = st[:0] // address offset from ifs[0] to either ifs[i].l or ifs[i].r
 	for curI := u.root; curI != 0; {
 		if cvp := u.getV(curI - 1); v < *cvp {
-			st = append(st, uintptr(unsafe.Pointer(&u.getIf(curI).l))-uintptr(u.ifsHead))
-			curI = u.getIf(curI).l
+			l := &u.getIf(curI).l
+			st = append(st, uintptr(unsafe.Pointer(l))-uintptr(u.ifsHead))
+			curI = *l
 		} else if v > *cvp {
-			st = append(st, uintptr(unsafe.Pointer(&u.getIf(curI).r))-uintptr(u.ifsHead))
-			curI = u.getIf(curI).r
+			r := &u.getIf(curI).r
+			st = append(st, uintptr(unsafe.Pointer(r))-uintptr(u.ifsHead))
+			curI = *r
 		} else {
 			return false, st
 		}
@@ -193,13 +195,13 @@ func (u *Tree[T, S]) RankOf(v T) (S, bool) {
 func (u *Tree[T, S]) Compact() {
 	if u.free == 0 {
 		{
-			a := make([]info[S], u.ifsLen)
-			copy(a, unsafe.Slice((*info[S])(u.ifsHead), u.ifsLen))
-			u.ifsHead, u.caps[0] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
+			a := make([]T, u.ifsLen-1)
+			copy(a, unsafe.Slice((*T)(u.vsHead), u.ifsLen-1))
+			u.vsHead, u.caps[1] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
 		}
-		a := make([]T, u.ifsLen-1)
-		copy(a, unsafe.Slice((*T)(u.vsHead), u.ifsLen-1))
-		u.vsHead, u.caps[1] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
+		a := make([]info[S], u.ifsLen)
+		copy(a, unsafe.Slice((*info[S])(u.ifsHead), u.ifsLen))
+		u.ifsHead, u.caps[0] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
 	} else {
 		u.free = 0
 		{
@@ -211,7 +213,7 @@ func (u *Tree[T, S]) Compact() {
 			u.vsHead, u.caps[1] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
 		}
 		var a []info[S]
-		u.root, a = buildIfs[S](u.ifsLen-1, *(*[][3]S)(unsafe.Pointer(&reflect.SliceHeader{uintptr(u.ifsHead), 0, u.caps[0] * 3})))
-		u.ifsHead, u.caps[0] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
+		u.root, a = buildIfs[S](u.Size(), *(*[][3]S)(unsafe.Pointer(&reflect.SliceHeader{uintptr(u.ifsHead), 0, u.caps[0] * 3})))
+		u.ifsHead, u.caps[0], u.ifsLen = unsafe.Pointer(unsafe.SliceData(a)), cap(a), S(len(a))
 	}
 }

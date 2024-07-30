@@ -478,24 +478,22 @@ func Test_Compact(t *testing.T) {
 	{
 		all := make(map[int]struct{}, tAddN)
 		buf := make([]uintptr, bits.Len16(tAddN))
-		for range len(content) / 2 {
+		for range cap(content) / 2 {
 			a := rg.Intn(tAddValRange)
 			_, buf = tree.Add(a, buf)
 			all[a] = struct{}{}
 		}
-	out:
-		for range len(content) {
+		for range cap(content) {
 			if rg.Uint32()&1 == 0 {
+				i := len(all)
 				for k := range all {
-					if rg.Intn(len(all)) == 0 {
+					if rg.Intn(i) == 0 {
 						delete(all, k)
 						_, buf = tree.Del(k, buf)
-						continue out
+						break
 					}
+					i--
 				}
-				a := rg.Intn(tAddValRange)
-				delete(all, a)
-				_, buf = tree.Del(a, buf)
 			} else {
 				a := rg.Intn(tAddValRange)
 				_, buf = tree.Add(a, buf)
@@ -503,6 +501,7 @@ func Test_Compact(t *testing.T) {
 			}
 		}
 	}
+	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
 	tree.InOrder(func(vp *int) bool {
 		content = append(content, *vp)
 		return true
