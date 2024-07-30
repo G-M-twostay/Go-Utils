@@ -505,7 +505,7 @@ func TestTree_Compact(t *testing.T) {
 	tree.InOrder(func(vp *int) bool {
 		content = append(content, *vp)
 		return true
-	}, nil)
+	}, make([]uint32, 0))
 	tree.Compact()
 	tc := make([]int, 0, tree.Size())
 	tree.InOrder(func(vp *int) bool {
@@ -513,6 +513,8 @@ func TestTree_Compact(t *testing.T) {
 		return true
 	}, nil)
 	if !slices.Equal(tc, content) {
+		t.Log(content)
+		t.Log(tc)
 		t.Fail()
 	}
 	if tree.caps[0] != int(tree.ifsLen) {

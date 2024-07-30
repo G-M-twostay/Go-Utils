@@ -11,19 +11,18 @@ import (
 
 type Tree[T cmp.Ordered, S constraints.Unsigned] struct {
 	base[T, S]
-	caps [2]int //caps[0]=cap(ifs), caps[1]=cap(vs)
 }
 
 func New[T cmp.Ordered, S constraints.Unsigned](hint S) *Tree[T, S] {
 	ifs := make([]info[S], 1, hint+1)
 	vs := make([]T, 0, hint)
-	return &Tree[T, S]{base[T, S]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs))}, [2]int{cap(ifs), cap(vs)}}
+	return &Tree[T, S]{base[T, S]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs)), caps: [2]int{cap(ifs), cap(vs)}}}
 }
 
 // From a given value array, directly build a tree. The array is handled to the tree and it mustn't be modified by the caller later.
 func From[T cmp.Ordered, S constraints.Unsigned](vs []T) *Tree[T, S] {
 	root, ifs := buildIfs(S(len(vs)), make([][3]S, 0, bits.Len(uint(len(vs)))))
-	return &Tree[T, S]{base[T, S]{root: root, ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs))}, [2]int{cap(ifs), cap(vs)}}
+	return &Tree[T, S]{base[T, S]{root: root, ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs)), caps: [2]int{cap(ifs), cap(vs)}}}
 }
 
 // Add an element to the tree. Add guarantees that holes are filled first before appending to the underlying arrays.
@@ -189,31 +188,4 @@ func (u *Tree[T, S]) RankOf(v T) (S, bool) {
 		}
 	}
 	return ra, false
-}
-
-// Compact the tree by copying the content to a smaller array and filling the holes if necessary.
-func (u *Tree[T, S]) Compact() {
-	if u.free == 0 {
-		{
-			a := make([]T, u.ifsLen-1)
-			copy(a, unsafe.Slice((*T)(u.vsHead), u.ifsLen-1))
-			u.vsHead, u.caps[1] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
-		}
-		a := make([]info[S], u.ifsLen)
-		copy(a, unsafe.Slice((*info[S])(u.ifsHead), u.ifsLen))
-		u.ifsHead, u.caps[0] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
-	} else {
-		u.free = 0
-		{
-			a := make([]T, 0, u.ifsLen-1)
-			u.InOrder(func(vp *T) bool {
-				a = append(a, *vp)
-				return true
-			}, nil)
-			u.vsHead, u.caps[1] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
-		}
-		var a []info[S]
-		u.root, a = buildIfs[S](u.Size(), *(*[][3]S)(unsafe.Pointer(&reflect.SliceHeader{uintptr(u.ifsHead), 0, u.caps[0] * 3})))
-		u.ifsHead, u.caps[0], u.ifsLen = unsafe.Pointer(unsafe.SliceData(a)), cap(a), S(len(a))
-	}
 }

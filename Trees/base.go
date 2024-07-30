@@ -2,6 +2,7 @@ package Trees
 
 import (
 	"golang.org/x/exp/constraints"
+	"reflect"
 	"unsafe"
 )
 
@@ -15,6 +16,7 @@ type base[T any, S constraints.Unsigned] struct {
 	root, free, ifsLen S              // free is the beginning of the linked list that contains all the free indexes; info[S]::l represents next.
 	ifsHead            unsafe.Pointer // ifs[0] is zero value, which is a 0 size loopback. all index are based on ifs. len(ifs)=size+1
 	vsHead             unsafe.Pointer // v[i] corresponds to ifs[i+1]. len(vs)=size
+	caps               [2]int         //caps[0]=cap(ifs), caps[1]=cap(vs)
 }
 
 func (u *base[T, S]) getIf(i S) *info[S] {
@@ -210,4 +212,31 @@ func buildIfs[S constraints.Unsigned](vsLen S, st [][3]S) (root S, ifs []info[S]
 		}
 	}
 	return
+}
+
+// Compact the tree by copying the content to a smaller array and filling the holes if necessary.
+func (u *base[T, S]) Compact() {
+	if u.free == 0 {
+		{
+			a := make([]T, u.ifsLen-1)
+			copy(a, unsafe.Slice((*T)(u.vsHead), u.ifsLen-1))
+			u.vsHead, u.caps[1] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
+		}
+		a := make([]info[S], u.ifsLen)
+		copy(a, unsafe.Slice((*info[S])(u.ifsHead), u.ifsLen))
+		u.ifsHead, u.caps[0] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
+	} else {
+		u.free = 0
+		{
+			a := make([]T, 0, u.ifsLen-1)
+			u.InOrder(func(vp *T) bool {
+				a = append(a, *vp)
+				return true
+			}, nil)
+			u.vsHead, u.caps[1] = unsafe.Pointer(unsafe.SliceData(a)), cap(a)
+		}
+		var a []info[S]
+		u.root, a = buildIfs[S](u.Size(), *(*[][3]S)(unsafe.Pointer(&reflect.SliceHeader{uintptr(u.ifsHead), 0, u.caps[0]})))
+		u.ifsHead, u.caps[0], u.ifsLen = unsafe.Pointer(unsafe.SliceData(a)), cap(a), S(len(a))
+	}
 }
