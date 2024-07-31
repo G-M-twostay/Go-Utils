@@ -182,3 +182,12 @@ func (u *CTree[T, S]) RankOf(v T) (S, bool) {
 	}
 	return ra, false
 }
+
+// Zero all the removed elements(holes) in the value array.
+func (u *CTree[T, S]) Zero() (count S) {
+	for curI := u.free; curI != 0; curI = u.getIf(curI).l {
+		*u.getV(curI - 1) = *new(T)
+		count++
+	}
+	return count
+}

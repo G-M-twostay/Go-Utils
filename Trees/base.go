@@ -216,13 +216,10 @@ func (u *base[T, S]) Size() S {
 	return u.getIf(u.root).sz
 }
 
-// Clear the tree, also resets memory of underlying value array to size if reset is true. Doesn't allocate new arrays.
-func (u *base[T, S]) Clear(reset bool) {
-	if reset {
-		vs := unsafe.Slice((*T)(u.vsHead), u.ifsLen-1)
-		for i := range vs { //use the memclr optimization.
-			vs[i] = *new(T)
-		}
+// Clear the tree, also zeroes the value array's values if zero is true. Doesn't allocate new arrays.
+func (u *base[T, S]) Clear(zero bool) {
+	if zero {
+		clear(unsafe.Slice((*T)(u.vsHead), u.ifsLen-1))
 	}
 	u.ifsLen, u.free, u.root = 1, 0, 0
 }
