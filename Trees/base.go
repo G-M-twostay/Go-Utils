@@ -6,7 +6,7 @@ import (
 	"unsafe"
 )
 
-// A node in the Tree
+// A node in the Tree.
 // The zero value is meaningful.
 type info[S constraints.Unsigned] struct {
 	l, r, sz S

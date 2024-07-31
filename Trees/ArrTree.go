@@ -9,6 +9,7 @@ import (
 	"unsafe"
 )
 
+// Tree is a variant that supports only cmp.Ordered as keys.
 type Tree[T cmp.Ordered, S constraints.Unsigned] struct {
 	base[T, S]
 }
