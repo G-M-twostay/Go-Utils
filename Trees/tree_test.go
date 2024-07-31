@@ -279,6 +279,98 @@ func TestTree_InOrder1(t *testing.T) {
 		t.Errorf("sorted is not sorted")
 	}
 }
+func TestTree_InOrderR0(t *testing.T) {
+	tree := *New[int](uint16(1))
+	content := make(map[int]struct{})
+	{
+		a := make([]int, tAddN)
+		for i := range a {
+			a[i] = rg.Intn(tAddValRange)
+		}
+		buf := make([]uintptr, tAddN)
+		for _, b := range a {
+			_, buf = tree.Add(b, buf)
+			content[b] = struct{}{}
+		}
+	}
+	for range 10 {
+		var s []int
+		tree.InOrder(func(v *int) bool {
+			s = append(s, *v)
+			return rg.Intn(int(tree.Size()/2)) == 0
+		}, nil)
+		for _, v := range s {
+			if _, in := content[v]; !in {
+				t.Errorf("sorted has non existent key %v", v)
+			}
+		}
+		if slices.Reverse(s); !slices.IsSorted(s) {
+			t.Log(s)
+			t.Errorf("sorted is not sorted")
+		}
+	}
+	var s []int
+	tree.InOrderR(func(v *int) bool {
+		s = append(s, *v)
+		return true
+	}, nil)
+	if int(tree.Size()) != len(s) {
+		t.Errorf("sorted size is %d, want %d", tree.Size(), len(content))
+	}
+	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
+	for k := range content {
+		if !slices.Contains(s, k) {
+			t.Errorf("sorted does not have key %v", k)
+		}
+	}
+	for _, v := range s {
+		if _, in := content[v]; !in {
+			t.Errorf("sorted has non existent key %v", v)
+		}
+	}
+	if slices.Reverse(s); !slices.IsSorted(s) {
+		t.Log(s)
+		t.Errorf("sorted is not sorted")
+	}
+}
+func TestTree_InOrderR1(t *testing.T) {
+	tree := *New[int](uint16(1))
+	content := make(map[int]struct{})
+	{
+		a := make([]int, tAddN)
+		for i := range a {
+			a[i] = rg.Intn(tAddValRange)
+		}
+		buf := make([]uintptr, tAddN)
+		for _, b := range a {
+			_, buf = tree.Add(b, buf)
+			content[b] = struct{}{}
+		}
+	}
+	var s []int
+	tree.InOrderR(func(v *int) bool {
+		s = append(s, *v)
+		return true
+	}, make([]uint16, 0))
+	if int(tree.Size()) != len(s) {
+		t.Errorf("sorted size is %d, want %d", tree.Size(), len(content))
+	}
+	t.Logf("depth: %f, size: %d.\n", tree.depth(), tree.Size())
+	for k := range content {
+		if !slices.Contains(s, k) {
+			t.Errorf("sorted does not have key %v", k)
+		}
+	}
+	for _, v := range s {
+		if _, in := content[v]; !in {
+			t.Errorf("sorted has non existent key %v", v)
+		}
+	}
+	if slices.Reverse(s); !slices.IsSorted(s) {
+		t.Log(s)
+		t.Errorf("sorted is not sorted")
+	}
+}
 func TestTree_RankK(t *testing.T) {
 	tree := *New[int](uint16(1))
 	sorted := make([]int, 0, tAddN)

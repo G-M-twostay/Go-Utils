@@ -151,6 +151,67 @@ func (u *base[T, S]) InOrder(f func(*T) bool, st []S) []S {
 	return st
 }
 
+func (u *base[T, S]) InOrderR(f func(*T) bool, st []S) []S {
+	if curI := u.root; st == nil { //use morris traversal
+	iter1:
+		for curI != 0 {
+			if u.getIf(curI).r == 0 {
+				if !f(u.getV(curI - 1)) {
+					break
+				}
+				curI = u.getIf(curI).l
+			} else {
+				for next := u.getIf(u.getIf(curI).r); ; next = u.getIf(next.l) {
+					if next.l == 0 {
+						next.l = curI
+						curI = u.getIf(curI).r
+						break
+					} else if next.l == curI {
+						next.l = 0
+						if !f(u.getV(curI - 1)) {
+							break iter1
+						}
+						curI = u.getIf(curI).l
+						break
+					}
+				}
+
+			}
+		}
+		for curI != 0 { //deplete the remaining traversal.
+			if u.getIf(curI).r == 0 {
+				curI = u.getIf(curI).l
+			} else {
+				for next := u.getIf(u.getIf(curI).r); ; next = u.getIf(next.l) {
+					if next.l == 0 {
+						next.l = curI
+						curI = u.getIf(curI).r
+						break
+					} else if next.l == curI {
+						next.l = 0
+						curI = u.getIf(curI).l
+						break
+					}
+				}
+			}
+		}
+	} else { //use normal traversal
+		for st = st[:0]; curI != 0; curI = u.getIf(curI).r {
+			st = append(st, curI)
+		}
+		for len(st) > 0 {
+			curI, st = st[len(st)-1], st[:len(st)-1]
+			if !f(u.getV(curI - 1)) {
+				break
+			}
+			for curI = u.getIf(curI).l; curI != 0; curI = u.getIf(curI).r {
+				st = append(st, curI)
+			}
+		}
+	}
+	return st
+}
+
 func (u *base[T, S]) Size() S {
 	return u.getIf(u.root).sz
 }
