@@ -29,11 +29,11 @@ func From[T cmp.Ordered, S constraints.Unsigned](vs []T) *Tree[T, S] {
 func (u *Tree[T, S]) Add(v T, st []uintptr) (bool, []uintptr) {
 	st = st[:0] // address offset from ifs[0] to either ifs[i].l or ifs[i].r
 	for curI := u.root; curI != 0; {
-		if cvp := u.getV(curI - 1); v < *cvp {
+		if v < *u.getV(curI - 1) {
 			l := &u.getIf(curI).l
 			st = append(st, uintptr(unsafe.Pointer(l))-uintptr(u.ifsHead))
 			curI = *l
-		} else if v > *cvp {
+		} else if v > *u.getV(curI - 1) {
 			r := &u.getIf(curI).r
 			st = append(st, uintptr(unsafe.Pointer(r))-uintptr(u.ifsHead))
 			curI = *r
@@ -178,13 +178,13 @@ func (u *Tree[T, S]) Successor(v T, strict bool) (p *T) {
 func (u *Tree[T, S]) RankOf(v T) (S, bool) {
 	var ra S = 0
 	for curI := u.root; curI != 0; {
-		if cvp := u.getV(curI - 1); v < *cvp {
-			curI = u.getIf(curI).l
-		} else if c := *u.getIf(curI); v > *cvp {
-			ra += u.getIf(c.l).sz + 1
-			curI = c.r
+		if cur := *u.getIf(curI); v < *u.getV(curI - 1) {
+			curI = cur.l
+		} else if v > *u.getV(curI - 1) {
+			ra += u.getIf(cur.l).sz + 1
+			curI = cur.r
 		} else {
-			return ra + u.getIf(c.l).sz, true
+			return ra + u.getIf(cur.l).sz, true
 		}
 	}
 	return ra, false

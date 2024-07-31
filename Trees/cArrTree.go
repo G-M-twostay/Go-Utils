@@ -171,13 +171,13 @@ func (u *CTree[T, S]) Successor(v T, strict bool) (p *T) {
 func (u *CTree[T, S]) RankOf(v T) (S, bool) {
 	var ra S = 0
 	for curI := u.root; curI != 0; {
-		if order := u.Cmp(v, *u.getV(curI - 1)); order < 0 {
-			curI = u.getIf(curI).l
-		} else if c := *u.getIf(curI); order > 0 {
-			ra += u.getIf(c.l).sz + 1
-			curI = c.r
+		if order, cur := u.Cmp(v, *u.getV(curI - 1)), *u.getIf(curI); order < 0 {
+			curI = cur.l
+		} else if order > 0 {
+			ra += u.getIf(cur.l).sz + 1
+			curI = cur.r
 		} else {
-			return ra + u.getIf(c.l).sz, true
+			return ra + u.getIf(cur.l).sz, true
 		}
 	}
 	return ra, false
