@@ -1,6 +1,8 @@
 package Trees
 
 import (
+	"cmp"
+	rbt "github.com/emirpasic/gods/trees/redblacktree"
 	"math/bits"
 	"slices"
 	"testing"
@@ -13,7 +15,15 @@ var (
 	bQryN uint32 = bAddN / 2
 )
 
-func BenchmarkAdd0(b *testing.B) {
+func BenchmarkRBT_Put(b *testing.B) {
+	for range b.N {
+		tree := *rbt.NewWithIntComparator()
+		for range bAddN {
+			tree.Put(rg.Int(), nil)
+		}
+	}
+}
+func BenchmarkSBT_Add0(b *testing.B) {
 	for range b.N {
 		tree := *New[int](uint32(0))
 		var buf []uintptr
@@ -22,42 +32,62 @@ func BenchmarkAdd0(b *testing.B) {
 		}
 	}
 }
-func BenchmarkAdd1(b *testing.B) {
+func BenchmarkSBT_Add1(b *testing.B) {
 	for range b.N {
 		tree := *New[int](bAddN)
-		buf := make([]uintptr, bits.Len32(bAddN))
+		buf := make([]uintptr, bits.Len32(bAddN)*4/3)
 		for range bAddN {
 			_, buf = tree.Add(rg.Int(), buf)
 		}
 	}
 }
-func create(b *testing.B) *Tree[int, uint32] {
+func createSBT(b *testing.B) *Tree[int, uint32] {
 	b.Helper()
 	all := make([]int, bAddN)
 	rg.Read(unsafe.Slice((*byte)(unsafe.Pointer(unsafe.SliceData(all))), uintptr(bAddN)*unsafe.Sizeof(0)))
 	slices.Sort(all)
 	return From[int, uint32](all)
 }
-func BenchmarkDel0(b *testing.B) {
+func createRBT(b *testing.B) *rbt.Tree {
+	b.Helper()
+	tree := rbt.NewWithIntComparator()
+	for range bAddN {
+		tree.Put(rg.Int(), nil)
+	}
+	return tree
+}
+func BenchmarkRBT_Remove(b *testing.B) {
+	for range b.N {
+		b.StopTimer()
+		tree := *createRBT(b)
+		all := tree.Keys()
+		b.StartTimer()
+		for _, v := range all {
+			tree.Remove(v)
+		}
+	}
+}
+func BenchmarkSBT_Del0(b *testing.B) {
 	all := make([]int, bAddN)
 	b.ResetTimer()
 	for range b.N {
 		b.StopTimer()
-		tree := *create(b)
+		tree := *createSBT(b)
 		copy(all, unsafe.Slice((*int)(tree.vsHead), tree.ifsLen-1))
 		b.StartTimer()
+		var buf []uintptr
 		for _, v := range all {
-			tree.Del(v, nil)
+			_, buf = tree.Del(v, buf)
 		}
 	}
 }
 
-func BenchmarkDel1(b *testing.B) {
+func BenchmarkSBT_Del1(b *testing.B) {
 	all := make([]int, bAddN)
 	b.ResetTimer()
 	for range b.N {
 		b.StopTimer()
-		tree := *create(b)
+		tree := *createSBT(b)
 		copy(all, unsafe.Slice((*int)(tree.vsHead), tree.ifsLen-1))
 		b.StartTimer()
 		buf := make([]uintptr, bits.Len32(bAddN))
@@ -67,14 +97,35 @@ func BenchmarkDel1(b *testing.B) {
 	}
 }
 
-var sideEff *int
+var sideEff0 *int
+var sideEff1 bool
 
-func BenchmarkQry(b *testing.B) {
+func BenchmarkRBT_Get(b *testing.B) {
+	for range b.N {
+		b.StopTimer()
+		tree := *createRBT(b)
+		all := tree.Keys()
+		rg.Shuffle(int(bQryN), func(i, j int) {
+			all[i], all[j] = all[j], all[i]
+		})
+		m := slices.MaxFunc(all[bQryN:], func(a, b any) int {
+			return cmp.Compare(a.(int), b.(int))
+		}).(int)
+		b.StartTimer()
+		for _, v := range all[:bQryN] {
+			_, sideEff1 = tree.Get(v)
+		}
+		for range bAddN - bQryN {
+			_, sideEff1 = tree.Get(rg.Intn(m))
+		}
+	}
+}
+func BenchmarkSBT_Get(b *testing.B) {
 	all := make([]int, bAddN)
 	b.ResetTimer()
 	for range b.N {
 		b.StopTimer()
-		tree := *create(b)
+		tree := *createSBT(b)
 		copy(all, unsafe.Slice((*int)(tree.vsHead), tree.ifsLen-1))
 		rg.Shuffle(int(bQryN), func(i, j int) {
 			all[i], all[j] = all[j], all[i]
@@ -82,10 +133,10 @@ func BenchmarkQry(b *testing.B) {
 		m := slices.Max(all[bQryN:])
 		b.StartTimer()
 		for _, v := range all[:bQryN] {
-			sideEff = tree.Get(v)
+			sideEff0 = tree.Get(v)
 		}
 		for range bAddN - bQryN {
-			sideEff = tree.Get(rg.Intn(m))
+			sideEff0 = tree.Get(rg.Intn(m))
 		}
 	}
 }
