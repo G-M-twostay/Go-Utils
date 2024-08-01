@@ -2,7 +2,9 @@ package Trees
 
 import (
 	"cmp"
-	rbt "github.com/emirpasic/gods/trees/redblacktree"
+	impl1 "github.com/emirpasic/gods/trees/redblacktree"
+	impl3 "github.com/google/btree"
+	impl2 "github.com/petar/GoLLRB/llrb"
 	"math/bits"
 	"slices"
 	"testing"
@@ -10,14 +12,34 @@ import (
 )
 
 var (
-	bAddN uint32 = 1000000
-	bRmvN uint32 = bAddN
-	bQryN uint32 = bAddN / 2
+	bAddN  uint32 = 1000000
+	bRmvN  uint32 = bAddN
+	bQryN  uint32 = bAddN / 2
+	bBTDeg        = 4
 )
 
+func BenchmarkBT_ReplaceOrInsert(b *testing.B) {
+	for range b.N {
+		tree := impl3.NewOrderedG[int](bBTDeg)
+		for range bAddN {
+			tree.ReplaceOrInsert(rg.Int())
+		}
+	}
+}
+func BenchmarkLLRB_ReplaceOrInsertBulk(b *testing.B) {
+	all := make([]impl2.Item, bAddN)
+	b.ResetTimer()
+	for range b.N {
+		tree := impl2.New()
+		for i := range len(all) {
+			all[i] = impl2.Int(rg.Int())
+		}
+		tree.ReplaceOrInsertBulk(all...)
+	}
+}
 func BenchmarkRBT_Put(b *testing.B) {
 	for range b.N {
-		tree := *rbt.NewWithIntComparator()
+		tree := impl1.NewWithIntComparator()
 		for range bAddN {
 			tree.Put(rg.Int(), nil)
 		}
@@ -25,7 +47,7 @@ func BenchmarkRBT_Put(b *testing.B) {
 }
 func BenchmarkSBT_Add0(b *testing.B) {
 	for range b.N {
-		tree := *New[int](uint32(0))
+		tree := New[int](uint32(0))
 		var buf []uintptr
 		for range bAddN {
 			_, buf = tree.Add(rg.Int(), buf)
@@ -34,27 +56,71 @@ func BenchmarkSBT_Add0(b *testing.B) {
 }
 func BenchmarkSBT_Add1(b *testing.B) {
 	for range b.N {
-		tree := *New[int](bAddN)
+		tree := New[int](bAddN)
 		buf := make([]uintptr, bits.Len32(bAddN)*4/3)
 		for range bAddN {
-			_, buf = tree.Add(rg.Int(), buf)
+			tree.Add(rg.Int(), buf)
 		}
 	}
 }
+func createBT(b *testing.B, all []int) *impl3.BTreeG[int] {
+	b.Helper()
+	t := impl3.NewOrderedG[int](bBTDeg)
+	for i := range all {
+		all[i] = rg.Int()
+		t.ReplaceOrInsert(all[i])
+	}
+	return t
+}
+func createLLRB(b *testing.B, all []impl2.Item) *impl2.LLRB {
+	b.Helper()
+	for i := range all {
+		all[i] = impl2.Int(rg.Int())
+	}
+	t := impl2.New()
+	t.ReplaceOrInsertBulk(all...)
+	return t
+}
 func createSBT(b *testing.B) *Tree[int, uint32] {
 	b.Helper()
-	all := make([]int, bAddN)
-	rg.Read(unsafe.Slice((*byte)(unsafe.Pointer(unsafe.SliceData(all))), uintptr(bAddN)*unsafe.Sizeof(0)))
-	slices.Sort(all)
-	return From[int, uint32](all)
+	t := New[int, uint32](bAddN)
+	buf := make([]uintptr, bits.Len32(bAddN)*4/3)
+	for range bAddN {
+		_, buf = t.Add(rg.Int(), buf)
+	}
+	return t
 }
-func createRBT(b *testing.B) *rbt.Tree {
+func createRBT(b *testing.B) *impl1.Tree {
 	b.Helper()
-	tree := rbt.NewWithIntComparator()
+	tree := impl1.NewWithIntComparator()
 	for range bAddN {
 		tree.Put(rg.Int(), nil)
 	}
 	return tree
+}
+func BenchmarkBT_Delete(b *testing.B) {
+	all := make([]int, bAddN)
+	b.ResetTimer()
+	for range b.N {
+		b.StopTimer()
+		tree := *createBT(b, all)
+		b.StartTimer()
+		for _, v := range all {
+			tree.Delete(v)
+		}
+	}
+}
+func BenchmarkLLRB_Delete(b *testing.B) {
+	all := make([]impl2.Item, bAddN)
+	b.ResetTimer()
+	for range b.N {
+		b.StopTimer()
+		tree := *createLLRB(b, all)
+		b.StartTimer()
+		for _, v := range all {
+			tree.Delete(v)
+		}
+	}
 }
 func BenchmarkRBT_Remove(b *testing.B) {
 	for range b.N {
@@ -90,9 +156,9 @@ func BenchmarkSBT_Del1(b *testing.B) {
 		tree := *createSBT(b)
 		copy(all, unsafe.Slice((*int)(tree.vsHead), tree.ifsLen-1))
 		b.StartTimer()
-		buf := make([]uintptr, bits.Len32(bAddN))
+		buf := make([]uintptr, bits.Len32(bAddN)*4/3)
 		for _, v := range all {
-			_, buf = tree.Del(v, buf)
+			tree.Del(v, buf)
 		}
 	}
 }
@@ -105,9 +171,6 @@ func BenchmarkRBT_Get(b *testing.B) {
 		b.StopTimer()
 		tree := *createRBT(b)
 		all := tree.Keys()
-		rg.Shuffle(int(bQryN), func(i, j int) {
-			all[i], all[j] = all[j], all[i]
-		})
 		m := slices.MaxFunc(all[bQryN:], func(a, b any) int {
 			return cmp.Compare(a.(int), b.(int))
 		}).(int)
@@ -137,6 +200,40 @@ func BenchmarkSBT_Get(b *testing.B) {
 		}
 		for range bAddN - bQryN {
 			sideEff0 = tree.Get(rg.Intn(m))
+		}
+	}
+}
+func BenchmarkLLRB_Has(b *testing.B) {
+	all := make([]impl2.Item, bAddN)
+	b.ResetTimer()
+	for range b.N {
+		b.StopTimer()
+		tree := *createLLRB(b, all)
+		m := int(slices.MaxFunc(all[bQryN:], func(a, b impl2.Item) int {
+			return cmp.Compare(a.(impl2.Int), b.(impl2.Int))
+		}).(impl2.Int))
+		b.StartTimer()
+		for _, v := range all[:bQryN] {
+			sideEff1 = tree.Has(v)
+		}
+		for range bAddN - bQryN {
+			sideEff1 = tree.Has(impl2.Int(rg.Intn(m)))
+		}
+	}
+}
+func BenchmarkBT_Has(b *testing.B) {
+	all := make([]int, bAddN)
+	b.ResetTimer()
+	for range b.N {
+		b.StopTimer()
+		tree := *createBT(b, all)
+		m := slices.Max(all[bQryN:])
+		b.StartTimer()
+		for _, v := range all[:bQryN] {
+			sideEff1 = tree.Has(v)
+		}
+		for range bAddN - bQryN {
+			sideEff1 = tree.Has(rg.Intn(m))
 		}
 	}
 }
