@@ -189,3 +189,11 @@ func (u *Tree[T, S]) RankOf(v T) (S, bool) {
 	}
 	return ra, false
 }
+
+func (u *Tree[T, S]) Clone() *Tree[T, S] {
+	newIfs := make([]info[S], u.ifsLen, u.caps[0])
+	copy(newIfs, unsafe.Slice((*info[S])(u.ifsHead), u.ifsLen))
+	newVs := make([]T, u.ifsLen-1, u.caps[1])
+	copy(newVs, unsafe.Slice((*T)(u.vsHead), u.ifsLen-1))
+	return &Tree[T, S]{base[T, S]{unsafe.Pointer(unsafe.SliceData(newIfs)), unsafe.Pointer(unsafe.SliceData(newVs)), u.caps, u.root, u.free, u.ifsLen}}
+}

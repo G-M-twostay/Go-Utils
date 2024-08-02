@@ -188,3 +188,10 @@ func (u *CTree[T, S]) Zero() (count S) {
 	}
 	return count
 }
+func (u *CTree[T, S]) Clone() *CTree[T, S] {
+	newIfs := make([]info[S], u.ifsLen, u.caps[0])
+	copy(newIfs, unsafe.Slice((*info[S])(u.ifsHead), u.ifsLen))
+	newVs := make([]T, u.ifsLen-1, u.caps[1])
+	copy(newVs, unsafe.Slice((*T)(u.vsHead), u.ifsLen-1))
+	return &CTree[T, S]{base[T, S]{unsafe.Pointer(unsafe.SliceData(newIfs)), unsafe.Pointer(unsafe.SliceData(newVs)), u.caps, u.root, u.free, u.ifsLen}, u.Cmp}
+}
