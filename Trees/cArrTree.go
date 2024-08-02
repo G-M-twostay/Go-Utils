@@ -2,25 +2,24 @@ package Trees
 
 import (
 	Go_Utils "github.com/g-m-twostay/go-utils"
-	"golang.org/x/exp/constraints"
 	"math/bits"
 	"reflect"
 	"unsafe"
 )
 
-type CTree[T any, S constraints.Unsigned] struct {
+type CTree[T any, S Indexable] struct {
 	base[T, S]
 	//returns negative number if first < second, 0 if first==second, positive number if first>second. see cmp.Compare for an example.
 	Cmp func(T, T) int
 }
 
-func NewC[T any, S constraints.Unsigned](hint S, cmp func(T, T) int) *CTree[T, S] {
+func NewC[T any, S Indexable](hint S, cmp func(T, T) int) *CTree[T, S] {
 	ifs := make([]info[S], 1, hint+1)
 	vs := make([]T, 0, hint)
 	return &CTree[T, S]{base[T, S]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs)), caps: [2]int{cap(ifs), cap(vs)}}, cmp}
 }
 
-func FromC[T any, S constraints.Unsigned](vs []T, cmp func(T, T) int) *CTree[T, S] {
+func FromC[T any, S Indexable](vs []T, cmp func(T, T) int) *CTree[T, S] {
 	root, ifs := buildIfs(S(len(vs)), make([][3]S, 0, bits.Len(uint(len(vs)))))
 	return &CTree[T, S]{base[T, S]{root: root, ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs)), caps: [2]int{cap(ifs), cap(vs)}}, cmp}
 }

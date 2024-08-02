@@ -6,22 +6,26 @@ import (
 	"unsafe"
 )
 
+type Indexable interface {
+	~byte | ~uint16 | ~uint32 | ~uint
+} // exclude uint64 from being used as indexes.
 // A node in the Tree.
 // The zero value is meaningful.
 type info[S constraints.Unsigned] struct {
 	l, r, sz S
 }
 
-type base[T any, S constraints.Unsigned] struct {
-	root, free, ifsLen S              // free is the beginning of the linked list that contains all the free indexes; info[S]::l represents next.
+type base[T any, S Indexable] struct {
 	ifsHead            unsafe.Pointer // ifs[0] is zero value, which is a 0 size loopback. all index are based on ifs. len(ifs)=size+1
 	vsHead             unsafe.Pointer // v[i] corresponds to ifs[i+1]. len(vs)=size
 	caps               [2]int         //caps[0]=cap(ifs), caps[1]=cap(vs)
+	root, free, ifsLen S              // free is the beginning of the linked list that contains all the free indexes; info[S]::l represents next.
 }
 
 func (u *base[T, S]) getIf(i S) *info[S] {
 	return (*info[S])(unsafe.Add(u.ifsHead, unsafe.Sizeof(info[S]{})*uintptr(i)))
 }
+
 func (u *base[T, S]) rotateLeft(ni *S) {
 	n := u.getIf(*ni)
 	rci := n.r
@@ -56,7 +60,7 @@ func (u *base[T, S]) popFree() S {
 }
 func (u *base[T, S]) maintainLeft(curI *S) {
 	cur := u.getIf(*curI)
-	if rcsz, lc := u.getIf(cur.r).sz, *u.getIf(cur.l); u.getIf(lc.l).sz > rcsz {
+	if rcsz, lc := u.getIf(cur.r).sz, u.getIf(cur.l); u.getIf(lc.l).sz > rcsz {
 		u.rotateRight(curI)
 	} else if u.getIf(lc.r).sz > rcsz {
 		u.rotateLeft(&cur.l)
@@ -71,7 +75,7 @@ func (u *base[T, S]) maintainLeft(curI *S) {
 }
 func (u *base[T, S]) maintainRight(curI *S) {
 	cur := u.getIf(*curI)
-	if rc, lcsz := *u.getIf(cur.r), u.getIf(cur.l).sz; u.getIf(rc.r).sz > lcsz {
+	if rc, lcsz := u.getIf(cur.r), u.getIf(cur.l).sz; u.getIf(rc.r).sz > lcsz {
 		u.rotateLeft(curI)
 	} else if u.getIf(rc.l).sz > lcsz {
 		u.rotateRight(&cur.r)

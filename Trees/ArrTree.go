@@ -3,25 +3,24 @@ package Trees
 import (
 	"cmp"
 	Go_Utils "github.com/g-m-twostay/go-utils"
-	"golang.org/x/exp/constraints"
 	"math/bits"
 	"reflect"
 	"unsafe"
 )
 
 // Tree is a variant that supports only cmp.Ordered as keys.
-type Tree[T cmp.Ordered, S constraints.Unsigned] struct {
+type Tree[T cmp.Ordered, S Indexable] struct {
 	base[T, S]
 }
 
-func New[T cmp.Ordered, S constraints.Unsigned](hint S) *Tree[T, S] {
+func New[T cmp.Ordered, S Indexable](hint S) *Tree[T, S] {
 	ifs := make([]info[S], 1, hint+1)
 	vs := make([]T, 0, hint)
 	return &Tree[T, S]{base[T, S]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs)), caps: [2]int{cap(ifs), cap(vs)}}}
 }
 
 // From a given value array, directly build a tree. The array is handled to the tree and it mustn't be modified by the caller later.
-func From[T cmp.Ordered, S constraints.Unsigned](vs []T) *Tree[T, S] {
+func From[T cmp.Ordered, S Indexable](vs []T) *Tree[T, S] {
 	root, ifs := buildIfs(S(len(vs)), make([][3]S, 0, bits.Len(uint(len(vs)))))
 	return &Tree[T, S]{base[T, S]{root: root, ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs)), caps: [2]int{cap(ifs), cap(vs)}}}
 }
