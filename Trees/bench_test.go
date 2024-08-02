@@ -90,11 +90,12 @@ func createSBT(b *testing.B) *Tree[int, uint32] {
 	}
 	return t
 }
-func createRBT(b *testing.B) *impl1.Tree {
+func createRBT(b *testing.B, all []int) *impl1.Tree {
 	b.Helper()
 	tree := impl1.NewWithIntComparator()
-	for range bAddN {
-		tree.Put(rg.Int(), nil)
+	for i := range len(all) {
+		all[i] = rg.Int()
+		tree.Put(all[i], nil)
 	}
 	return tree
 }
@@ -123,10 +124,10 @@ func BenchmarkLLRB_Delete(b *testing.B) {
 	}
 }
 func BenchmarkRBT_Remove(b *testing.B) {
+	all := make([]int, bAddN)
 	for range b.N {
 		b.StopTimer()
-		tree := *createRBT(b)
-		all := tree.Keys()
+		tree := *createRBT(b, all)
 		b.StartTimer()
 		for _, v := range all {
 			tree.Remove(v)
@@ -167,13 +168,11 @@ var sideEff0 uintptr
 var sideEff1 bool
 
 func BenchmarkRBT_Get(b *testing.B) {
+	all := make([]int, bAddN)
 	for range b.N {
 		b.StopTimer()
-		tree := *createRBT(b)
-		all := tree.Keys()
-		m := slices.MaxFunc(all[bQryN:], func(a, b any) int {
-			return cmp.Compare(a.(int), b.(int))
-		}).(int)
+		tree := *createRBT(b, all)
+		m := slices.Max(all[bQryN:])
 		b.StartTimer()
 		for _, v := range all[:bQryN] {
 			_, sideEff1 = tree.Get(v)
