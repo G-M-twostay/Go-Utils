@@ -43,10 +43,10 @@ func TestTree_Add(t *testing.T) {
 		for i := range a {
 			a[i] = rg.Intn(tAddValRange)
 		}
-		buf := make([]uintptr, bits.Len16(tAddN))
+		buf := make([]uintptr, bits.Len16(tAddN)*4/3)
 		for _, b := range a {
 			_, in := content[b]
-			if c, _ := tree.Add(b, buf); !in && c == false {
+			if c, _ := tree.Add(b, buf[:0]); !in && c == false {
 				t.Errorf("failed to insert key %v", b)
 			}
 			content[b] = struct{}{}
@@ -80,15 +80,15 @@ func TestTree_Del(t *testing.T) {
 		}
 		buf := make([]uintptr, bits.Len(tAddValRange))
 		for _, b := range a {
-			_, buf = tree.Add(b, buf)
+			_, buf = tree.Add(b, buf[:0])
 			content[b] = struct{}{}
 		}
 		for i := range rg.Intn(len(a)) {
 			_, in := content[a[i]]
-			if b, _ := tree.Del(a[i], buf); b != in {
+			if b, _ := tree.Del(a[i], buf[:0]); b != in {
 				t.Errorf("failed to delete key %v", a[i])
 			}
-			if b, _ := tree.Del(a[i], buf); b == true {
+			if b, _ := tree.Del(a[i], buf[:0]); b == true {
 				t.Errorf("can delete a second time key %v", a[i])
 			}
 			delete(content, a[i])
@@ -130,11 +130,11 @@ func TestTree_AddDel(t *testing.T) {
 		}
 		buf := make([]uintptr, bits.Len16(tAddN))
 		for _, b := range a {
-			_, buf = tree.Add(b, buf)
+			_, buf = tree.Add(b, buf[:0])
 			content[b] = struct{}{}
 		}
 		for i := range rg.Intn(len(a)) {
-			_, buf = tree.Del(a[i], buf)
+			_, buf = tree.Del(a[i], buf[:0])
 			delete(content, a[i])
 		}
 	}
@@ -197,7 +197,7 @@ func TestTree_InOrder0(t *testing.T) {
 		}
 		buf := make([]uintptr, tAddN)
 		for _, b := range a {
-			_, buf = tree.Add(b, buf)
+			_, buf = tree.Add(b, buf[:0])
 			content[b] = struct{}{}
 		}
 	}
@@ -251,7 +251,7 @@ func TestTree_InOrder1(t *testing.T) {
 		}
 		buf := make([]uintptr, tAddN)
 		for _, b := range a {
-			_, buf = tree.Add(b, buf)
+			_, buf = tree.Add(b, buf[:0])
 			content[b] = struct{}{}
 		}
 	}
@@ -289,7 +289,7 @@ func TestTree_InOrderR0(t *testing.T) {
 		}
 		buf := make([]uintptr, tAddN)
 		for _, b := range a {
-			_, buf = tree.Add(b, buf)
+			_, buf = tree.Add(b, buf[:0])
 			content[b] = struct{}{}
 		}
 	}
@@ -343,7 +343,7 @@ func TestTree_InOrderR1(t *testing.T) {
 		}
 		buf := make([]uintptr, tAddN)
 		for _, b := range a {
-			_, buf = tree.Add(b, buf)
+			_, buf = tree.Add(b, buf[:0])
 			content[b] = struct{}{}
 		}
 	}
@@ -382,7 +382,7 @@ func TestTree_RankK(t *testing.T) {
 		}
 		buf := make([]uintptr, bits.Len(tAddValRange))
 		for _, b := range a {
-			_, buf = tree.Add(b, buf)
+			_, buf = tree.Add(b, buf[:0])
 			content[b] = struct{}{}
 		}
 		for k := range content {
@@ -572,7 +572,7 @@ func TestTree_Compact(t *testing.T) {
 		buf := make([]uintptr, bits.Len16(tAddN))
 		for range cap(content) / 2 {
 			a := rg.Intn(tAddValRange)
-			_, buf = tree.Add(a, buf)
+			_, buf = tree.Add(a, buf[:0])
 			all[a] = struct{}{}
 		}
 		for range cap(content) {
@@ -581,14 +581,14 @@ func TestTree_Compact(t *testing.T) {
 				for k := range all {
 					if rg.Intn(i) == 0 {
 						delete(all, k)
-						_, buf = tree.Del(k, buf)
+						_, buf = tree.Del(k, buf[:0])
 						break
 					}
 					i--
 				}
 			} else {
 				a := rg.Intn(tAddValRange)
-				_, buf = tree.Add(a, buf)
+				_, buf = tree.Add(a, buf[:0])
 				all[a] = struct{}{}
 			}
 		}

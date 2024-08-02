@@ -50,14 +50,14 @@ func BenchmarkSBT_Add0(b *testing.B) {
 		tree := New[int](uint32(0))
 		var buf []uintptr
 		for range bAddN {
-			_, buf = tree.Add(rg.Int(), buf)
+			_, buf = tree.Add(rg.Int(), buf[:0])
 		}
 	}
 }
 func BenchmarkSBT_Add1(b *testing.B) {
 	for range b.N {
 		tree := New[int](bAddN)
-		buf := make([]uintptr, bits.Len32(bAddN)*4/3)
+		buf := make([]uintptr, 0, bits.Len32(bAddN)*4/3)
 		for range bAddN {
 			tree.Add(rg.Int(), buf)
 		}
@@ -84,9 +84,9 @@ func createLLRB(b *testing.B, all []impl2.Item) *impl2.LLRB {
 func createSBT(b *testing.B) *Tree[int, uint32] {
 	b.Helper()
 	t := New[int, uint32](bAddN)
-	buf := make([]uintptr, bits.Len32(bAddN)*4/3)
+	buf := make([]uintptr, 0, bits.Len32(bAddN)*4/3)
 	for range bAddN {
-		_, buf = t.Add(rg.Int(), buf)
+		t.Add(rg.Int(), buf)
 	}
 	return t
 }
@@ -143,7 +143,7 @@ func BenchmarkSBT_Del0(b *testing.B) {
 		b.StartTimer()
 		var buf []uintptr
 		for _, v := range all {
-			_, buf = tree.Del(v, buf)
+			_, buf = tree.Del(v, buf[:0])
 		}
 	}
 }
@@ -156,14 +156,14 @@ func BenchmarkSBT_Del1(b *testing.B) {
 		tree := *createSBT(b)
 		copy(all, unsafe.Slice((*int)(tree.vsHead), tree.ifsLen-1))
 		b.StartTimer()
-		buf := make([]uintptr, bits.Len32(bAddN)*4/3)
+		buf := make([]uintptr, 0, bits.Len32(bAddN)*4/3)
 		for _, v := range all {
 			tree.Del(v, buf)
 		}
 	}
 }
 
-var sideEff0 *int
+var sideEff0 uintptr
 var sideEff1 bool
 
 func BenchmarkRBT_Get(b *testing.B) {
@@ -196,10 +196,10 @@ func BenchmarkSBT_Get(b *testing.B) {
 		m := slices.Max(all[bQryN:])
 		b.StartTimer()
 		for _, v := range all[:bQryN] {
-			sideEff0 = tree.Get(v)
+			sideEff0 = uintptr(unsafe.Pointer(tree.Get(v)))
 		}
 		for range bAddN - bQryN {
-			sideEff0 = tree.Get(rg.Intn(m))
+			sideEff0 = uintptr(unsafe.Pointer(tree.Get(rg.Intn(m))))
 		}
 	}
 }

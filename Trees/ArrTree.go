@@ -28,7 +28,7 @@ func From[T cmp.Ordered, S constraints.Unsigned](vs []T) *Tree[T, S] {
 
 // Add an element to the tree. Add guarantees that holes are filled first before appending to the underlying arrays.
 func (u *Tree[T, S]) Add(v T, st []uintptr) (bool, []uintptr) {
-	st = st[:0] // address offset from ifs[0] to either ifs[i].l or ifs[i].r
+	// st stores the address offset from ifs[0] to either ifs[i].l or ifs[i].r
 	for curI := u.root; curI != 0; {
 		if v < *u.getV(curI - 1) {
 			l := &u.getIf(curI).l
@@ -70,7 +70,7 @@ func (u *Tree[T, S]) Add(v T, st []uintptr) (bool, []uintptr) {
 
 // Del an element from the tree. Del sometimes balances the tree; the chance is inversely proportional to tree's size.
 func (u *Tree[T, S]) Del(v T, st []uintptr) (bool, []uintptr) {
-	st = st[:0] //stores &ifs[i]
+	//st stores &ifs[i]
 	for curI := &u.root; *curI != 0; {
 		if cvp := u.getV(*curI - 1); v < *cvp {
 			st = append(st, uintptr(unsafe.Pointer(curI)))

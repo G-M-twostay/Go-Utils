@@ -26,7 +26,6 @@ func FromC[T any, S constraints.Unsigned](vs []T, cmp func(T, T) int) *CTree[T, 
 }
 
 func (u *CTree[T, S]) Add(v T, st []uintptr) (bool, []uintptr) {
-	st = st[:0]
 	for curI := u.root; curI != 0; {
 		if order := u.Cmp(v, *u.getV(curI - 1)); order < 0 {
 			l := &u.getIf(curI).l
@@ -66,7 +65,6 @@ func (u *CTree[T, S]) Add(v T, st []uintptr) (bool, []uintptr) {
 }
 
 func (u *CTree[T, S]) Del(v T, st []uintptr) (bool, []uintptr) {
-	st = st[:0]
 	for curI := &u.root; *curI != 0; {
 		if order := u.Cmp(v, *u.getV(*curI - 1)); order < 0 {
 			st = append(st, uintptr(unsafe.Pointer(curI)))
