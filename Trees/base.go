@@ -1,7 +1,77 @@
+/*
+Package Trees implements Size Balanced Tree using arrays in a minimally recursive approach.
+
+# Size Balanced Tree
+Size Balanced Tree(SBTree) is a binary tree that balances itself naturally using subtree sizes. It's flatter than other prevalent implementations
+like RBTree. It's also faster than those implementations as indicated by the benchmark and th original paper. Here its superiority
+over RBTree is also demonstrated.
+
+# Using Arrays
+SBTree is quite tricky to implement using pointers Therefore, like the original paper, we use arrays
+to implement it. However, 1 very common problem of using arrays is indexing. A tree that's good for general use must utilize all
+indexes in the array, it mustn't contain holes. The most intuitive "left=2^n, right=2^n+1" approach will leave lots of wasted indexes
+should the tree not be perfect. Maintaining a top index count doesn't have this issue, but, like the above, are prone to creating and forgetting
+hole indexes when deletion is involved. In this implementation, I employed a way to record the hole indexes without additional memory
+and can be stored and retried in O(1) time. This enables this implementation to utilize the advantages of using arrays while
+not worry about wasting indexes. In fact, this implementation is guaranteed to exhaust existing array before growing.
+
+In Go, array are indexed using `int`, so we restrict the indexing type to `uint` at most. This means that you won't be able
+to use `uint64` as indexes on 32bit machine. This is pretty reasonable.
+
+# Modifications
+This implementation is slightly different from the original implementation. First, maintaining is split into 2 orientations
+to make it more intuitive without degrading performance. Second, unlike the original, deletion will sometimes balance the tree
+afterward. See [base.maintainLeft], [Tree.Del] for details.
+
+# Minimal Recursions
+This implementation is minimally recursive. Mutating operations are mostly iterative while readonly operations are usually constant space
+iterative. Balancing operations, namely [base.maintainLeft] and [base.maintainRight], are recursive because they are hard to express
+iteratively, but they're amortized O(1). [Tree.Add] and [Tree.Del] requires backtracking, thus we've to use a something to store
+the stack. Fortunately, they both involve very simple backtracking and can be implemented efficiently and easily by using a slice.
+Also, using the height guarantee of SBTree, we can actually allocate this slice beforehand and reuse it as long as we know how big will the tree
+be.
+
+For traversing, I provided both a normal stack based traversal and a constant space Morris traversal. This is because Morris
+traversal is a mutating operation, so only 1 traversal may happen at any time. Also, Morris traversal doesn't support early
+termination by its nature, so in some cases, normal traversals may still be helpful.
+
+# Concurrency
+This isn't safe for concurrent usages. Writes shouldn't happen at the same time with other reads or writes. Section below
+is for those who are interested in details. Generally, you shouldn't worry about it.
+
+Due to the existence of Morris traversal, we can't classify operations into simple reads and writes. We define the followings.
+Read operations:
+  - R0: Reads metadata in fields such as [base.root].
+  - R1: Reads value data as stored in [base.vsHead].
+  - R2: Reads indexing data stored in [base.ifsHead].
+
+Write Operations:
+  - W0: Writes metadata in fields such as [base.root].
+  - W1: Writes value data as stored in [base.vsHead].
+  - W2: Writes indexing data stored in [base.ifsHead].
+
+Multiple reads of any types may happen at the same time. Only 1 write of a single type can happen at the same time. This means
+that reads and write of different type can happen at the same type. We will classify all public functions using these definitions.
+
+# Performance
+Like any other balanced binary trees, most operations are all O(log(N)) in time while the memory usage is O(N). Section below
+is for those interested in the constant factors.
+
+Let A0 be the backing [info] array [base.ifsHead], A1 be the backing value array [base.vsHead]. Note that len(A1)=len(A0)-1. len(Ai)<=cap(Ai) and
+cap(Ai) is linear to len(Ai).
+Let B be the total number of unique insertions, calls to [Tree.Add] that returns true. Let C be the total number of elements
+in the array. Let D be the actual height of the tree, D=e(C) or e(B) where e is a function that gives the theoretically max height
+of the tree given C. We will use these terms when giving a detailed description of performance for each function.
+
+The non-constant term of memory usage for value type T and index type S is sizeof(T)*cap(A1)+sizeof(S)*3*cap(A1). As you may notice,
+it's extremely compact in terms of memory. [info] has no padding itself, so putting T and [info] each into their own respective
+array is the most compact format. Also, on 64-bit machine, using uint32 as indexing will mean that each node only takes an
+additional 12 bytes space, or 1.5 words, this isn't achievable on any pointer based implementations assuming that pointers
+take 1 full word.
+*/
 package Trees
 
 import (
-	"golang.org/x/exp/constraints"
 	"math/bits"
 	"reflect"
 	"unsafe"
@@ -10,8 +80,10 @@ import (
 type Indexable interface {
 	~byte | ~uint16 | ~uint32 | ~uint
 } // exclude uint64 from being used as indexes.
+
 // A node in the Tree. The zero value is meaningful.
-type info[S constraints.Unsigned] struct {
+// info[S] is at most 3 words of memory, which the same as a slice, so it can be cheaply value copied.
+type info[S Indexable] struct {
 	l, r, sz S
 }
 
@@ -248,14 +320,14 @@ func (u *base[T, S]) RankK(k S) *T {
 }
 
 // mid is equivalent to (a+b)/2 but deals with overflow.
-func mid[S constraints.Unsigned](a, b S) S {
+func mid[S Indexable](a, b S) S {
 	low, high := bits.Add(uint(a), uint(b), 0)
 	r, _ := bits.Div(high, low, 2)
 	return S(r)
 }
 
 // buildIfs array of size vsLen to represent a complete binary tree.
-func buildIfs[S constraints.Unsigned](vsLen S, st [][3]S) (root S, ifs []info[S]) {
+func buildIfs[S Indexable](vsLen S, st [][3]S) (root S, ifs []info[S]) {
 	ifs = make([]info[S], vsLen+1)
 	{
 		root = (1 + vsLen) >> 1
