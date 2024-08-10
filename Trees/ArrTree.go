@@ -55,14 +55,13 @@ func (u *Tree[T, S]) Add(v T, st []uintptr) (bool, []uintptr) {
 
 	for i := len(st) - 1; i > -1; i-- {
 		*(*S)(unsafe.Add(u.ifsHead, st[i])) = u.root //ptr to u.ifs[index].l or u.ifs[index].r
-		index := S(st[i] / unsafe.Sizeof(info[S]{}))
-		u.getIf(index).sz++ //index of st[i] in ifs
-		if v >= *u.getV(index - 1) {
-			u.maintainRight(&index)
+		u.root = S(st[i] / unsafe.Sizeof(info[S]{}))
+		u.getIf(u.root).sz++ //index of st[i] in ifs
+		if v >= *u.getV(u.root - 1) {
+			u.maintainRight(&u.root)
 		} else {
-			u.maintainLeft(&index)
+			u.maintainLeft(&u.root)
 		}
-		u.root = index
 	}
 	return true, st
 }
