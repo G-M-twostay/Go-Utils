@@ -2,6 +2,7 @@ package Trees
 
 import (
 	"golang.org/x/exp/constraints"
+	"math/bits"
 	"reflect"
 	"unsafe"
 )
@@ -9,8 +10,7 @@ import (
 type Indexable interface {
 	~byte | ~uint16 | ~uint32 | ~uint
 } // exclude uint64 from being used as indexes.
-// A node in the Tree.
-// The zero value is meaningful.
+// A node in the Tree. The zero value is meaningful.
 type info[S constraints.Unsigned] struct {
 	l, r, sz S
 }
@@ -19,7 +19,7 @@ type base[T any, S Indexable] struct {
 	ifsHead            unsafe.Pointer // ifs[0] is zero value, which is a 0 size loopback. all index are based on ifs. len(ifs)=size+1
 	vsHead             unsafe.Pointer // v[i] corresponds to ifs[i+1]. len(vs)=size
 	caps               [2]int         //caps[0]=cap(ifs), caps[1]=cap(vs)
-	root, free, ifsLen S              // free is the beginning of the linked list that contains all the free indexes; info[S]::l represents next.
+	root, free, ifsLen S              // free is the beginning of the linked list that contains all the free indexes; info[S].l represents next.
 }
 
 func (u *base[T, S]) getIf(i S) *info[S] {
@@ -46,18 +46,20 @@ func (u *base[T, S]) rotateRight(ni *S) {
 	*ni = lci
 }
 
-// addFree index once.
 func (u *base[T, S]) addFree(a S) {
 	u.getIf(a).l = u.free
 	u.free = a
 }
 
-// popFree index once. Returns 0 when there's no free index(when u.free==0).
 func (u *base[T, S]) popFree() S {
 	b := u.free
 	u.free = u.getIf(u.free).l
 	return b
 }
+
+/*
+Maintaining is split into 2 functions instead of the single one in original paper so that we don't need the flag bool. maintainLeft is equivalent to the !flag case in original implementation.
+*/
 func (u *base[T, S]) maintainLeft(curI *S) {
 	cur := u.getIf(*curI)
 	if rcsz, lc := u.getIf(cur.r).sz, u.getIf(cur.l); u.getIf(lc.l).sz > rcsz {
@@ -155,6 +157,7 @@ func (u *base[T, S]) InOrder(f func(*T) bool, st []S) []S {
 	return st
 }
 
+// InOrderR is the reverse in order traversal.
 func (u *base[T, S]) InOrderR(f func(*T) bool, st []S) []S {
 	if curI := u.root; st == nil { //use morris traversal
 	iter1:
@@ -216,6 +219,7 @@ func (u *base[T, S]) InOrderR(f func(*T) bool, st []S) []S {
 	return st
 }
 
+// Size of tree.
 func (u *base[T, S]) Size() S {
 	return u.getIf(u.root).sz
 }
@@ -243,12 +247,11 @@ func (u *base[T, S]) RankK(k S) *T {
 	return nil
 }
 
-// overflowMid is equivalent to (a+b)/2 but deals with overflow.
-func overflowMid[S constraints.Unsigned](a, b S) S {
-	d := a + b
-	overflowed := d < a
-	c := S(*(*byte)(unsafe.Pointer(&overflowed))) << (unsafe.Sizeof(S(0))<<3 - 1)
-	return d>>1 | c
+// mid is equivalent to (a+b)/2 but deals with overflow.
+func mid[S constraints.Unsigned](a, b S) S {
+	low, high := bits.Add(uint(a), uint(b), 0)
+	r, _ := bits.Div(high, low, 2)
+	return S(r)
 }
 
 // buildIfs array of size vsLen to represent a complete binary tree.
@@ -264,12 +267,12 @@ func buildIfs[S constraints.Unsigned](vsLen S, st [][3]S) (root S, ifs []info[S]
 		ifs[top[2]].sz = top[1] - top[0] + 1
 		if top[0] < top[2] {
 			nr := top[2] - 1
-			ifs[top[2]].l = overflowMid(top[0], nr)
+			ifs[top[2]].l = mid(top[0], nr)
 			st = append(st, [3]S{top[0], nr, ifs[top[2]].l})
 		}
 		if top[2] < top[1] {
 			nl := top[2] + 1
-			ifs[top[2]].r = overflowMid(nl, top[1])
+			ifs[top[2]].r = mid(nl, top[1])
 			st = append(st, [3]S{nl, top[1], ifs[top[2]].r})
 		}
 	}
