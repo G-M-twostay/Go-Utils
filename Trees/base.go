@@ -1,5 +1,6 @@
 /*
-Package Trees implements Size Balanced Tree using arrays in a minimally recursive approach.
+Package Trees implements Size Balanced Tree using arrays in a minimally recursive approach. Elements in the tree is unique. The
+left most element is the smallest element.
 
 # Size Balanced Tree
 Size Balanced Tree(SBTree) is a binary tree that balances itself naturally using subtree sizes. It's flatter than other prevalent implementations
@@ -41,17 +42,24 @@ is for those who are interested in details. Generally, you shouldn't worry about
 
 Due to the existence of Morris traversal, we can't classify operations into simple reads and writes. We define the followings.
 Read operations:
-  - R0: Reads metadata in fields such as [base.root].
+  - R0: Reads indexing data, [info.l] and [info.r], in [base.ifsHead].
   - R1: Reads value data as stored in [base.vsHead].
-  - R2: Reads indexing data stored in [base.ifsHead].
+  - R2: Reads balancing data, [info.sz], in [base.ifsHead].
 
 Write Operations:
-  - W0: Writes metadata in fields such as [base.root].
-  - W1: Writes value data as stored in [base.vsHead].
-  - W2: Writes indexing data stored in [base.ifsHead].
+  - W0: Corresponds to R0.
+  - W1: Corresponds to R1.
+  - W2: Corresponds to R2.
 
 Multiple reads of any types may happen at the same time. Only 1 write of a single type can happen at the same time. This means
 that reads and write of different type can happen at the same type. We will classify all public functions using these definitions.
+
+This implementation returns pointers instead of values. Generally, you shouldn't keep track of the pointer and should immediately
+dereference it for safety. However, it's fine to use the pointers later under some occasions. A W1 operation can invalidate
+the pointer, so pointers prior to the beginning of a W1 operation should be discarded. Other than this, just make sure you're not writing to
+any pointers during R1 operations. Writing to the pointer can also break the structure of the tree, leading to undefined behaviors.
+Unfortunately, Go doesn't have const pointers like C++, so it's up to the users to either not write to the pointer or ensure
+that the write operation doesn't break its standing in the tree.
 
 # Performance
 Like any other balanced binary trees, most operations are all O(log(N)) in time while the memory usage is O(N). Section below
@@ -60,8 +68,9 @@ is for those interested in the constant factors.
 Let A0 be the backing [info] array [base.ifsHead], A1 be the backing value array [base.vsHead]. Note that len(A1)=len(A0)-1. len(Ai)<=cap(Ai) and
 cap(Ai) is linear to len(Ai).
 Let B be the total number of unique insertions, calls to [Tree.Add] that returns true. Let C be the total number of elements
-in the array. Let D be the actual height of the tree, D=e(C) or e(B) where e is a function that gives the theoretically max height
-of the tree given C. We will use these terms when giving a detailed description of performance for each function.
+in the array. Note that C<=len(A1) Let D be the actual average height of the tree, D<=e(C) or e(B) where e is a function that gives the theoretically max height
+of the tree given C. e(x)~=1.4404*log2(x) disregarding some small constant offset. In practice, this can be estimated easily by `bits.Len(x)*7/5`.
+We will use these terms when giving a detailed description of performance for each function.
 
 The non-constant term of memory usage for value type T and index type S is sizeof(T)*cap(A1)+sizeof(S)*3*cap(A1). As you may notice,
 it's extremely compact in terms of memory. [info] has no padding itself, so putting T and [info] each into their own respective
@@ -77,9 +86,10 @@ import (
 	"unsafe"
 )
 
+// Indexable are types that can be used as indexes in the tree.
 type Indexable interface {
 	~byte | ~uint16 | ~uint32 | ~uint
-} // exclude uint64 from being used as indexes.
+} // Exclude uint64 from being used as indexes.
 
 // A node in the Tree. The zero value is meaningful.
 // info[S] is at most 3 words of memory, which the same as a slice, so it can be cheaply value copied.
@@ -90,7 +100,7 @@ type info[S Indexable] struct {
 type base[T any, S Indexable] struct {
 	ifsHead            unsafe.Pointer // ifs[0] is zero value, which is a 0 size loopback. all index are based on ifs. len(ifs)=size+1
 	vsHead             unsafe.Pointer // v[i] corresponds to ifs[i+1]. len(vs)=size
-	caps               [2]int         //caps[0]=cap(ifs), caps[1]=cap(vs)
+	caps               [2]int         // caps[0]=cap(ifs), caps[1]=cap(vs)
 	root, free, ifsLen S              // free is the beginning of the linked list that contains all the free indexes; info[S].l represents next.
 }
 
@@ -130,8 +140,11 @@ func (u *base[T, S]) popFree() S {
 }
 
 /*
-Maintaining is split into 2 functions instead of the single one in original paper so that we don't need the flag bool. maintainLeft is equivalent to the !flag case in original implementation.
+Maintaining is split into 2 functions instead of the single one in original
+paper so that we don't need the flag bool. maintainLeft is equivalent to the
+!flag case in original implementation.
 */
+
 func (u *base[T, S]) maintainLeft(curI *S) {
 	cur := u.getIf(*curI)
 	if rcsz, lc := u.getIf(cur.r).sz, u.getIf(cur.l); u.getIf(lc.l).sz > rcsz {
@@ -168,6 +181,8 @@ func (u *base[T, S]) getV(i S) *T {
 }
 
 // InOrder traversal of teh tree. When st==nil, uses morris traversal; otherwise, use normal stack based iterative traversal.
+// Time: O(n). Space: O(1) when using Morris Traversal, O(sizeof(S)*D) when using normal traversal.
+// Type: W0 when Morris Traversal, R0 when normal traversal.
 func (u *base[T, S]) InOrder(f func(*T) bool, st []S) []S {
 	if curI := u.root; st == nil { //use morris traversal
 	iter1:
@@ -292,11 +307,14 @@ func (u *base[T, S]) InOrderR(f func(*T) bool, st []S) []S {
 }
 
 // Size of tree.
+// Type: R2.
 func (u *base[T, S]) Size() S {
 	return u.getIf(u.root).sz
 }
 
 // Clear the tree, also zeroes the value array's values if zero is true. Doesn't allocate new arrays.
+// Time: O(1) when !zero, O(len(A1)) when zero. Space: O(1).
+// Type: W0, W1, W2.
 func (u *base[T, S]) Clear(zero bool) {
 	if zero {
 		clear(unsafe.Slice((*T)(u.vsHead), u.ifsLen-1))
@@ -305,6 +323,8 @@ func (u *base[T, S]) Clear(zero bool) {
 }
 
 // RankK element in tree, starting from 0.
+// Time: O(D). Space: O(1).
+// Type: R0, R2.
 func (u *base[T, S]) RankK(k S) *T {
 	for curI := u.root; curI != 0; {
 		if li := u.getIf(curI).l; k < u.getIf(li).sz {
@@ -352,6 +372,8 @@ func buildIfs[S Indexable](vsLen S, st [][3]S) (root S, ifs []info[S]) {
 }
 
 // Compact the tree by copying the content to a smaller array and filling the holes if necessary.
+// Time: O(C). Space: sizeof(T)*C+sizeof(S)*3*(C+1).
+// Type: W0, W1, W2.
 func (u *base[T, S]) Compact() {
 	if u.free == 0 {
 		{

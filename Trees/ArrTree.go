@@ -13,19 +13,33 @@ type Tree[T cmp.Ordered, S Indexable] struct {
 	base[T, S]
 }
 
+// New Tree that can hold hint number of elements without growing.
 func New[T cmp.Ordered, S Indexable](hint S) *Tree[T, S] {
 	ifs := make([]info[S], 1, hint+1)
 	vs := make([]T, 0, hint)
 	return &Tree[T, S]{base[T, S]{ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs)), caps: [2]int{cap(ifs), cap(vs)}}}
 }
 
-// From a given value array, directly build a tree. The array is handled to the tree and it mustn't be modified by the caller later.
+// From a given value array, directly build a tree. The array is handled to the tree, and it mustn't be modified by the caller later. vs must be
+// sorted in ascending order for the tree to not be corrupt.
+// Time: O(C).
 func From[T cmp.Ordered, S Indexable](vs []T) *Tree[T, S] {
 	root, ifs := buildIfs(S(len(vs)), make([][3]S, 0, bits.Len(uint(len(vs)))))
 	return &Tree[T, S]{base[T, S]{root: root, ifsHead: unsafe.Pointer(unsafe.SliceData(ifs)), ifsLen: S(len(ifs)), vsHead: unsafe.Pointer(unsafe.SliceData(vs)), caps: [2]int{cap(ifs), cap(vs)}}}
 }
 
-// Add an element to the tree. Add guarantees that holes are filled first before appending to the underlying arrays.
+// Add an element to the tree. Add guarantees that holes are filled first before appending to the underlying arrays. st is
+// the slice used as the recursion stack. Returns whether the element is added and the grown recursion stack. To reuse the
+// slice:
+//
+//	var st []uintptr
+//	for ... {
+//		_, st = tree.Add(..., st)
+//	}
+//
+// Reassigning the value is unnecessary if st is allocated to be enough.
+// Time: O(D). Space: O(H).
+// Type: W0, W1, W2.
 func (u *Tree[T, S]) Add(v T, st []uintptr) (bool, []uintptr) {
 	// st stores the address offset from ifs[0] to either ifs[i].l or ifs[i].r
 	for curI := u.root; curI != 0; {
@@ -66,7 +80,25 @@ func (u *Tree[T, S]) Add(v T, st []uintptr) (bool, []uintptr) {
 	return true, st
 }
 
-// Del an element from the tree. Del sometimes balances the tree; the chance is inversely proportional to tree's size.
+/*
+In the original implementation, deletion don't trigger maintain to balance the tree. The reasoning is that because deletion don't
+add new elements, even if the tree's structure is broken D<=e(B). Then, on the next insertion, the tree is fixed.
+This is fine if we're only deleting things from the tree,
+but it can get problematic if lots of read operations would happen after some deletions. However, balancing after every
+deletion is unnecessary, as deletion don't tend to create chains that would significant degrade performance like insertion, so
+how do we determine when to balance?
+
+Consider a perfect binary tree, in order to reduce D by 1, one would need to delete half of its elements. Just think of removing
+the entire last layer, which has C/2 elements. Intuitively, the larger the tree, the less likely is a single deletion to
+be able to reduce the height of the tree significantly. Therefore, we perform a die roll after each deletion with the chance
+of maintaining inversely proportionally to C/2. This also proved to be the best overall balance when doing reading-after-delete
+benchmarks.
+*/
+
+// Del an element from the tree. Del sometimes balances the tree; the chance is inversely proportional to tree's size. Returns
+// the grown stack and whether the element is deleted.
+// Time: O(D). Space: O(H).
+// Type: W0, W1, W2.
 func (u *Tree[T, S]) Del(v T, st []uintptr) (bool, []uintptr) {
 	//st stores &ifs[i]
 	for curI := &u.root; *curI != 0; {
@@ -112,6 +144,8 @@ func (u *Tree[T, S]) Del(v T, st []uintptr) (bool, []uintptr) {
 }
 
 // Get the pointer to the element that's equal to v in the tree.
+// Time: O(D). Space: O(1).
+// Type: R0, R1..
 func (u *Tree[T, S]) Get(v T) *T {
 	for curI := u.root; curI != 0; {
 		if cvp := u.getV(curI - 1); v < *cvp {
@@ -126,6 +160,8 @@ func (u *Tree[T, S]) Get(v T) *T {
 }
 
 // Predecessor of v. If strict is true, result<v if found; otherwise, result<=v.
+// Time: O(D). Space: O(1).
+// Type: R0, R1.
 func (u *Tree[T, S]) Predecessor(v T, strict bool) (p *T) {
 	if curI := u.root; strict {
 		for curI != 0 {
@@ -150,6 +186,8 @@ func (u *Tree[T, S]) Predecessor(v T, strict bool) (p *T) {
 }
 
 // Successor of v. If strict is true, result>v if found; otherwise, result>=v.
+// Time: O(D). Space: O(1).
+// Type: R0, R1.
 func (u *Tree[T, S]) Successor(v T, strict bool) (p *T) {
 	if curI := u.root; strict {
 		for curI != 0 {
@@ -174,6 +212,8 @@ func (u *Tree[T, S]) Successor(v T, strict bool) (p *T) {
 }
 
 // RankOf v, starting from 0. If v isn't found, returns the rank as if v is added to the tree.
+// Time: O(D). Space: O(1).
+// Type: R0, R1, R2.
 func (u *Tree[T, S]) RankOf(v T) (S, bool) {
 	var ra S = 0
 	for curI := u.root; curI != 0; {
@@ -189,6 +229,9 @@ func (u *Tree[T, S]) RankOf(v T) (S, bool) {
 	return ra, false
 }
 
+// Clone the tree, making an almost exact copy (up to len(A0) and len(A1)).
+// Time: O(C). Space: O(1) disregarding the new tree.
+// Type: R0, R1, R2.
 func (u *Tree[T, S]) Clone() *Tree[T, S] {
 	newIfs := make([]info[S], u.ifsLen, u.caps[0])
 	copy(newIfs, unsafe.Slice((*info[S])(u.ifsHead), u.ifsLen))

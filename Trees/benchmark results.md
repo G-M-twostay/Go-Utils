@@ -9,8 +9,7 @@ to be very significant. On a personal note, I believe it's those's implementatio
 
 Some SBTree operations have 2 types. "0" is when everything, backing arrays and recursion stack, are all grown on demand using `append`. "1"
 is when everything is allocated priorly. Because the recursion stack is at most the height of the tree, we can calculate the size 
-beforehand as SBTree has a very strict height guarantee. In fact, it's ceil(4 / 3 * log2(N)), which can be calculated easily
-using `bits.Len(bAddN)*4/3`.
+beforehand as SBTree has a very strict height guarantee.
 ### Results
 ```console
 goos: windows

@@ -7,9 +7,11 @@ import (
 	"unsafe"
 )
 
+// CTree is a variant that uses custom comparator. It may also be useful in cases where comparisons is very burdensome (very long strings) because
+// it only compares once.
 type CTree[T any, S Indexable] struct {
 	base[T, S]
-	//returns negative number if first < second, 0 if first==second, positive number if first>second. see cmp.Compare for an example.
+	// Returns negative number if first < second, 0 if first==second, positive number if first>second. see cmp.Compare for an example.
 	Cmp func(T, T) int
 }
 
@@ -51,14 +53,13 @@ func (u *CTree[T, S]) Add(v T, st []uintptr) (bool, []uintptr) {
 
 	for i := len(st) - 1; i > -1; i-- {
 		*(*S)(unsafe.Add(u.ifsHead, st[i])) = u.root
-		index := S(st[i] / unsafe.Sizeof(info[S]{}))
-		u.getIf(index).sz++
-		if u.Cmp(v, *u.getV(index - 1)) >= 0 {
-			u.maintainRight(&index)
+		u.root = S(st[i] / unsafe.Sizeof(info[S]{}))
+		u.getIf(u.root).sz++
+		if u.Cmp(v, *u.getV(u.root - 1)) >= 0 {
+			u.maintainRight(&u.root)
 		} else {
-			u.maintainLeft(&index)
+			u.maintainLeft(&u.root)
 		}
-		u.root = index
 	}
 	return true, st
 }
@@ -181,6 +182,8 @@ func (u *CTree[T, S]) RankOf(v T) (S, bool) {
 }
 
 // Zero all the removed elements(holes) in the value array.
+// Time: <=O(len(A1)). Space: O(1).
+// Type: W0, W1.
 func (u *CTree[T, S]) Zero() (count S) {
 	for curI := u.free; curI != 0; curI = u.getIf(curI).l {
 		*u.getV(curI - 1) = *new(T)
