@@ -4,7 +4,9 @@ go 1.22
 
 require (
 	github.com/alphadose/haxmap v1.2.0
-	github.com/cespare/xxhash v1.1.0
 	github.com/cornelk/hashmap v1.0.8
-	golang.org/x/exp v0.0.0-20221031165847-c99f073a8326
+	github.com/emirpasic/gods v1.18.1
+	github.com/google/btree v1.1.2
+	github.com/petar/GoLLRB v0.0.0-20210522233825-ae3b015fd3e9
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 )

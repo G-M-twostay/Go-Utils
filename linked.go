@@ -6,6 +6,10 @@ import (
 	"unsafe"
 )
 
+//go:linkname CheapRandN runtime.cheaprandn
+//go:nosplit
+func CheapRandN(n uint32) uint32
+
 //go:linkname rtHash runtime.memhash
 //go:noescape
 func rtHash(ptr unsafe.Pointer, seed uint, len uintptr) uint
