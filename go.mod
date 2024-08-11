@@ -8,5 +8,4 @@ require (
 	github.com/emirpasic/gods v1.18.1
 	github.com/google/btree v1.1.2
 	github.com/petar/GoLLRB v0.0.0-20210522233825-ae3b015fd3e9
-	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 )
