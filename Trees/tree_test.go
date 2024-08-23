@@ -5,10 +5,11 @@ import (
 	"math/rand"
 	"slices"
 	"testing"
+	"time"
 	"unsafe"
 )
 
-var rg = *rand.New(rand.NewSource(0))
+var rg = *rand.New(rand.NewSource(time.Now().Unix()))
 var cache [4]uint
 
 func (u *Tree[T, S]) _depth(curI S, d byte) {

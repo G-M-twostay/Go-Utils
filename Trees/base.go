@@ -142,38 +142,46 @@ func (u *base[T, S]) popFree() S {
 /*
 Maintaining is split into 2 functions instead of the single one in original
 paper so that we don't need the flag bool. maintainLeft is equivalent to the
-!flag case in original implementation.
+!flag case in original implementation. We call it maintainLeft because it checks whether left cousins' sizes
+are greater than their uncle; similarly, maintainRight checks whether right cousins' sizes are greater than
+their uncle.
+
+In the original implementation, the "faster and simpler maintain" still contains redundant checks. In fact,
+it favors the "simpler" part more than "faster" part. By splitting into maintainLeft and maintainRight, I
+reexamined each case of imbalance and removed the redundant recursive calls. The original implementation's
+4 recursive calls are the union of the calls for each case, favoring simplicity. However, only 2.5 calls
+on average are necessary if favoring speed.
 */
 
 func (u *base[T, S]) maintainLeft(curI *S) {
 	cur := u.getIf(*curI)
 	if rcsz, lc := u.getIf(cur.r).sz, u.getIf(cur.l); u.getIf(lc.l).sz > rcsz {
 		u.rotateRight(curI)
+		u.maintainRight(&u.getIf(*curI).r)
+		u.maintainLeft(curI)
 	} else if u.getIf(lc.r).sz > rcsz {
 		u.rotateLeft(&cur.l)
 		u.rotateRight(curI)
-	} else {
-		return
+		cur = u.getIf(*curI)
+		u.maintainLeft(&cur.l)
+		u.maintainRight(&cur.r)
+		u.maintainRight(curI)
 	}
-	u.maintainLeft(&cur.l)
-	u.maintainRight(&cur.r)
-	u.maintainLeft(curI)
-	u.maintainRight(curI)
 }
 func (u *base[T, S]) maintainRight(curI *S) {
 	cur := u.getIf(*curI)
 	if rc, lcsz := u.getIf(cur.r), u.getIf(cur.l).sz; u.getIf(rc.r).sz > lcsz {
 		u.rotateLeft(curI)
+		u.maintainLeft(&u.getIf(*curI).l)
+		u.maintainRight(curI)
 	} else if u.getIf(rc.l).sz > lcsz {
 		u.rotateRight(&cur.r)
 		u.rotateLeft(curI)
-	} else {
-		return
+		cur = u.getIf(*curI)
+		u.maintainLeft(&cur.l)
+		u.maintainRight(&cur.r)
+		u.maintainLeft(curI)
 	}
-	u.maintainLeft(&cur.l)
-	u.maintainRight(&cur.r)
-	u.maintainLeft(curI)
-	u.maintainRight(curI)
 }
 
 func (u *base[T, S]) getV(i S) *T {
