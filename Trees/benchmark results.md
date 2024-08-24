@@ -16,33 +16,33 @@ goos: windows
 goarch: amd64
 pkg: github.com/g-m-twostay/go-utils/Trees     
 BenchmarkBT_ReplaceOrInsert
-BenchmarkBT_ReplaceOrInsert-16          	      31	 496722019 ns/op	43276068 B/op	  820500 allocs/op
+BenchmarkBT_ReplaceOrInsert-16          	      37	 470544843 ns/op	43279438 B/op	  820559 allocs/op
 BenchmarkLLRB_ReplaceOrInsertBulk
-BenchmarkLLRB_ReplaceOrInsertBulk-16    	      18	 895253983 ns/op	56000006 B/op	 2000000 allocs/op
+BenchmarkLLRB_ReplaceOrInsertBulk-16    	      19	 843406842 ns/op	56000002 B/op	 2000000 allocs/op
 BenchmarkRBT_Put
-BenchmarkRBT_Put-16                     	      22	 738142045 ns/op	72000069 B/op	 2000000 allocs/op
+BenchmarkRBT_Put-16                     	      24	 701368892 ns/op	72000090 B/op	 2000000 allocs/op
 BenchmarkSBT_Add0
-BenchmarkSBT_Add0-16                    	      32	 547291903 ns/op	111947523 B/op	      82 allocs/op
+BenchmarkSBT_Add0-16                    	      33	 515478655 ns/op	111947516 B/op	      82 allocs/op
 BenchmarkSBT_Add1
-BenchmarkSBT_Add1-16                    	      34	 483302932 ns/op	20005074 B/op	       3 allocs/op
+BenchmarkSBT_Add1-16                    	      34	 451923788 ns/op	20005077 B/op	       3 allocs/op
 BenchmarkBT_Delete
-BenchmarkBT_Delete-16                   	      30	 592289490 ns/op	 5877787 B/op	   74419 allocs/op
+BenchmarkBT_Delete-16                   	      31	 564115339 ns/op	 5890284 B/op	   74570 allocs/op
 BenchmarkLLRB_Delete
-BenchmarkLLRB_Delete-16                 	      16	1082013212 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLLRB_Delete-16                 	      16	1028878794 ns/op	       0 B/op	       0 allocs/op
 BenchmarkRBT_Remove
-BenchmarkRBT_Remove-16                  	      21	 773756505 ns/op	 8381124 B/op	 1000000 allocs/op
+BenchmarkRBT_Remove-16                  	      24	 738236958 ns/op	 8333490 B/op	 1000000 allocs/op
 BenchmarkSBT_Del0
-BenchmarkSBT_Del0-16                    	      44	 386036024 ns/op	     512 B/op	       6 allocs/op
+BenchmarkSBT_Del0-16                    	      50	 374502536 ns/op	     512 B/op	       6 allocs/op
 BenchmarkSBT_Del1
-BenchmarkSBT_Del1-16                    	      45	 375220932 ns/op	     208 B/op	       1 allocs/op
+BenchmarkSBT_Del1-16                    	      49	 360528216 ns/op	     208 B/op	       1 allocs/op
 BenchmarkRBT_Get
-BenchmarkRBT_Get-16                     	      22	 771337600 ns/op	 8363806 B/op	 1000000 allocs/op
+BenchmarkRBT_Get-16                     	      22	 741943564 ns/op	 8363813 B/op	 1000000 allocs/op
 BenchmarkSBT_Get
-BenchmarkSBT_Get-16                     	      50	 360062384 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSBT_Get-16                     	      50	 335881622 ns/op	       0 B/op	       0 allocs/op
 BenchmarkLLRB_Has
-BenchmarkLLRB_Has-16                    	      22	 769680527 ns/op	 4000005 B/op	  500000 allocs/op
+BenchmarkLLRB_Has-16                    	      22	 727490855 ns/op	 4000004 B/op	  500000 allocs/op
 BenchmarkBT_Has
-BenchmarkBT_Has-16                      	      31	 561787677 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBT_Has-16                      	      33	 531995685 ns/op	       0 B/op	       0 allocs/op
 PASS
 ```
 
