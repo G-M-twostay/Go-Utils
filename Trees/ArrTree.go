@@ -2,7 +2,6 @@ package Trees
 
 import (
 	"cmp"
-	Go_Utils "github.com/g-m-twostay/go-utils"
 	"math/bits"
 	"reflect"
 	"unsafe"
@@ -128,7 +127,7 @@ func (u *Tree[T, S]) Del(v T, st []uintptr) (bool, []uintptr) {
 			for _, a := range st {
 				u.getIf(*(*S)(unsafe.Pointer(a))).sz--
 			}
-			if Go_Utils.CheapRandN(uint32((u.getIf(u.root).sz+1)>>1)) == 2 { //when sz is 0-2 balancing is unnecessary
+			if cheapRandN(uint32((u.getIf(u.root).sz+1)>>1)) == 2 { //when sz is 0-2 balancing is unnecessary
 				for i := len(st) - 1; i > -1; i-- {
 					if v <= *u.getV(*(*S)(unsafe.Pointer(st[i])) - 1) {
 						u.maintainRight((*S)(unsafe.Pointer(st[i])))

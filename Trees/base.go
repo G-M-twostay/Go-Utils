@@ -86,6 +86,10 @@ import (
 	"unsafe"
 )
 
+//go:linkname cheapRandN runtime.cheaprandn
+//go:nosplit
+func cheapRandN(n uint32) uint32
+
 // Indexable are types that can be used as indexes in the tree.
 type Indexable interface {
 	~byte | ~uint16 | ~uint32 | ~uint

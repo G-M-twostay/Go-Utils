@@ -1,7 +1,6 @@
 package Trees
 
 import (
-	Go_Utils "github.com/g-m-twostay/go-utils"
 	"math/bits"
 	"reflect"
 	"unsafe"
@@ -92,7 +91,7 @@ func (u *CTree[T, S]) Del(v T, st []uintptr) (bool, []uintptr) {
 			for _, a := range st {
 				u.getIf(*(*S)(unsafe.Pointer(a))).sz--
 			}
-			if Go_Utils.CheapRandN(uint32((u.getIf(u.root).sz+1)>>1)) == 2 {
+			if cheapRandN(uint32((u.getIf(u.root).sz+1)>>1)) == 2 {
 				for i := len(st) - 1; i > -1; i-- {
 					if u.Cmp(v, *u.getV(*(*S)(unsafe.Pointer(st[i])) - 1)) <= 0 {
 						u.maintainRight((*S)(unsafe.Pointer(st[i])))
