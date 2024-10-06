@@ -59,6 +59,13 @@ func (u Hasher) HashInt(v int) uint {
 	return rtHash64(unsafe.Pointer(&v), uint(u))
 }
 
+func (u Hasher) HashUint(v uint) uint {
+	if bits.UintSize/8 == 4 {
+		return rtHash32(unsafe.Pointer(&v), uint(u))
+	}
+	return rtHash64(unsafe.Pointer(&v), uint(u))
+}
+
 // HashString directly hashes a string, it's faster than HashAny(string).
 func (u Hasher) HashString(v string) uint {
 	return rtStrHash(unsafe.Pointer(&v), uint(u))
