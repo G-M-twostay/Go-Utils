@@ -90,9 +90,8 @@ type ptrNode[K any] struct {
 	key K
 }
 
-type valNode[K any, V ~uint32 | ~int32 | ~uint64 | ~int64 | ~uintptr] struct {
+type valNode[K any, V uint32 | int32 | uint64 | int64 | uintptr] struct {
 	relay
-	key     K
-	val     V
-	version atomic.Uint32
+	key K
+	val V
 }

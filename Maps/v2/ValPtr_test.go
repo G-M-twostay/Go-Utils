@@ -16,17 +16,17 @@ const (
 	testMaxHash  = max(testAddN, testAddNEach*testThrdsN)
 )
 
-type testT uint32
+type testVPT uint32
 
-func testHashF(a testT) uint {
+func testHashF(a testVPT) uint {
 	return uint(a)
 }
 func TestValPtr_LoadOrStore2(t *testing.T) {
-	all := make([]testT, testAddNEach*testThrdsN)
+	all := make([]testVPT, testAddNEach*testThrdsN)
 	for i := range all {
-		all[i] = testT(i)
+		all[i] = testVPT(i)
 	}
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	wg := sync.WaitGroup{}
 	wg.Add(testThrdsN)
 	for i := range testThrdsN {
@@ -52,11 +52,11 @@ func TestValPtr_LoadOrStore2(t *testing.T) {
 	}
 }
 func TestValPtr_LoadOrStore3(t *testing.T) {
-	all := make([]testT, testAddNEach*testThrdsN)
+	all := make([]testVPT, testAddNEach*testThrdsN)
 	for i := range all {
-		all[i] = testT(i)
+		all[i] = testVPT(i)
 	}
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	wg := sync.WaitGroup{}
 	wg.Add(testThrdsN)
 	counts := make([]atomic.Uint32, len(all))
@@ -81,10 +81,10 @@ func TestValPtr_LoadOrStore3(t *testing.T) {
 	}
 }
 func TestValPtr_LoadOrStore1(t *testing.T) {
-	std := make(map[testT]*testT, testAddN/2)
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	std := make(map[testVPT]*testVPT, testAddN/2)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	for i := range uint(rand.Intn(testAddN)) {
-		k := testT(i)
+		k := testVPT(i)
 		if mq.LoadOrStorePtr(k, &k) != nil {
 			t.Fail()
 		}
@@ -104,10 +104,10 @@ func TestValPtr_LoadOrStore1(t *testing.T) {
 	}
 }
 func TestValPtr_Load_Store1(t *testing.T) {
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
-	std := make([]*testT, testAddN)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	std := make([]*testVPT, testAddN)
 	for i := range std {
-		k := testT(i)
+		k := testVPT(i)
 		std[i] = &k
 		if !mq.StorePtr(k, &k) {
 			t.Fail()
@@ -117,7 +117,7 @@ func TestValPtr_Load_Store1(t *testing.T) {
 		}
 	}
 	for k, ev := range std {
-		av := mq.LoadPtr(testT(k))
+		av := mq.LoadPtr(testVPT(k))
 		if av != ev {
 			t.Fatal(av, ev, *ev)
 		}
@@ -127,11 +127,11 @@ func TestValPtr_Load_Store1(t *testing.T) {
 	}
 }
 func TestValPtr_Load_Store2(t *testing.T) {
-	all := make([]testT, testAddNEach*testThrdsN)
+	all := make([]testVPT, testAddNEach*testThrdsN)
 	for i := range all {
-		all[i] = testT(i)
+		all[i] = testVPT(i)
 	}
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	wg := sync.WaitGroup{}
 	wg.Add(testThrdsN)
 	for i := range testThrdsN {
@@ -159,11 +159,11 @@ func TestValPtr_Load_Store2(t *testing.T) {
 	}
 }
 func TestValPtr_Load_Delete1(t *testing.T) {
-	all := make([]testT, testAddN)
+	all := make([]testVPT, testAddN)
 	for i := range all {
-		all[i] = testT(i)
+		all[i] = testVPT(i)
 	}
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	for i, k := range all {
 		mq.StorePtr(k, &all[i])
 	}
@@ -178,11 +178,11 @@ func TestValPtr_Load_Delete1(t *testing.T) {
 	}
 }
 func TestValPtr_Load_Delete2(t *testing.T) {
-	all := make([]testT, testAddNEach*testThrdsN)
+	all := make([]testVPT, testAddNEach*testThrdsN)
 	for i := range all {
-		all[i] = testT(i)
+		all[i] = testVPT(i)
 	}
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	for i, k := range all {
 		mq.StorePtr(k, &all[i])
 	}
@@ -205,11 +205,11 @@ func TestValPtr_Load_Delete2(t *testing.T) {
 	wg.Wait()
 }
 func TestValPtr_Load_Store_Delete(t *testing.T) {
-	all := make([]testT, testAddNEach*testThrdsN)
+	all := make([]testVPT, testAddNEach*testThrdsN)
 	for i := range all {
-		all[i] = testT(i)
+		all[i] = testVPT(i)
 	}
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	wg := sync.WaitGroup{}
 	wg.Add(testThrdsN)
 	for i := range testThrdsN {
@@ -233,11 +233,11 @@ func TestValPtr_Load_Store_Delete(t *testing.T) {
 	}
 }
 func TestValPtr_LoadPtrAndDelete1(t *testing.T) {
-	all := make([]testT, testAddNEach*testThrdsN)
+	all := make([]testVPT, testAddNEach*testThrdsN)
 	for i := range all {
-		all[i] = testT(i)
+		all[i] = testVPT(i)
 	}
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	for i, k := range all {
 		mq.StorePtr(k, &all[i])
 	}
@@ -254,11 +254,11 @@ func TestValPtr_LoadPtrAndDelete1(t *testing.T) {
 	}
 }
 func TestValPtr_LoadPtrAndDelete2(t *testing.T) {
-	all := make([]testT, testAddNEach*testThrdsN)
+	all := make([]testVPT, testAddNEach*testThrdsN)
 	for i := range all {
-		all[i] = testT(i)
+		all[i] = testVPT(i)
 	}
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	for i, k := range all {
 		mq.StorePtr(k, &all[i])
 	}
@@ -280,11 +280,11 @@ func TestValPtr_LoadPtrAndDelete2(t *testing.T) {
 	wg.Wait()
 }
 func TestValPtr_LoadPtrAndDelete3(t *testing.T) {
-	all := make([]testT, testAddNEach*testThrdsN)
+	all := make([]testVPT, testAddNEach*testThrdsN)
 	for i := range all {
-		all[i] = testT(i)
+		all[i] = testVPT(i)
 	}
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	for i, k := range all {
 		mq.StorePtr(k, &all[i])
 	}
@@ -312,11 +312,11 @@ func TestValPtr_LoadPtrAndDelete3(t *testing.T) {
 	}
 }
 func TestValPtr_SwapPtr(t *testing.T) {
-	vp := NewValPtr[testT, testT](testMinBSz, testMaxBSz, 16, testHashF)
+	vp := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, 16, testHashF)
 	if vp.SwapPtr(0, nil) != nil {
 		t.Fail()
 	}
-	v1, v2 := testT(0), testT(1)
+	v1, v2 := testVPT(0), testVPT(1)
 	vp.StorePtr(0, &v1)
 	if *vp.SwapPtr(0, &v2) != v1 {
 		t.Fail()
@@ -326,11 +326,11 @@ func TestValPtr_SwapPtr(t *testing.T) {
 	}
 }
 func TestValPtr_LoadOrStore_Delete(t *testing.T) {
-	all := make([]testT, testAddNEach*testThrdsN)
+	all := make([]testVPT, testAddNEach*testThrdsN)
 	for i := range all {
-		all[i] = testT(i)
+		all[i] = testVPT(i)
 	}
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	wg := sync.WaitGroup{}
 	wg.Add(testThrdsN)
 	for i := range testThrdsN {
@@ -353,11 +353,11 @@ func TestValPtr_LoadOrStore_Delete(t *testing.T) {
 	wg.Wait()
 }
 func TestValPtr_CompareAndSwapPtr(t *testing.T) {
-	vp := NewValPtr[testT, testT](testMinBSz, testMaxBSz, 16, testHashF)
+	vp := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, 16, testHashF)
 	if vp.CompareAndSwapPtr(0, nil, nil) != NULL {
 		t.Fail()
 	}
-	vs := make([]testT, 5)
+	vs := make([]testVPT, 5)
 	vp.StorePtr(0, &vs[0])
 	results := make([]bool, 4)
 	for range rand.Intn(testAddN) {
@@ -409,13 +409,13 @@ func TestValPtr_CompareAndSwapPtr(t *testing.T) {
 	}
 }
 func TestValPtr_CompareAndSwap(t *testing.T) {
-	vp := NewValPtr[testT, testT](testMinBSz, testMaxBSz, 16, testHashF)
-	if vp.CompareAndSwap(0, nil, func(*testT) bool { return true }) != NULL {
+	vp := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, 16, testHashF)
+	if vp.CompareAndSwap(0, nil, func(*testVPT) bool { return true }) != NULL {
 		t.Fail()
 	}
-	vs := make([]testT, 5)
+	vs := make([]testVPT, 5)
 	for i := range vs {
-		vs[i] = testT(i)
+		vs[i] = testVPT(i)
 	}
 	vp.StorePtr(0, &vs[0])
 	results := make([]bool, 4)
@@ -423,7 +423,7 @@ func TestValPtr_CompareAndSwap(t *testing.T) {
 		wg := sync.WaitGroup{}
 		wg.Add(4)
 		go func() {
-			if a := vp.CompareAndSwap(0, &vs[1], func(v *testT) bool {
+			if a := vp.CompareAndSwap(0, &vs[1], func(v *testVPT) bool {
 				return *v == vs[0]
 			}); a == NULL {
 				t.Fail()
@@ -433,7 +433,7 @@ func TestValPtr_CompareAndSwap(t *testing.T) {
 			wg.Done()
 		}()
 		go func() {
-			if a := vp.CompareAndSwap(0, &vs[4], func(v *testT) bool {
+			if a := vp.CompareAndSwap(0, &vs[4], func(v *testVPT) bool {
 				return *v == vs[0]
 			}); a == NULL {
 				t.Fail()
@@ -443,7 +443,7 @@ func TestValPtr_CompareAndSwap(t *testing.T) {
 			wg.Done()
 		}()
 		go func() {
-			if a := vp.CompareAndSwap(0, &vs[2], func(v *testT) bool {
+			if a := vp.CompareAndSwap(0, &vs[2], func(v *testVPT) bool {
 				return *v == vs[1]
 			}); a == NULL {
 				t.Fail()
@@ -453,7 +453,7 @@ func TestValPtr_CompareAndSwap(t *testing.T) {
 			wg.Done()
 		}()
 		go func() {
-			if a := vp.CompareAndSwap(0, &vs[3], func(v *testT) bool {
+			if a := vp.CompareAndSwap(0, &vs[3], func(v *testVPT) bool {
 				return *v == vs[1]
 			}); a == NULL {
 				t.Fail()
@@ -478,11 +478,11 @@ func TestValPtr_CompareAndSwap(t *testing.T) {
 
 /*
 	func TestValPtr_ComparePtrAndDelete(t *testing.T) {
-		vp := NewValPtr[testT, testT](testMinBSz, testMaxBSz, 16, testHashF)
+		vp := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, 16, testHashF)
 		if vp.ComparePtrAndDelete(0, nil) != NULL {
 			t.Fail()
 		}
-		vs := make([]testT, 5)
+		vs := make([]testVPT, 5)
 		results := make([]CASResult, 4)
 		for range rand.Intn(testAddN) {
 			vp.StorePtr(0, &vs[0])
@@ -518,13 +518,13 @@ func TestValPtr_CompareAndSwap(t *testing.T) {
 	}
 
 	func TestValPtr_CompareAndDelete(t *testing.T) {
-		vp := NewValPtr[testT, testT](testMinBSz, testMaxBSz, 16, testHashF)
-		if vp.CompareAndDelete(0, func(*testT) bool { return true }) != NULL {
+		vp := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, 16, testHashF)
+		if vp.CompareAndDelete(0, func(*testVPT) bool { return true }) != NULL {
 			t.Fail()
 		}
-		vs := make([]testT, 5)
+		vs := make([]testVPT, 5)
 		for i := range vs {
-			vs[i] = testT(i)
+			vs[i] = testVPT(i)
 		}
 		results := make([]CASResult, 4)
 		for range rand.Intn(testAddN) {
@@ -532,11 +532,11 @@ func TestValPtr_CompareAndSwap(t *testing.T) {
 			wg.Add(3)
 			vp.StorePtr(0, &vs[0])
 			go func() {
-				results[0] = vp.CompareAndDelete(0, func(val *testT) bool { return *val == vs[0] })
+				results[0] = vp.CompareAndDelete(0, func(val *testVPT) bool { return *val == vs[0] })
 				wg.Done()
 			}()
 			go func() {
-				results[1] = vp.CompareAndDelete(0, func(val *testT) bool { return *val == vs[0] })
+				results[1] = vp.CompareAndDelete(0, func(val *testVPT) bool { return *val == vs[0] })
 				wg.Done()
 			}()
 			go func() {
@@ -561,27 +561,27 @@ func TestValPtr_CompareAndSwap(t *testing.T) {
 	}
 */
 func TestValPtr_TakePtr(t *testing.T) {
-	vp := NewValPtr[testT, testT](testMinBSz, testMaxBSz, 16, testHashF)
+	vp := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, 16, testHashF)
 	if _, v := vp.TakePtr(); v != nil {
 		t.Fail()
 	}
-	a := testT(15)
+	a := testVPT(15)
 	vp.StorePtr(15, &a)
 	if _, v := vp.TakePtr(); v != &a {
 		t.Fail()
 	}
-	b := testT(0)
+	b := testVPT(0)
 	vp.StorePtr(0, &b)
 	if _, v := vp.TakePtr(); v != &b {
 		t.Fail()
 	}
 }
 func TestValPtr_Range(t *testing.T) {
-	all := make([]testT, testAddN)
+	all := make([]testVPT, testAddN)
 	for i := range all {
-		all[i] = testT(i)
+		all[i] = testVPT(i)
 	}
-	mq := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	mq := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	for i, k := range all {
 		mq.StorePtr(k, &all[i])
 	}
@@ -597,9 +597,9 @@ func TestValPtr_Range(t *testing.T) {
 	}
 }
 func TestValPtr_Copy(t *testing.T) {
-	vp0 := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	vp0 := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
 	for range rand.Intn(testAddN) {
-		vp0.StorePtr(testT(rand.Uint32()%testMaxHash), new(testT))
+		vp0.StorePtr(testVPT(rand.Uint32()%testMaxHash), new(testVPT))
 	}
 	vp1 := vp0.Copy()
 	if vp0.Size() != vp1.Size() {
@@ -617,12 +617,12 @@ func TestValPtr_Copy(t *testing.T) {
 	}
 }
 func TestValPtr_Delete(t *testing.T) {
-	vp := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
-	if vp.Delete(testT(rand.Intn(testMaxHash))) {
+	vp := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	if vp.Delete(testVPT(rand.Intn(testMaxHash))) {
 		t.Fail()
 	}
-	a := testT(rand.Uint32() % (testMaxHash - 1))
-	vp.StorePtr(a, new(testT))
+	a := testVPT(rand.Uint32() % (testMaxHash - 1))
+	vp.StorePtr(a, new(testVPT))
 	vp.StorePtr(a+1, nil)
 	if !vp.Delete(a) {
 		t.Fail()
@@ -638,12 +638,12 @@ func TestValPtr_Delete(t *testing.T) {
 	}
 }
 func TestValPtr_Has(t *testing.T) {
-	vp := NewValPtr[testT, testT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
-	if vp.Has(testT(rand.Intn(testMaxHash))) {
+	vp := NewValPtr[testVPT, testVPT](testMinBSz, testMaxBSz, testMaxHash, testHashF)
+	if vp.Has(testVPT(rand.Intn(testMaxHash))) {
 		t.Fail()
 	}
-	a := testT(rand.Uint32() % (testMaxHash - 1))
-	vp.StorePtr(a, new(testT))
+	a := testVPT(rand.Uint32() % (testMaxHash - 1))
+	vp.StorePtr(a, new(testVPT))
 	vp.StorePtr(a+1, nil)
 	if !vp.Has(a) {
 		t.Fail()
@@ -654,13 +654,13 @@ func TestValPtr_Has(t *testing.T) {
 }
 func TestValPtr_invalidSplit(t *testing.T) { //don't split into chunks more than maxHash allowed.
 	maxHash := uint(4)
-	vp := NewValPtr[testT, testT](testMinBSz, 0, maxHash, func(v testT) uint {
+	vp := NewValPtr[testVPT, testVPT](testMinBSz, 0, maxHash, func(v testVPT) uint {
 		return uint(v) % maxHash
 	})
-	for i := range testT(maxHash) * 10 {
+	for i := range testVPT(maxHash) * 10 {
 		vp.StorePtr(i, &i)
 	}
-	for i := range testT(maxHash) * 10 {
+	for i := range testVPT(maxHash) * 10 {
 		vp.Delete(i)
 	}
 }

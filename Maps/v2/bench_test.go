@@ -234,7 +234,7 @@ func BenchmarkDelete_Adversarial(b *testing.B) {
 					return false
 				})
 				*/
-				vp.StorePtr(uint(a), vp.LoadPtrAndDelete(d))
+				vp.StorePtr(uint(a), vp.LoadPtrAndDelete(*d))
 			}
 		}
 	})
