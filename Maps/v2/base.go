@@ -1,5 +1,6 @@
 package v2
 
+//go:generate go run gen.go -implTmpl "ValUintptr.go" -testTmpl "ValUintptr_test.go" -- int64 uint64 int32 uint32
 import (
 	"github.com/g-m-twostay/go-utils/Maps/internal"
 	"math"
