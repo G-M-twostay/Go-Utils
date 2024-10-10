@@ -1,7 +1,6 @@
-package v2
+package Maps
 
 import (
-	"github.com/g-m-twostay/go-utils/Maps/internal"
 	"math/bits"
 	"sync/atomic"
 	"unsafe"
@@ -83,7 +82,7 @@ func (vp *ValPtr[K, V]) StorePtr(key K, val /*not nil*/ *V) bool {
 	var new *ptrNode[K]
 	fb, path := func() *relay {
 		return (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash)
-	}, internal.EvictStack{}
+	}, evictStack{}
 	for left, right := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash).crawl(&path, fb); ; left, right = left.crawl(&path, fb) {
 		if rightAddr := addr(right); right == nil || hash < (*relay)(rightAddr).hash {
 			/*
@@ -112,7 +111,7 @@ func (vp *ValPtr[K, V]) LoadOrStorePtr(key K, val /*not nil*/ *V) *V {
 	var new *ptrNode[K]
 	fb, path := func() *relay {
 		return (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash)
-	}, internal.EvictStack{}
+	}, evictStack{}
 	for left, right := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash).crawl(&path, fb); ; left, right = left.crawl(&path, fb) {
 		if rightAddr := addr(right); right == nil || hash < (*relay)(rightAddr).hash {
 			if new == nil {

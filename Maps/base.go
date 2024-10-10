@@ -1,8 +1,7 @@
-package v2
+package Maps
 
 //go:generate go run gen.go -implTmpl "ValUintptr.go" -testTmpl "ValUintptr_test.go" -- int64 uint64 int32 uint32
 import (
-	"github.com/g-m-twostay/go-utils/Maps/internal"
 	"math"
 	"sync/atomic"
 	"unsafe"
@@ -39,7 +38,7 @@ func (vp *base[K]) trySplit() {
 				nb.set(i<<1, left)
 				nr := &relay{hash: i*(1<<vp.buckets.logChunkSize) | 1<<nb.logChunkSize}
 				nb.set(i<<1|1, nr)
-				path, fb := internal.EvictStack{}, func() *relay {
+				path, fb := evictStack{}, func() *relay {
 					return vp.buckets.Fetch(i)
 				}
 				left, right := left.crawl(&path, fb)

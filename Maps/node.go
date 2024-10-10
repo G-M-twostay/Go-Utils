@@ -1,7 +1,6 @@
-package v2
+package Maps
 
 import (
-	"github.com/g-m-twostay/go-utils/Maps/internal"
 	"sync/atomic"
 	"unsafe"
 )
@@ -34,7 +33,7 @@ func (r *relay) tryLink(old, new unsafe.Pointer) bool {
 }
 
 // crawl gives 2 consecutive valid nodes. when it encounters logically deleted nodes, it tries to remove it. if removing failed because left node is deleted, it backtracks using first using path and then using fb. otherwise it reloads right and see whether a remove is still necessary. this is used for inserting nodes.
-func (left *relay) crawl(path *internal.EvictStack, fb func() *relay) (*relay, unsafe.Pointer) {
+func (left *relay) crawl(path *evictStack, fb func() *relay) (*relay, unsafe.Pointer) {
 retry:
 	right := atomic.LoadPointer(&left.next)
 	if uintptr(right)&deletedMask != 0 { //check if left is logically deleted.

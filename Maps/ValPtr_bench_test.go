@@ -1,5 +1,6 @@
-package v2
+package Maps
 
+//these are mainly used for measuring performances to find the optimal implementation.
 import (
 	Go_Utils "github.com/g-m-twostay/go-utils"
 	"math/rand/v2"
