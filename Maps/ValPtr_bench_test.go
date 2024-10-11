@@ -1,11 +1,10 @@
 package Maps
 
-//these are mainly used for measuring performances to find the optimal implementation.
+//these are mainly used for measuring performances to find the optimal implementation. for benchmark to compare with other implementations see the cmps subdirectory.
 import (
-	Go_Utils "github.com/g-m-twostay/go-utils"
-	"math/rand/v2"
 	"sync/atomic"
 	"testing"
+	"unsafe"
 )
 
 const (
@@ -13,7 +12,10 @@ const (
 	benchMaxBucketSize = 16
 )
 
-var hasher = Go_Utils.Hasher(rand.Uint())
+var (
+	sideEffUintptr uintptr
+	sideEffBool    bool
+)
 
 func customStat(b *testing.B) {
 	b.Helper()
@@ -36,7 +38,7 @@ func BenchmarkLoadPtr_MostlyHits(b *testing.B) {
 	var count atomic.Uintptr
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			vp.LoadPtr(uint(count.Add(1)-1) % (hits + misses))
+			sideEffUintptr = uintptr(unsafe.Pointer(vp.LoadPtr(uint(count.Add(1)-1) % (hits + misses))))
 		}
 	})
 }
@@ -46,7 +48,7 @@ func BenchmarkLoadPtr_MostlyMisses(b *testing.B) {
 	var count atomic.Uintptr
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			vp.LoadPtr(uint(count.Add(1)-1) % (hits + misses))
+			sideEffUintptr = uintptr(unsafe.Pointer(vp.LoadPtr(uint(count.Add(1)-1) % (hits + misses))))
 		}
 	})
 }
@@ -76,7 +78,7 @@ func BenchmarkDelete_Unique(b *testing.B) {
 	var count atomic.Uintptr
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			vp.Delete(uint(count.Add(1)-1) % maxHash)
+			/*sideEff1 = */ vp.Delete(uint(count.Add(1)-1) % maxHash)
 		}
 	})
 }
@@ -265,7 +267,7 @@ func BenchmarkLoadOrStorePtr_Collision(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			vp.LoadOrStorePtr(0, a)
+			sideEffUintptr = uintptr(unsafe.Pointer(vp.LoadOrStorePtr(0, a)))
 		}
 	})
 	customStat(b)

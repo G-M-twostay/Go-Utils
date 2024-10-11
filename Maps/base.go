@@ -32,19 +32,19 @@ func (vp *base[K]) trySplit() {
 	if size := vp.size.Or(resizingMask); size&resizingMask == 0 { //we acquired the exclusive right to change vp.buckets, so we can read it non-atomically since we know no one else will change it.
 		size >>= 1
 		if logChunks := vp.maxLogChunkSize - vp.buckets.logChunkSize; vp.buckets.logChunkSize > 0 && byte(size>>logChunks) >= vp.maxAvgBucketSize {
-			nb := newChunkArr(vp.maxLogChunkSize, vp.buckets.logChunkSize-1)
-			for i := range uint(1) << logChunks {
+			newBuckets, newRelays := newChunkArr(vp.maxLogChunkSize, vp.buckets.logChunkSize-1), make([]relay, 1<<logChunks)
+			for i := uint(0); i < uint(len(newRelays)); i++ {
 				left := vp.buckets.Fetch(i)
-				nb.set(i<<1, left)
-				nr := &relay{hash: i*(1<<vp.buckets.logChunkSize) | 1<<nb.logChunkSize}
-				nb.set(i<<1|1, nr)
+				newBuckets.set(i<<1, left)
+				newRelays[i].hash = i*(1<<vp.buckets.logChunkSize) | 1<<newBuckets.logChunkSize
+				newBuckets.set(i<<1|1, &newRelays[i])
 				path, fb := evictStack{}, func() *relay {
 					return vp.buckets.Fetch(i)
 				}
 				left, right := left.crawl(&path, fb)
-				for nrAddr := unsafe.Pointer(uintptr(unsafe.Pointer(nr)) | relayMask); ; left, right = left.crawl(&path, fb) {
-					if rightAddr := addr(right); right == nil || nr.hash <= (*relay)(rightAddr).hash {
-						if nr.next = right; left.tryLink(right, nrAddr) {
+				for nrAddr := unsafe.Pointer(uintptr(unsafe.Pointer(&newRelays[i])) | relayMask); ; left, right = left.crawl(&path, fb) {
+					if rightAddr := addr(right); right == nil || newRelays[i].hash <= (*relay)(rightAddr).hash {
+						if newRelays[i].next = right; left.tryLink(right, nrAddr) {
 							break
 						}
 					} else {
@@ -53,7 +53,7 @@ func (vp *base[K]) trySplit() {
 					}
 				}
 			}
-			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)), unsafe.Pointer(nb))
+			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)), unsafe.Pointer(newBuckets))
 		}
 		vp.size.And(^resizingMask)
 	}
@@ -63,11 +63,11 @@ func (vp *base[K]) tryMerge() {
 		size >>= 1
 		b := vp.buckets
 		if logChunks := vp.maxLogChunkSize - b.logChunkSize; logChunks > 0 && byte(vp.size.Load()>>logChunks) < vp.minAvgBucketSize {
-			nb := newChunkArr(vp.maxLogChunkSize, b.logChunkSize+1)
+			newBuckets := newChunkArr(vp.maxLogChunkSize, b.logChunkSize+1)
 			for i := range uint(1) << (logChunks - 1) {
-				nb.set(i, b.Fetch(i<<1))
+				newBuckets.set(i, b.Fetch(i<<1))
 			}
-			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)), unsafe.Pointer(nb))
+			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)), unsafe.Pointer(newBuckets))
 			for i := uint(1); i < 1<<logChunks; i += 2 {
 				b.Fetch(i).mark()
 			}
