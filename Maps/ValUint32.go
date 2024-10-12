@@ -8,14 +8,15 @@ import (
 	"unsafe"
 )
 
+// ValUint32 stores keys as values and values as the respective supported type from atomic package. It saves 1 level of indirection and exerts less pressure on the GC.
 type ValUint32[K comparable, V ~uint32] struct {
 	base[K]
 }
 
 func NewValUint32[K comparable, V ~uint32](minBucketSize, maxBucketSize byte, maxHash uint, hashF func(K) uint) *ValUint32[K, V] {
 	vp := ValUint32[K, V]{
-		base[K]{minAvgBucketSize: minBucketSize,
-			maxAvgBucketSize: maxBucketSize,
+		base[K]{MinAvgBucketSize: minBucketSize,
+			MaxAvgBucketSize: maxBucketSize,
 			maxLogChunkSize:  byte(bits.Len(maxHash)),
 			HashF:            hashF},
 	}
@@ -24,7 +25,7 @@ func NewValUint32[K comparable, V ~uint32](minBucketSize, maxBucketSize byte, ma
 	return &vp
 }
 
-func (vv *ValUint32[K, V]) LoadAndDelete(key K) (V, bool) {
+func (vv *ValUint32[K, V]) LoadAndDelete(key K) (v V, loaded bool) {
 	hash := vv.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vv.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
 		if curAddr = addr(cur); cur == nil || hash < (*relay)(curAddr).hash {
@@ -39,7 +40,7 @@ func (vv *ValUint32[K, V]) LoadAndDelete(key K) (V, bool) {
 		}
 	}
 }
-func (vv *ValUint32[K, V]) Load(key K) (V, bool) {
+func (vv *ValUint32[K, V]) Load(key K) (v V, loaded bool) {
 	hash := vv.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vv.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
 		if curAddr = addr(cur); cur == nil || hash < (*relay)(curAddr).hash {
@@ -49,6 +50,12 @@ func (vv *ValUint32[K, V]) Load(key K) (V, bool) {
 		}
 	}
 }
+
+// LoadPtr to the value of the given key; returns nil when key isn't present. All operations performed on the pointer should be atomic.
+// For example,
+//
+//	  p:=m.Load(0)
+//		 atomic.AddUintptr(p,1)
 func (vv *ValUint32[K, V]) LoadPtr(key K) *V {
 	hash := vv.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vv.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
@@ -59,7 +66,7 @@ func (vv *ValUint32[K, V]) LoadPtr(key K) *V {
 		}
 	}
 }
-func (vv *ValUint32[K, V]) Store(key K, val V) bool {
+func (vv *ValUint32[K, V]) Store(key K, val V) (added bool) {
 	hash := vv.HashF(key)
 	var new *valNode[K, uint32]
 	fb, path := func() *relay {
@@ -68,7 +75,7 @@ func (vv *ValUint32[K, V]) Store(key K, val V) bool {
 	for left, right := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vv.buckets)))).Get(hash).crawl(&path, fb); ; left, right = left.crawl(&path, fb) {
 		if rightAddr := addr(right); right == nil || hash < (*relay)(rightAddr).hash {
 			if new == nil {
-				new = &valNode[K, uint32]{relay{hash: hash}, key, uint32 (val)}
+				new = &valNode[K, uint32]{relay{hash: hash}, key, uint32(val)}
 			}
 			if new.next = right; left.tryLink(right, unsafe.Pointer(new)) {
 				vv.size.Add(resizingMask << 1)
@@ -76,7 +83,7 @@ func (vv *ValUint32[K, V]) Store(key K, val V) bool {
 				return true
 			}
 		} else if (*relay)(rightAddr).hash == hash && !isRelay(right) && (*valNode[K, uint32])(rightAddr).key == key {
-			atomic.StoreUint32(&(*valNode[K, uint32])(rightAddr).val, uint32 (val))
+			atomic.StoreUint32(&(*valNode[K, uint32])(rightAddr).val, uint32(val))
 			return false
 		} else {
 			path.Push(rightAddr)
@@ -84,7 +91,7 @@ func (vv *ValUint32[K, V]) Store(key K, val V) bool {
 		}
 	}
 }
-func (vv *ValUint32[K, V]) LoadOrStore(key K, val V) (V, bool) {
+func (vv *ValUint32[K, V]) LoadOrStore(key K, val V) (v V, loaded bool) {
 	hash := vv.HashF(key)
 	var new *valNode[K, uint32]
 	fb, path := func() *relay {
@@ -93,7 +100,7 @@ func (vv *ValUint32[K, V]) LoadOrStore(key K, val V) (V, bool) {
 	for left, right := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vv.buckets)))).Get(hash).crawl(&path, fb); ; left, right = left.crawl(&path, fb) {
 		if rightAddr := addr(right); right == nil || hash < (*relay)(rightAddr).hash {
 			if new == nil {
-				new = &valNode[K, uint32]{relay{hash: hash}, key, uint32 (val)}
+				new = &valNode[K, uint32]{relay{hash: hash}, key, uint32(val)}
 			}
 			if new.next = right; left.tryLink(right, unsafe.Pointer(new)) {
 				vv.size.Add(resizingMask << 1)
@@ -108,13 +115,13 @@ func (vv *ValUint32[K, V]) LoadOrStore(key K, val V) (V, bool) {
 		}
 	}
 }
-func (vv *ValUint32[K, V]) Swap(key K, val V) (V, bool) {
+func (vv *ValUint32[K, V]) Swap(key K, val V) (old V, swapped bool) {
 	hash := vv.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vv.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
 		if curAddr = addr(cur); cur == nil || hash < (*relay)(curAddr).hash {
 			return 0, false
 		} else if (*relay)(curAddr).hash == hash && !isRelay(cur) && (*valNode[K, uint32])(curAddr).key == key {
-			return V(atomic.SwapUint32(&(*valNode[K, uint32])(curAddr).val, uint32 (val))), true
+			return V(atomic.SwapUint32(&(*valNode[K, uint32])(curAddr).val, uint32(val))), true
 		}
 	}
 }
@@ -124,7 +131,7 @@ func (vv *ValUint32[K, V]) CompareAndSwap(key K, old, new V) CASResult {
 		if curAddr = addr(cur); cur == nil || hash < (*relay)(curAddr).hash {
 			return NULL
 		} else if (*relay)(curAddr).hash == hash && !isRelay(cur) && (*valNode[K, uint32])(curAddr).key == key {
-			a := atomic.CompareAndSwapUint32(&(*valNode[K, uint32])(curAddr).val, uint32 (old), uint32 (new))
+			a := atomic.CompareAndSwapUint32(&(*valNode[K, uint32])(curAddr).val, uint32(old), uint32(new))
 			return *(*CASResult)(unsafe.Pointer(&a))
 		}
 	}
@@ -150,7 +157,7 @@ func (vv *ValUint32[K, V]) Range(yield func(K, V) bool) {
 	}
 }
 func (vv *ValUint32[K, V]) Copy() *ValUint32[K, V] {
-	copied := ValUint32[K, V]{base[K]{minAvgBucketSize: vv.minAvgBucketSize, maxAvgBucketSize: vv.maxAvgBucketSize, maxLogChunkSize: vv.maxLogChunkSize, buckets: newChunkArr(vv.maxLogChunkSize, (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vv.buckets)))).logChunkSize), HashF: vv.HashF}}
+	copied := ValUint32[K, V]{base[K]{MinAvgBucketSize: vv.MinAvgBucketSize, MaxAvgBucketSize: vv.MaxAvgBucketSize, maxLogChunkSize: vv.maxLogChunkSize, buckets: newChunkArr(vv.maxLogChunkSize, (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vv.buckets)))).logChunkSize), HashF: vv.HashF}}
 	tail := &copied.firstRelay
 	tailIndex := uint(0)
 	copied.buckets.set(tailIndex, tail)

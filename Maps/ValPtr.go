@@ -11,14 +11,16 @@ Linearizability: the effect of all calls can be squashed down to a point.
 Sequential consistency: all calls will see the results of all calls that finished before it started. This is a weaker version of linearizability.
 */
 
+// ValPtr is a map that stores keys by value and values by pointer. Pointers to values can be nil, but isn't suggested.
 type ValPtr[K comparable, V any] struct {
 	base[K]
 }
 
+// NewValPtr is the constructor for ValPtr. maxHash is max{for all a in K | hashF(a)}. Using a tightly bounded maxHash makes the distribution of keys more even and thus speeds up the map. Using a general hash function would require setting maxHash to the appropriate upper bound, likely things like math.MaxUint.
 func NewValPtr[K comparable, V any](minBucketSize, maxBucketSize byte, maxHash uint, hashF func(K) uint) *ValPtr[K, V] {
 	vp := ValPtr[K, V]{
-		base[K]{minAvgBucketSize: minBucketSize,
-			maxAvgBucketSize: maxBucketSize,
+		base[K]{MinAvgBucketSize: minBucketSize,
+			MaxAvgBucketSize: maxBucketSize,
 			maxLogChunkSize:  byte(bits.Len(maxHash)),
 			HashF:            hashF},
 	}
@@ -27,6 +29,7 @@ func NewValPtr[K comparable, V any](minBucketSize, maxBucketSize byte, maxHash u
 	return &vp
 }
 
+// Has reports whether a key is present, regardless of the value.
 func (vp *ValPtr[K, V]) Has(key K) bool {
 	hash := vp.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
@@ -37,6 +40,8 @@ func (vp *ValPtr[K, V]) Has(key K) bool {
 		}
 	}
 }
+
+// Delete a key from the map, reporting whether it's successful. Delete is successful when the key was present.
 func (vp *ValPtr[K, V]) Delete(key K) bool {
 	hash := vp.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
@@ -52,6 +57,8 @@ func (vp *ValPtr[K, V]) Delete(key K) bool {
 		}
 	}
 }
+
+// LoadPtrAndDelete returns the pointer to the value of the deleted key. Returns nil when key isn't found.
 func (vp *ValPtr[K, V]) LoadPtrAndDelete(key K) *V {
 	hash := vp.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
@@ -67,6 +74,8 @@ func (vp *ValPtr[K, V]) LoadPtrAndDelete(key K) *V {
 		}
 	}
 }
+
+// LoadPtr returns the pointer to the value of a key. Returns nil when key isn't found.
 func (vp *ValPtr[K, V]) LoadPtr(key K) *V {
 	hash := vp.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
@@ -77,7 +86,9 @@ func (vp *ValPtr[K, V]) LoadPtr(key K) *V {
 		}
 	}
 }
-func (vp *ValPtr[K, V]) StorePtr(key K, val /*not nil*/ *V) bool {
+
+// StorePtr of the value of a given key.
+func (vp *ValPtr[K, V]) StorePtr(key K, val *V) bool {
 	hash := vp.HashF(key)
 	var new *ptrNode[K]
 	fb, path := func() *relay {
@@ -106,7 +117,9 @@ func (vp *ValPtr[K, V]) StorePtr(key K, val /*not nil*/ *V) bool {
 		}
 	}
 }
-func (vp *ValPtr[K, V]) LoadOrStorePtr(key K, val /*not nil*/ *V) *V {
+
+// LoadOrStorePtr stores val to key when key wasn't present and returns nil or returns the pointer to the value corresponding to key.
+func (vp *ValPtr[K, V]) LoadOrStorePtr(key K, val *V) *V {
 	hash := vp.HashF(key)
 	var new *ptrNode[K]
 	fb, path := func() *relay {
@@ -130,7 +143,9 @@ func (vp *ValPtr[K, V]) LoadOrStorePtr(key K, val /*not nil*/ *V) *V {
 		}
 	}
 }
-func (vp *ValPtr[K, V]) SwapPtr(key K, val /*not nil*/ *V) *V {
+
+// SwapPtr of a given key. Returns the old value or nil if key wasn't present.
+func (vp *ValPtr[K, V]) SwapPtr(key K, val *V) *V {
 	hash := vp.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
 		if curAddr = addr(cur); cur == nil || hash < (*relay)(curAddr).hash {
@@ -140,7 +155,9 @@ func (vp *ValPtr[K, V]) SwapPtr(key K, val /*not nil*/ *V) *V {
 		}
 	}
 }
-func (vp *ValPtr[K, V]) CompareAndSwapPtr(key K, old /*not nil*/, new /*not nil*/ *V) CASResult {
+
+// CompareAndSwapPtr of a given key.
+func (vp *ValPtr[K, V]) CompareAndSwapPtr(key K, old, new *V) CASResult {
 	hash := vp.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
 		if curAddr = addr(cur); cur == nil || hash < (*relay)(curAddr).hash {
@@ -151,7 +168,9 @@ func (vp *ValPtr[K, V]) CompareAndSwapPtr(key K, old /*not nil*/, new /*not nil*
 		}
 	}
 }
-func (vp *ValPtr[K, V]) CompareAndSwap(key K, new /*not nil*/ *V, eq func( /*not nil*/ *V) bool) CASResult {
+
+// CompareAndSwap value of a given key. That is, set the value to new only when when eq(old)==true.
+func (vp *ValPtr[K, V]) CompareAndSwap(key K, new *V, eq func(*V) bool) CASResult {
 	hash := vp.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
 		if curAddr = addr(cur); cur == nil || hash < (*relay)(curAddr).hash {
@@ -210,6 +229,19 @@ func (vp *ValPtr[K, V]) CompareAndDelete(key K, eq func(  *V) bool) CASResult {
 }
 */
 
+// TakePtr returns a key value pair from the map that has the smallest hash value for the key. This is designed to replace the patterns
+//
+//	  m.Range(func(k K, v V) bool {
+//						...
+//						return false
+//					})
+//
+// and
+//
+//	  for k,v := range m.Range {
+//						...
+//						break
+//					}
 func (vp *ValPtr[K, V]) TakePtr() (*K, *V) {
 	cur := vp.firstRelay.walk()
 	for ; isRelay(cur); cur = (*relay)(addr(cur)).walk() {
@@ -220,7 +252,9 @@ func (vp *ValPtr[K, V]) TakePtr() (*K, *V) {
 	a := (*ptrNode[K])(cur)
 	return &a.key, (*V)(atomic.LoadPointer(&a.val))
 }
-func (vp *ValPtr[K, V]) Range(yield func(K /*not nil*/, *V) bool) {
+
+// Range over the key value pairs in the map, stopping when yield returns false. Range isn't linearizable but sequential consistent.
+func (vp *ValPtr[K, V]) Range(yield func(K, *V) bool) {
 	for cur, curAddr := vp.firstRelay.walk(), (unsafe.Pointer)(nil); cur != nil; cur = (*relay)(curAddr).walk() {
 		if curAddr = addr(cur); !isRelay(cur) {
 			if a := (*ptrNode[K])(curAddr); !yield(a.key, (*V)(atomic.LoadPointer(&a.val))) {
@@ -229,8 +263,10 @@ func (vp *ValPtr[K, V]) Range(yield func(K /*not nil*/, *V) bool) {
 		}
 	}
 }
+
+// Copy the map. This is faster than adding the keys one by one. Copy isn't linearizable but sequential consistent.
 func (vp *ValPtr[K, V]) Copy() *ValPtr[K, V] {
-	copied := ValPtr[K, V]{base[K]{minAvgBucketSize: vp.minAvgBucketSize, maxAvgBucketSize: vp.maxAvgBucketSize, maxLogChunkSize: vp.maxLogChunkSize, buckets: newChunkArr(vp.maxLogChunkSize, (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).logChunkSize), HashF: vp.HashF}}
+	copied := ValPtr[K, V]{base[K]{MinAvgBucketSize: vp.MinAvgBucketSize, MaxAvgBucketSize: vp.MaxAvgBucketSize, maxLogChunkSize: vp.maxLogChunkSize, buckets: newChunkArr(vp.maxLogChunkSize, (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).logChunkSize), HashF: vp.HashF}}
 	tail := &copied.firstRelay
 	copied.buckets.first = uintptr(unsafe.Pointer(tail))
 	tailIndex := uint(0)

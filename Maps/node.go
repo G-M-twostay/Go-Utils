@@ -36,6 +36,9 @@ func (left *relay) crawl(path *evictStack, fb func() *relay) (*relay, unsafe.Poi
 retry:
 	right := atomic.LoadPointer(&left.next)
 	if uintptr(right)&deletedMask != 0 { //check if left is logically deleted.
+		/*
+			benchmark shows that Pop is very rare, happening less than 1% percent of all calls.
+		*/
 		if left = (*relay)(path.Pop()); left == nil { //try to backtrack using path.
 			left = fb() //path is empty, use fallback.
 		}
