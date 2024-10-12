@@ -77,6 +77,7 @@ func BenchmarkValUintptr_LoadOrStore_Balanced(b *testing.B) {
 func BenchmarkValUintptr_LoadOrStorePtr_Adversarial(b *testing.B) {
 	vp := Maps.NewValUintptr[uint, uint](2, 8, math.MaxUint, hasher.HashUint)
 	var count atomic.Uintptr
+	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for stores, loadSinceStores := uint(0), uint(0); pb.Next(); {
 			a := uint(count.Add(1)) - 1
@@ -115,8 +116,6 @@ func BenchmarkValUintptr_Case2(b *testing.B) {
 	const actions = 3
 	m := Maps.NewValUintptr[uint, uint](2, 8, math.MaxUint, hasher.HashUint)
 	var loaded, count, vals atomic.Uintptr
-	m.Store(0, 0)
-	loaded.Store(1)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -127,48 +126,6 @@ func BenchmarkValUintptr_Case2(b *testing.B) {
 				m.Store(uint(vals.Add(1)-1)%uint(loaded.Load()), a)
 			default:
 				_, sideEff = m.Load(uint(vals.Add(1)-1) % uint(loaded.Load()))
-			}
-		}
-	})
-}
-func BenchmarkValUintptr_Case3(b *testing.B) {
-	const actions, initSize = 5, 2048
-	m := Maps.NewValUintptr[uint, uint](2, 8, math.MaxUint, hasher.HashUint)
-	var left, right, count, read atomic.Uintptr
-	right.Store(initSize)
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			switch a := uint(count.Add(1) - 1); a % actions {
-			case 0:
-				m.Store(uint(right.Add(1)-1), a)
-			case 1:
-				if r, l := right.Load(), left.Load(); r > l {
-					m.LoadAndDelete(uint(left.Add(1) - 1))
-				}
-			default:
-				if r, l := right.Load(), left.Load(); r > l {
-					_, sideEff = m.Load(uint((read.Add(1)-1)%(r-l) + l))
-				} else {
-					_, sideEff = m.Load(uint(read.Add(1) - 1))
-				}
-			}
-		}
-	})
-}
-func BenchmarkValUintptr_Case4(b *testing.B) {
-	const batchSize, ranges = 2048, 32
-	m := Maps.NewValUintptr[uint, uint](2, 8, batchSize*ranges-1, HashUint)
-	var count atomic.Uintptr
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			a := uint(count.Add(1)-1) % ranges
-			for i := range uint(batchSize) {
-				i += a * batchSize
-				m.LoadOrStore(i, i)
-				_, sideEff = m.Load(i)
-				m.LoadAndDelete(i)
 			}
 		}
 	})

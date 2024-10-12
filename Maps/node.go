@@ -23,7 +23,6 @@ type relay struct {
 	next unsafe.Pointer //0 bit indicate whether this node is marked. 1 bit indicate whether next node is relay.
 }
 
-//go:nosplit
 func (r *relay) mark() bool {
 	return atomic.OrUintptr((*uintptr)(unsafe.Pointer(&r.next)), deletedMask)&deletedMask == 0
 }
