@@ -33,7 +33,7 @@ func (vp *base[K]) trySplit() {
 		size >>= 1
 		if logChunks := vp.maxLogChunkSize - vp.buckets.logChunkSize; vp.buckets.logChunkSize > 0 && byte(size>>logChunks) >= vp.maxAvgBucketSize {
 			newBuckets, newRelays := newChunkArr(vp.maxLogChunkSize, vp.buckets.logChunkSize-1), make([]relay, 1<<logChunks)
-			for i := uint(0); i < uint(len(newRelays)); i++ {
+			for i := range uint(len(newRelays)) {
 				left := vp.buckets.Fetch(i)
 				newBuckets.set(i<<1, left)
 				newRelays[i].hash = i*(1<<vp.buckets.logChunkSize) | 1<<newBuckets.logChunkSize
