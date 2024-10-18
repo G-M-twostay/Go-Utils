@@ -6,11 +6,6 @@ import (
 	"unsafe"
 )
 
-/*
-Linearizability: the effect of all calls can be squashed down to a point.
-Sequential consistency: all calls will see the results of all calls that finished before it started. This is a weaker version of linearizability.
-*/
-
 // ValPtr is a map that stores keys by value and values by pointer. Pointers to values can be nil, but isn't suggested.
 type ValPtr[K comparable, V any] struct {
 	base[K]
@@ -58,7 +53,7 @@ func (vp *ValPtr[K, V]) Delete(key K) bool {
 	}
 }
 
-// LoadPtrAndDelete returns the pointer to the value of the deleted key. Returns nil when key isn't found.
+// LoadPtrAndDelete returns the pointer to the value of the deleted key. Returns nil when key isn't found. You can recycle the deleted pointers via a sync.Pool.
 func (vp *ValPtr[K, V]) LoadPtrAndDelete(key K) *V {
 	hash := vp.HashF(key)
 	for cur, curAddr := (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).Get(hash).walk(), unsafe.Pointer(nil); ; cur = (*relay)(curAddr).walk() {
@@ -253,7 +248,7 @@ func (vp *ValPtr[K, V]) TakePtr() (*K, *V) {
 	return &a.key, (*V)(atomic.LoadPointer(&a.val))
 }
 
-// Range over the key value pairs in the map, stopping when yield returns false. Range isn't linearizable but sequential consistent.
+// Range over the key value pairs in the map, stopping when yield returns false. Range isn't linearizable.
 func (vp *ValPtr[K, V]) Range(yield func(K, *V) bool) {
 	for cur, curAddr := vp.firstRelay.walk(), (unsafe.Pointer)(nil); cur != nil; cur = (*relay)(curAddr).walk() {
 		if curAddr = addr(cur); !isRelay(cur) {
@@ -264,7 +259,7 @@ func (vp *ValPtr[K, V]) Range(yield func(K, *V) bool) {
 	}
 }
 
-// Copy the map. This is faster than adding the keys one by one. Copy isn't linearizable but sequential consistent.
+// Copy the map. This is faster than adding the keys one by one. Copy isn't linearizable.
 func (vp *ValPtr[K, V]) Copy() *ValPtr[K, V] {
 	copied := ValPtr[K, V]{base[K]{MinAvgBucketSize: vp.MinAvgBucketSize, MaxAvgBucketSize: vp.MaxAvgBucketSize, maxLogChunkSize: vp.maxLogChunkSize, buckets: newChunkArr(vp.maxLogChunkSize, (*chunkArr)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&vp.buckets)))).logChunkSize), HashF: vp.HashF}}
 	tail := &copied.firstRelay

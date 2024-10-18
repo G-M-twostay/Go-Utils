@@ -1,8 +1,7 @@
-//go:build ignore
-
 package cmps
 
 import (
+	"github.com/puzpuzpuz/xsync/v3"
 	"sync/atomic"
 	"testing"
 )

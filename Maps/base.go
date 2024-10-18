@@ -1,3 +1,20 @@
+/*
+Package Maps implements linearizable, wait-free general-purpose concurrent hashmap. Multiple variants are offered to take advantage of all supported types in the atomic package.
+
+# Linearizability
+The effect of all calls can be squashed down to a point, so there is no intermediate states during operations. Implementations here are nearly 100% linearizable except for size, range, and copy.
+
+# Sequential Consistency
+All calls will see the results of all calls that finished before it started. This is a weaker version of linearizability. In go terminology, it's basically the synchronize before thing, so any write operation synchronize before any read operation. All implementations here are sequentially consistent.
+
+# Wait Free
+A stronger version of Lock-Free. All operations, regardless of the number of threads calling them, must finish within bounded time and procedures. Wait-free means lock-free. All implementations here are wait-free. A typical example that violates wait-free is spin lock. Basically, wait-free means no busy waiting.
+
+# Usage
+It's recommended to use your own hash function whenever possible instead of just using the general hash function offered by go. A good hash function with its lower maxHash bound can increase performance by up to 50%.
+Public fields of structs aren't thread-safe to modify and should only be used readonly or modify in synchronized manner.
+Unlike usual hashmap implementation where the underlying backing array only expands and never shrinks, these implementations also shrink them when they become sparse enough. Shrinking and expanding happens seamlessly with delete and add operations.
+*/
 package Maps
 
 // Generates all other ValVal map variants using ValUintptr.go and ValUintptr_test.go as templates.
@@ -77,7 +94,7 @@ func (vp *base[K]) tryMerge() {
 	}
 }
 
-// Size isn't linearizable but is sequential consistent. Calling Size during any Store and Delete calls can result in it returning intermediate values. This isn't a big deal when the size of the map is >0 but can cause underflow when the size of map is 0. As a result, be careful when calling size on a map whose initial size is 0 and while a Store and Delete operation are happening simultaneously.
+// Size isn't linearizable. Calling Size during any Store and Delete calls can result in it returning intermediate values. This isn't a big deal when the size of the map is >0 but can cause underflow when the size of map is 0. As a result, be careful when calling size on a map whose initial size is 0 and while a Store and Delete operation are happening simultaneously.
 func (vp *base[K]) Size() uint {
 	return uint(vp.size.Load()) >> 1 //LS bit is resizingMask bit.
 }

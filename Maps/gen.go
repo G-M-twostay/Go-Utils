@@ -79,10 +79,10 @@ func main() {
 		}
 
 		if _, err = genImpl.WriteString(header); err != nil {
-			return
+			panic(err)
 		}
 		if _, err = genTest.WriteString(header); err != nil {
-			return
+			panic(err)
 		}
 
 		implR, testR := newImplR(tn, ftn), newTestR(tn, ftn)
