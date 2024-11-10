@@ -1,0 +1,2 @@
+I'll probably add a more detailed explanation later.
+Basically, it's a harris linked list with an array holding shortcuts to some nodes. Pointer tagging actually works in Go by converting between `uintptr` and `unsafe.Pointer`. The array works similarly to the approach described in the "Skip Order List" paper to allow concurrent expanding and shrinking with other operations. The harris linked list is optimized to reduce the penalties on retry.
